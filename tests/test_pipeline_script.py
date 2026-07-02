@@ -45,6 +45,8 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert (tmp_path / "data" / "reports" / "sample_backtest.json").exists()
     assert (tmp_path / "data" / "reports" / "sample_research_summary.md").exists()
     assert (tmp_path / "data" / "reports" / "sample_research_summary.json").exists()
+    assert (tmp_path / "data" / "reports" / "sample_ai_research_summary.md").exists()
+    assert (tmp_path / "data" / "reports" / "sample_ai_research_summary.json").exists()
     status_path = tmp_path / "data" / "reports" / "research_status.json"
     assert status_path.exists()
     manifest_path = tmp_path / "data" / "reports" / "pipeline_run.json"

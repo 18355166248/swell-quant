@@ -602,5 +602,13 @@ export interface ReportDetail extends ReportSummary {
       max_drawdown?: number;
     };
   } | null;
+  ai_report: {
+    status: "success" | "failed" | "skipped";
+    provider: string;
+    model: string | null;
+    reason: string | null;
+    content: string;
+    disclaimer: string;
+  } | null;
   body: string;
 }

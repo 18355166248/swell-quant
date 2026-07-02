@@ -1957,6 +1957,10 @@ function ReportsPage({
               <Text>累计收益：{formatPercent(reportBacktest?.cumulative_return)}</Text>
               <Text>超额收益：{formatPercent(reportBacktest?.excess_return)}</Text>
               <Text>最大回撤：{formatPercent(reportBacktest?.max_drawdown)}</Text>
+              <Text>AI 报告状态：{report?.ai_report?.status ?? "-"}</Text>
+              <Text>AI Provider：{report?.ai_report?.provider ?? "-"}</Text>
+              <Text>AI 模型：{report?.ai_report?.model ?? "-"}</Text>
+              <Text>AI 状态说明：{report?.ai_report?.reason ?? "-"}</Text>
               {riskItems.map((item) => (
                 <Text key={item}>{item}</Text>
               ))}

@@ -30,6 +30,12 @@ from swell_quant.research.backtest import (
 )
 from swell_quant.research.features import compute_features, read_features_csv, write_features_csv
 from swell_quant.research.labels import compute_labels, read_labels_csv, write_labels_csv
+from swell_quant.research.llm_reporting import (
+    DeepSeekProvider,
+    generate_ai_report_payload,
+    write_ai_report_markdown,
+    write_ai_report_payload,
+)
 from swell_quant.research.modeling import (
     LATEST_MODEL_METADATA_FILENAME,
     LIGHTGBM_MODEL_VERSION,
@@ -226,6 +232,8 @@ def run_report_pipeline(settings: Settings) -> str:
     backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
     summary_path = settings.data_dir / "reports" / "sample_research_summary.md"
     payload_path = settings.data_dir / "reports" / "sample_research_summary.json"
+    ai_summary_path = settings.data_dir / "reports" / "sample_ai_research_summary.md"
+    ai_payload_path = settings.data_dir / "reports" / "sample_ai_research_summary.json"
 
     metadata = read_model_metadata(model_path)
     predictions = read_predictions_csv(latest_prediction_path)
@@ -235,7 +243,28 @@ def run_report_pipeline(settings: Settings) -> str:
     summary = render_research_summary(payload)
     write_research_report_payload(payload_path, payload)
     write_research_summary(summary_path, summary)
-    return f"wrote research summary to {summary_path} and payload to {payload_path}"
+    ai_payload = generate_ai_report_payload(
+        payload,
+        provider=_build_llm_provider(settings),
+        requested_provider=settings.llm_provider,
+    )
+    write_ai_report_payload(ai_payload_path, ai_payload)
+    write_ai_report_markdown(ai_summary_path, ai_payload)
+    return (
+        f"wrote research summary to {summary_path}, payload to {payload_path}, "
+        f"ai_report_status={ai_payload['status']}"
+    )
+
+
+def _build_llm_provider(settings: Settings) -> DeepSeekProvider | None:
+    provider_name = settings.llm_provider.strip().lower()
+    if provider_name != "deepseek" or not settings.deepseek_api_key:
+        return None
+    return DeepSeekProvider(
+        api_key=settings.deepseek_api_key,
+        model_name=settings.deepseek_model,
+        base_url=settings.deepseek_base_url,
+    )
 
 
 def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:

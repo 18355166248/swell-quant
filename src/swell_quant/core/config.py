@@ -12,6 +12,9 @@ class Settings:
     deepseek_api_key: str | None = None
     openai_api_key: str | None = None
     model_type: str = "lightgbm"
+    llm_provider: str = "disabled"
+    deepseek_model: str = "deepseek-chat"
+    deepseek_base_url: str = "https://api.deepseek.com/chat/completions"
     data_source: str = "sample"
     akshare_symbols: tuple[str, ...] = ("000001.SZ", "000002.SZ", "600000.SH")
     akshare_start_date: str = "20240101"
@@ -30,6 +33,11 @@ class Settings:
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY") or None,
             openai_api_key=os.getenv("OPENAI_API_KEY") or None,
             model_type=os.getenv("MODEL_TYPE", "lightgbm"),
+            llm_provider=os.getenv("LLM_PROVIDER", "disabled"),
+            deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            deepseek_base_url=os.getenv(
+                "DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions"
+            ),
             data_source=os.getenv("DATA_SOURCE", "sample"),
             akshare_symbols=_parse_symbol_list(
                 os.getenv("AKSHARE_SYMBOLS", "000001.SZ,000002.SZ,600000.SH")

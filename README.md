@@ -50,6 +50,12 @@ python3 scripts/run_pipeline.py
 训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
 `rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。
 
+AI 报告默认关闭，核心 pipeline 不依赖 LLM。需要尝试 DeepSeek 生成 AI 说明时设置：
+
+```bash
+LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=... python3 scripts/run_pipeline.py
+```
+
 `make ci-local` 会运行 Python lint、Python format check、后端测试、端到端 smoke 验收和前端构建；这些检查与 GitHub Actions 的 `main` push 和 pull request 门禁保持一致。
 
 本地 API 可用于无页面验收：
@@ -148,6 +154,8 @@ npm run build
 - `data/reports/sample_backtest.json`
 - `data/reports/sample_research_summary.md`
 - `data/reports/sample_research_summary.json`
+- `data/reports/sample_ai_research_summary.md`
+- `data/reports/sample_ai_research_summary.json`
 - `data/reports/pipeline_run.json`
 - `data/reports/research_status.json`
 

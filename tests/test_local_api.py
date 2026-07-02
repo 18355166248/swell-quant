@@ -635,6 +635,20 @@ def test_local_api_report_route_dispatches(tmp_path: Path) -> None:
         """,
         encoding="utf-8",
     )
+    (reports_dir / "sample_ai_research_summary.json").write_text(
+        """
+        {
+          "report_id": "sample-ai-research-summary",
+          "status": "skipped",
+          "provider": "disabled",
+          "model": null,
+          "reason": "missing_or_disabled_llm_provider",
+          "content": "",
+          "disclaimer": "仅用于研究，不构成投资建议"
+        }
+        """,
+        encoding="utf-8",
+    )
 
     list_payload = load_reports_artifact(report_path)
     detail_payload = load_report_artifact(report_path)
@@ -652,6 +666,7 @@ def test_local_api_report_route_dispatches(tmp_path: Path) -> None:
     assert detail_payload["backtest_id"] == "sample-topn-baseline"
     assert detail_payload["payload_path"].endswith("sample_research_summary.json")
     assert detail_payload["structured"]["predictions"][0]["symbol"] == "000300.SH"
+    assert detail_payload["ai_report"]["status"] == "skipped"
     assert "不构成投资建议" in detail_payload["body"]
     assert list_status.value == 200
     assert route_list_payload["reports"][0]["report_id"] == "sample-research-summary"

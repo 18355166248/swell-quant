@@ -41,6 +41,7 @@ def test_research_summary_contains_required_sections() -> None:
     payload = build_research_report_payload(metadata, latest_predictions, backtest, quality)
 
     assert payload["model"]["model_version"] == "baseline-rule-v1"
+    assert payload["model"]["feature_importance"][0]["feature_name"] == "momentum_5d"
     assert payload["backtest"]["backtest_id"] == "sample-topn-baseline"
     assert payload["predictions"][0]["rank"] == 1
     assert payload["risk_notes"]

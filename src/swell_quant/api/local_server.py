@@ -382,6 +382,8 @@ def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
         "backtest": data_dir / "reports" / "sample_backtest.json",
         "report": data_dir / "reports" / "sample_research_summary.md",
         "report_payload": data_dir / "reports" / "sample_research_summary.json",
+        "ai_report": data_dir / "reports" / "sample_ai_research_summary.md",
+        "ai_report_payload": data_dir / "reports" / "sample_ai_research_summary.json",
         "pipeline": data_dir / "reports" / "pipeline_run.json",
         "status": data_dir / "reports" / "research_status.json",
     }
@@ -915,6 +917,8 @@ def load_report_artifact(path: Path) -> dict[str, Any]:
     body = load_text_artifact(path)
     payload_path = path.with_suffix(".json")
     structured_payload = load_json_artifact(payload_path) if payload_path.exists() else None
+    ai_payload_path = path.with_name("sample_ai_research_summary.json")
+    ai_payload = load_json_artifact(ai_payload_path) if ai_payload_path.exists() else None
     lines = [line.strip() for line in body.splitlines() if line.strip()]
     title = lines[0].lstrip("# ").strip() if lines else "Research Report"
     return {
@@ -929,6 +933,7 @@ def load_report_artifact(path: Path) -> dict[str, Any]:
         or _extract_markdown_value(body, "回测 ID"),
         "summary": _first_markdown_paragraph(body),
         "structured": structured_payload,
+        "ai_report": ai_payload,
         "body": body,
         "disclaimer": "仅用于研究，不构成投资建议",
     }

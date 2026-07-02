@@ -44,6 +44,7 @@ def build_research_report_payload(
             "train_end": metadata.train_end,
             "prediction_date": metadata.prediction_date,
             "feature_names": metadata.feature_names,
+            "feature_importance": metadata.feature_importance or [],
             "label_gap_days": metadata.label_gap_days,
             "evaluation_status": metadata.evaluation_status,
             "evaluation_train_start": metadata.evaluation_train_start,

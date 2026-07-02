@@ -7,6 +7,8 @@ def test_settings_loads_akshare_data_source(monkeypatch) -> None:
     monkeypatch.setenv("AKSHARE_START_DATE", "20240102")
     monkeypatch.setenv("AKSHARE_END_DATE", "20240201")
     monkeypatch.setenv("AKSHARE_BENCHMARK_SYMBOL", "sh000906")
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
 
     settings = Settings.from_env()
 
@@ -15,3 +17,5 @@ def test_settings_loads_akshare_data_source(monkeypatch) -> None:
     assert settings.akshare_start_date == "20240102"
     assert settings.akshare_end_date == "20240201"
     assert settings.akshare_benchmark_symbol == "sh000906"
+    assert settings.llm_provider == "deepseek"
+    assert settings.deepseek_model == "deepseek-chat"
