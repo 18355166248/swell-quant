@@ -32,6 +32,9 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
+      - name: Run config preflight
+        run: python scripts/check_config.py
+
       - name: Run end-to-end smoke test
         run: python scripts/smoke_test.py
 
