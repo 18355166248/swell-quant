@@ -137,6 +137,54 @@ def test_check_storage_returns_nonzero_for_missing_duckdb(tmp_path: Path) -> Non
     assert "duckdb_status=missing" in result.stdout
 
 
+def test_check_config_reports_preflight_status(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "DUCKDB_PATH": str(tmp_path / "data" / "duckdb" / "swell_quant.duckdb"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_config.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["status"] == "passed"
+    assert payload["failed_count"] == 0
+    assert any(check["key"] == "data_source" for check in payload["checks"])
+
+
+def test_check_config_returns_nonzero_for_invalid_settings(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "AKSHARE_SYMBOLS": "000001",
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_config.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 2
+    assert payload["status"] == "failed"
+    assert payload["error"] == "invalid_settings"
+    assert "AKSHARE_SYMBOLS" in payload["message"]
+
+
 def test_check_acceptance_returns_nonzero_before_pipeline_runs(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     env = {

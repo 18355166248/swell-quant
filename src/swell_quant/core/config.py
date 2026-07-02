@@ -100,6 +100,70 @@ class Settings:
             raise ValueError("AKSHARE_START_DATE must be earlier than or equal to AKSHARE_END_DATE")
 
 
+def build_settings_preflight(settings: Settings) -> dict[str, object]:
+    checks: list[dict[str, str]] = [
+        {
+            "key": "data_source",
+            "name": "数据源",
+            "status": "passed",
+            "message": f"当前使用 {settings.data_source}",
+        },
+        {
+            "key": "akshare_universe_mode",
+            "name": "AKShare 股票池模式",
+            "status": "passed",
+            "message": f"当前使用 {settings.akshare_universe_mode} 股票池模式",
+        },
+        {
+            "key": "akshare_symbols",
+            "name": "AKShare 股票池",
+            "status": "passed" if settings.akshare_symbols else "failed",
+            "message": f"已配置 {len(settings.akshare_symbols)} 个标的",
+        },
+        {
+            "key": "akshare_date_range",
+            "name": "AKShare 日期区间",
+            "status": "passed",
+            "message": f"{settings.akshare_start_date} 至 {settings.akshare_end_date}",
+        },
+        {
+            "key": "duckdb_path",
+            "name": "DuckDB 路径",
+            "status": "passed",
+            "message": str(settings.duckdb_path),
+        },
+    ]
+    if settings.data_source == "akshare" and len(settings.akshare_symbols) < 10:
+        checks.append(
+            {
+                "key": "akshare_symbol_count",
+                "name": "AKShare 标的数量",
+                "status": "warning",
+                "message": "当前手工股票池小于 10 只，只适合连通性验证，不适合评估策略稳定性",
+            }
+        )
+    if settings.llm_provider == "deepseek" and settings.deepseek_api_key is None:
+        checks.append(
+            {
+                "key": "deepseek_api_key",
+                "name": "DeepSeek Key",
+                "status": "warning",
+                "message": "LLM_PROVIDER=deepseek 但未配置 DEEPSEEK_API_KEY，AI 报告会跳过生成",
+            }
+        )
+    failed_count = sum(1 for check in checks if check["status"] == "failed")
+    warning_count = sum(1 for check in checks if check["status"] == "warning")
+    return {
+        # 预检面向 CLI、API 和页面消费；Settings 已拦截非法配置，这里补充运行前可读的风险提示。
+        "status": "failed" if failed_count else "warning" if warning_count else "passed",
+        "passed": failed_count == 0,
+        "check_count": len(checks),
+        "failed_count": failed_count,
+        "warning_count": warning_count,
+        "checks": checks,
+    }
+
+
 def _parse_symbol_list(value: str) -> tuple[str, ...]:
     symbols = tuple(symbol.strip() for symbol in value.split(",") if symbol.strip())
     if not symbols:
