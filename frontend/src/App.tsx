@@ -70,6 +70,7 @@ const { Title, Text, Paragraph } = Typography;
 
 type PageKey =
   | "dashboard"
+  | "acceptance"
   | "data"
   | "tasks"
   | "models"
@@ -506,6 +507,95 @@ function DashboardPage({
           </Card>
         </Col>
       </Row>
+    </>
+  );
+}
+
+function AcceptancePage({
+  acceptance,
+  pipeline,
+  isRunning,
+  onRunPipeline,
+}: {
+  acceptance?: AcceptanceStatus;
+  pipeline?: PipelineRun;
+  isRunning: boolean;
+  onRunPipeline: () => void;
+}) {
+  const checks = acceptance?.checks ?? [];
+  const passedCount = checks.filter((check) => check.status === "passed").length;
+  return (
+    <>
+      <PageTitle
+        title="验收门禁"
+        description="检查离线研究链路是否达到当前阶段可用标准。"
+        extra={
+          <Button
+            type="primary"
+            icon={<ReloadOutlined />}
+            loading={isRunning}
+            onClick={onRunPipeline}
+          >
+            运行 Pipeline
+          </Button>
+        }
+      />
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic
+              title="验收状态"
+              value={acceptance?.status ?? "unknown"}
+              prefix={acceptance?.passed ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic title="通过检查" value={passedCount} suffix={`/ ${acceptance?.check_count ?? 0}`} />
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic title="失败检查" value={acceptance?.failed_count ?? 0} />
+            <Text type="secondary">pipeline: {pipeline?.status ?? "unknown"}</Text>
+          </Card>
+        </Col>
+      </Row>
+      <Card title="检查项明细">
+        {checks.length > 0 ? (
+          <Table<AcceptanceStatus["checks"][number]>
+            rowKey="key"
+            size="middle"
+            pagination={false}
+            dataSource={checks}
+            columns={[
+              { title: "检查项", dataIndex: "name" },
+              { title: "Key", dataIndex: "key", width: 210 },
+              {
+                title: "状态",
+                dataIndex: "status",
+                width: 100,
+                render: (value: string) => (
+                  <Tag color={value === "passed" ? "green" : "red"}>
+                    {value === "passed" ? "通过" : "失败"}
+                  </Tag>
+                ),
+              },
+              { title: "说明", dataIndex: "message" },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无验收结果" />
+        )}
+      </Card>
+      <Alert
+        className="page-alert"
+        type="info"
+        showIcon
+        message="研究用途声明"
+        description={acceptance?.disclaimer ?? "仅用于研究，不构成投资建议"}
+      />
     </>
   );
 }
@@ -1689,6 +1779,14 @@ function App() {
         report={report}
       />
     ),
+    acceptance: (
+      <AcceptancePage
+        acceptance={acceptanceQuery.data}
+        pipeline={pipeline}
+        isRunning={runPipelineMutation.isPending}
+        onRunPipeline={() => runPipelineMutation.mutate()}
+      />
+    ),
     data: (
       <DataPage
         dataStatus={dataStatusQuery.data}
@@ -1772,6 +1870,7 @@ function App() {
           onClick={(item) => setActivePage(item.key as PageKey)}
           items={[
             { key: "dashboard", icon: <BarChartOutlined />, label: "工作台" },
+            { key: "acceptance", icon: <CheckCircleOutlined />, label: "验收" },
             { key: "data", icon: <DatabaseOutlined />, label: "数据" },
             { key: "tasks", icon: <SyncOutlined />, label: "任务" },
             { key: "models", icon: <ExperimentOutlined />, label: "模型" },
