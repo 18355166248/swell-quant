@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import date
+from math import sqrt
 from pathlib import Path
 
 from swell_quant.data.sample_data import PriceBar
@@ -23,8 +24,13 @@ class BacktestResult:
     start_date: str
     end_date: str
     cumulative_return: float
+    annualized_return: float
     benchmark_return: float
     excess_return: float
+    max_drawdown: float
+    sharpe_ratio: float | None
+    win_rate: float
+    turnover_rate: float
     equity_curve: list[dict[str, str | float]]
     disclaimer: str
 
@@ -51,6 +57,8 @@ def run_top_n_backtest(
     equity = 1.0
     benchmark_equity = 1.0
     curve: list[dict[str, str | float]] = []
+    portfolio_returns: list[float] = []
+    selected_symbol_sets: list[set[str]] = []
 
     for signal_date in sorted(predictions_by_date):
         trade_date = next_date_by_date.get(signal_date)
@@ -62,6 +70,7 @@ def run_top_n_backtest(
         ]
         period_returns: list[float] = []
         benchmark_returns: list[float] = []
+        selected_symbols: set[str] = set()
 
         for prediction in ranked:
             signal_bar = bars_by_symbol_date.get((prediction.symbol, signal_date))
@@ -73,12 +82,15 @@ def run_top_n_backtest(
             gross_return = trade_bar.close / trade_bar.open - 1.0
             period_returns.append(gross_return - fee_rate)
             benchmark_returns.append(trade_bar.benchmark_close / signal_bar.benchmark_close - 1.0)
+            selected_symbols.add(prediction.symbol)
 
         if not period_returns:
             continue
 
         portfolio_return = sum(period_returns) / len(period_returns)
         benchmark_return = sum(benchmark_returns) / len(benchmark_returns)
+        portfolio_returns.append(portfolio_return)
+        selected_symbol_sets.append(selected_symbols)
         equity *= 1.0 + portfolio_return
         benchmark_equity *= 1.0 + benchmark_return
         curve.append(
@@ -97,6 +109,12 @@ def run_top_n_backtest(
 
     cumulative_return = equity - 1.0
     benchmark_total = benchmark_equity - 1.0
+    # 这些指标只基于已发生的逐期收益和净值曲线，保持回测评估可复现且不引入未来信息。
+    annualized_return = _annualized_return(equity, len(portfolio_returns))
+    max_drawdown = _max_drawdown([float(row["equity"]) for row in curve])
+    sharpe_ratio = _sharpe_ratio(portfolio_returns)
+    win_rate = sum(1 for value in portfolio_returns if value > 0) / len(portfolio_returns)
+    turnover_rate = _average_turnover(selected_symbol_sets)
     return BacktestResult(
         backtest_id="sample-topn-baseline",
         model_version=predictions[0].model_version if predictions else "unknown",
@@ -109,8 +127,13 @@ def run_top_n_backtest(
         start_date=str(curve[0]["trade_date"]),
         end_date=str(curve[-1]["trade_date"]),
         cumulative_return=cumulative_return,
+        annualized_return=annualized_return,
         benchmark_return=benchmark_total,
         excess_return=cumulative_return - benchmark_total,
+        max_drawdown=max_drawdown,
+        sharpe_ratio=sharpe_ratio,
+        win_rate=win_rate,
+        turnover_rate=turnover_rate,
         equity_curve=curve,
         disclaimer="仅用于研究，不构成投资建议；历史回测不代表未来表现",
     )
@@ -138,8 +161,56 @@ def read_backtest_result(path: Path) -> BacktestResult:
         start_date=payload["start_date"],
         end_date=payload["end_date"],
         cumulative_return=float(payload["cumulative_return"]),
+        annualized_return=float(payload.get("annualized_return", payload["cumulative_return"])),
         benchmark_return=float(payload["benchmark_return"]),
         excess_return=float(payload["excess_return"]),
+        max_drawdown=float(payload.get("max_drawdown", 0.0)),
+        sharpe_ratio=(
+            None if payload.get("sharpe_ratio") is None else float(payload.get("sharpe_ratio"))
+        ),
+        win_rate=float(payload.get("win_rate", 0.0)),
+        turnover_rate=float(payload.get("turnover_rate", 0.0)),
         equity_curve=list(payload["equity_curve"]),
         disclaimer=payload["disclaimer"],
     )
+
+
+def _annualized_return(final_equity: float, periods: int, periods_per_year: int = 252) -> float:
+    if periods <= 0:
+        return 0.0
+    return final_equity ** (periods_per_year / periods) - 1.0
+
+
+def _max_drawdown(equity_values: list[float]) -> float:
+    peak = 1.0
+    max_drawdown = 0.0
+    for value in equity_values:
+        peak = max(peak, value)
+        if peak > 0:
+            max_drawdown = min(max_drawdown, value / peak - 1.0)
+    return max_drawdown
+
+
+def _sharpe_ratio(returns: list[float], periods_per_year: int = 252) -> float | None:
+    if len(returns) < 2:
+        return None
+    mean_return = sum(returns) / len(returns)
+    variance = sum((value - mean_return) ** 2 for value in returns) / (len(returns) - 1)
+    volatility = variance**0.5
+    if volatility == 0:
+        return None
+    return mean_return / volatility * sqrt(periods_per_year)
+
+
+def _average_turnover(selected_symbol_sets: list[set[str]]) -> float:
+    if len(selected_symbol_sets) < 2:
+        return 0.0
+    turnovers: list[float] = []
+    for previous, current in zip(selected_symbol_sets, selected_symbol_sets[1:]):
+        if not previous and not current:
+            turnovers.append(0.0)
+            continue
+        changed = len(previous.symmetric_difference(current))
+        base = max(len(previous), len(current), 1)
+        turnovers.append(changed / base)
+    return sum(turnovers) / len(turnovers)

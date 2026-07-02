@@ -25,6 +25,12 @@ def test_top_n_backtest_uses_next_day_open_execution() -> None:
     assert result.equity_curve[0]["signal_date"] == "2024-01-07"
     assert result.equity_curve[0]["trade_date"] == "2024-01-08"
     assert result.cumulative_return > 0
+    assert result.annualized_return > result.cumulative_return
+    assert result.max_drawdown == 0.0
+    assert result.sharpe_ratio is not None
+    assert result.sharpe_ratio > 0
+    assert result.win_rate == 1.0
+    assert result.turnover_rate == 0.0
 
 
 def test_top_n_backtest_validates_parameters() -> None:

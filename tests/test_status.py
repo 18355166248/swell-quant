@@ -66,6 +66,9 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["predictions"]["count"] == 3
     assert status["predictions"]["top"][0]["rank"] == 1
     assert status["backtest"]["trade_count"] == 14
+    assert status["backtest"]["annualized_return"] > status["backtest"]["cumulative_return"]
+    assert status["backtest"]["max_drawdown"] <= 0
+    assert status["backtest"]["win_rate"] >= 0
     assert status["artifacts"]["duckdb"].endswith("swell_quant.duckdb")
     assert status["artifacts"]["summary"].endswith("summary.md")
 

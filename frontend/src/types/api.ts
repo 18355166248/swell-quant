@@ -120,8 +120,13 @@ export interface ResearchStatus {
     start_date: string;
     end_date: string;
     cumulative_return: number;
+    annualized_return: number;
     benchmark_return: number;
     excess_return: number;
+    max_drawdown: number;
+    sharpe_ratio: number | null;
+    win_rate: number;
+    turnover_rate: number;
     disclaimer: string;
   };
   artifacts: {
@@ -183,8 +188,13 @@ export interface LatestBacktest {
   start_date: string;
   end_date: string;
   cumulative_return: number;
+  annualized_return: number;
   benchmark_return: number;
   excess_return: number;
+  max_drawdown: number;
+  sharpe_ratio: number | null;
+  win_rate: number;
+  turnover_rate: number;
   equity_curve: BacktestPoint[];
   disclaimer: string;
 }
@@ -201,8 +211,13 @@ export interface BacktestSummary {
   start_date: string;
   end_date: string;
   cumulative_return: number;
+  annualized_return: number;
   benchmark_return: number;
   excess_return: number;
+  max_drawdown: number;
+  sharpe_ratio: number | null;
+  win_rate: number;
+  turnover_rate: number;
   disclaimer: string;
 }
 

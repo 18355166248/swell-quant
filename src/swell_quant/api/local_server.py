@@ -721,8 +721,13 @@ def load_backtest_artifact(path: Path) -> dict[str, Any]:
         "start_date": result.start_date,
         "end_date": result.end_date,
         "cumulative_return": result.cumulative_return,
+        "annualized_return": result.annualized_return,
         "benchmark_return": result.benchmark_return,
         "excess_return": result.excess_return,
+        "max_drawdown": result.max_drawdown,
+        "sharpe_ratio": result.sharpe_ratio,
+        "win_rate": result.win_rate,
+        "turnover_rate": result.turnover_rate,
         "equity_curve": normalize_equity_curve(result.equity_curve),
         "disclaimer": result.disclaimer,
     }
@@ -830,8 +835,13 @@ def load_backtests_artifact(path: Path) -> dict[str, Any]:
         "start_date",
         "end_date",
         "cumulative_return",
+        "annualized_return",
         "benchmark_return",
         "excess_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "turnover_rate",
         "disclaimer",
     )
     return {"count": 1, "backtests": [{key: detail[key] for key in summary_keys}]}

@@ -67,8 +67,13 @@ def build_research_summary(
             f"- 回测区间：{backtest.start_date} 至 {backtest.end_date}",
             f"- 调仓次数：{backtest.trade_count}",
             f"- 累计收益：{_format_percent(backtest.cumulative_return)}",
+            f"- 年化收益：{_format_percent(backtest.annualized_return)}",
             f"- 基准收益：{_format_percent(backtest.benchmark_return)}",
             f"- 超额收益：{_format_percent(backtest.excess_return)}",
+            f"- 最大回撤：{_format_percent(backtest.max_drawdown)}",
+            f"- 夏普比率：{_format_number(backtest.sharpe_ratio)}",
+            f"- 胜率：{_format_percent(backtest.win_rate)}",
+            f"- 平均换手率：{_format_percent(backtest.turnover_rate)}",
             "",
             "## 风险提示",
             "",
@@ -92,6 +97,10 @@ def _format_percent(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value * 100:.2f}%"
+
+
+def _format_number(value: float | None) -> str:
+    return "-" if value is None else f"{value:.4f}"
 
 
 def _metric_float(metrics: dict[str, float | int | str | None] | None, key: str) -> float | None:

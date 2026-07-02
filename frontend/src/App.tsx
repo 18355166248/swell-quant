@@ -1280,6 +1280,18 @@ function BacktestsPage({
         <Col xs={24} md={12} xl={6}>
           <Card><Statistic title="交易次数" value={backtest?.trade_count ?? 0} /></Card>
         </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="年化收益" value={formatPercent(backtest?.annualized_return)} /></Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="最大回撤" value={formatPercent(backtest?.max_drawdown)} /></Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="夏普比率" value={formatNumber(backtest?.sharpe_ratio)} /></Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="胜率" value={formatPercent(backtest?.win_rate)} /></Card>
+        </Col>
       </Row>
       <Card title="逐期回测明细">
         <Table<BacktestPoint>
@@ -1348,6 +1360,13 @@ function BacktestsPage({
                   align: "right",
                   render: formatPercent,
                 },
+                {
+                  title: "回撤",
+                  dataIndex: "max_drawdown",
+                  width: 96,
+                  align: "right",
+                  render: formatPercent,
+                },
               ]}
             />
           </Card>
@@ -1373,6 +1392,7 @@ function BacktestsPage({
               <Descriptions.Item label="调仓规则">{backtest?.rebalance_rule ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="开始日期">{backtest?.start_date ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="结束日期">{backtest?.end_date ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="平均换手率">{formatPercent(backtest?.turnover_rate)}</Descriptions.Item>
               <Descriptions.Item label="声明">{backtest?.disclaimer ?? "仅用于研究，不构成投资建议"}</Descriptions.Item>
             </Descriptions>
           </Card>
