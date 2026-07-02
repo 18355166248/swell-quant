@@ -112,7 +112,7 @@ function storageStatusColor(status?: string): string {
   if (status === "healthy") {
     return "green";
   }
-  if (status === "inconsistent") {
+  if (status === "inconsistent" || status === "schema_mismatch") {
     return "red";
   }
   if (status === "incomplete" || status === "missing") {
@@ -664,6 +664,9 @@ function DataPage({
               <Descriptions.Item label="不一致表">
                 {duckdbStorage?.inconsistent_tables.length ? duckdbStorage.inconsistent_tables.join(", ") : "-"}
               </Descriptions.Item>
+              <Descriptions.Item label="字段异常表">
+                {duckdbStorage?.schema_mismatch_tables.length ? duckdbStorage.schema_mismatch_tables.join(", ") : "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="文件大小">
                 {duckdbStorage?.file_size_bytes ? `${duckdbStorage.file_size_bytes} bytes` : "-"}
               </Descriptions.Item>
@@ -700,6 +703,17 @@ function DataPage({
                       return "-";
                     }
                     return <Tag color={matches ? "green" : "red"}>{matches ? "一致" : "不一致"}</Tag>;
+                  },
+                },
+                {
+                  title: "字段",
+                  dataIndex: "schema_matches",
+                  width: 90,
+                  render: (matches) => {
+                    if (matches === null || matches === undefined) {
+                      return "-";
+                    }
+                    return <Tag color={matches ? "green" : "red"}>{matches ? "匹配" : "异常"}</Tag>;
                   },
                 },
               ]}

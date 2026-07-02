@@ -75,6 +75,7 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert check_result.returncode == 0
     assert storage["status"] == "healthy"
     assert storage["inconsistent_tables"] == []
+    assert storage["schema_mismatch_tables"] == []
 
     acceptance_result = subprocess.run(
         [sys.executable, str(root / "scripts" / "check_acceptance.py"), "--json"],

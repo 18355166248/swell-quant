@@ -117,8 +117,7 @@ DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/p
 `data/duckdb/swell_quant.duckdb`。v1 只支持单写入者本地研究场景，镜像步骤使用覆盖写入，避免样例
 数据重复追加。
 
-`python3 scripts/check_storage.py` 会校验 DuckDB 表是否存在，以及 DuckDB 行数是否和源 CSV 行数一致；
-状态不是 `healthy` 时返回非零退出码，可作为无页面验收或 CI 门禁。
+`python3 scripts/check_storage.py` 会校验 DuckDB 表是否存在、字段是否匹配预期 schema，以及 DuckDB 行数是否和源 CSV 行数一致；状态不是 `healthy` 时返回非零退出码，可作为无页面验收或 CI 门禁。
 
 `python3 scripts/check_acceptance.py` 会读取 `research_status.json` 中的验收门禁；未通过或尚未生成状态产物时返回非零退出码。
 

@@ -220,6 +220,8 @@ def test_local_api_duckdb_storage_artifact_reports_table_counts(tmp_path: Path) 
     assert payload["tables"][0]["row_count"] == len(bars)
     assert payload["tables"][0]["source_row_count"] == len(bars)
     assert payload["tables"][0]["row_count_matches"] is True
+    assert payload["tables"][0]["schema_matches"] is True
+    assert payload["schema_mismatch_tables"] == []
     assert payload["inconsistent_tables"] == []
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
     assert missing_payload["status"] == "missing"
@@ -250,6 +252,45 @@ def test_local_api_duckdb_storage_artifact_detects_stale_mirror(tmp_path: Path) 
     assert payload["tables"][0]["row_count"] == len(bars)
     assert payload["tables"][0]["source_row_count"] == 27
     assert payload["tables"][0]["row_count_matches"] is False
+
+
+def test_local_api_duckdb_storage_artifact_detects_schema_mismatch(tmp_path: Path) -> None:
+    import duckdb
+
+    data_dir = tmp_path / "data"
+    bars = generate_sample_bars(days=8)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+    write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
+    write_features_csv(data_dir / "processed" / "sample_features.csv", features)
+    write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
+    write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", generate_predictions(features))
+    write_predictions_csv(
+        data_dir / "processed" / "historical_predictions.csv",
+        generate_historical_predictions(features),
+    )
+    duckdb_path = data_dir / "duckdb" / "swell_quant.duckdb"
+    mirror_pipeline_csvs_to_duckdb(data_dir, duckdb_path)
+    with duckdb.connect(str(duckdb_path)) as connection:
+        connection.execute(
+            """
+            CREATE OR REPLACE TABLE raw_prices AS
+            SELECT symbol, date, close FROM raw_prices
+            """
+        )
+
+    payload = load_duckdb_storage_artifact(duckdb_path, data_dir)
+
+    assert payload["status"] == "schema_mismatch"
+    assert payload["schema_mismatch_tables"] == ["raw_prices"]
+    assert payload["tables"][0]["schema_matches"] is False
+    assert payload["tables"][0]["missing_columns"] == [
+        "open",
+        "high",
+        "low",
+        "volume",
+        "benchmark_close",
+    ]
 
 
 def test_local_api_latest_model_artifact(tmp_path: Path) -> None:

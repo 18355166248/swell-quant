@@ -215,7 +215,12 @@ export interface DataStatus {
   disclaimer: string;
 }
 
-export type DuckDBStorageHealth = "healthy" | "incomplete" | "missing" | "inconsistent";
+export type DuckDBStorageHealth =
+  | "healthy"
+  | "incomplete"
+  | "missing"
+  | "inconsistent"
+  | "schema_mismatch";
 
 export interface DuckDBTableStatus {
   name: string;
@@ -225,6 +230,11 @@ export interface DuckDBTableStatus {
   source_exists: boolean | null;
   source_row_count: number | null;
   row_count_matches: boolean | null;
+  expected_columns: string[];
+  actual_columns: string[] | null;
+  missing_columns: string[];
+  extra_columns: string[];
+  schema_matches: boolean | null;
 }
 
 export interface DuckDBStorageStatus {
@@ -235,6 +245,7 @@ export interface DuckDBStorageStatus {
   tables: DuckDBTableStatus[];
   missing_tables: string[];
   inconsistent_tables: string[];
+  schema_mismatch_tables: string[];
   total_rows: number;
   disclaimer: string;
 }

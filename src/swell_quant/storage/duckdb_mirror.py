@@ -21,6 +21,55 @@ PIPELINE_CSV_ARTIFACTS = {
     "historical_predictions": ("processed", "historical_predictions.csv"),
 }
 
+PIPELINE_DUCKDB_SCHEMAS = {
+    "raw_prices": (
+        "symbol",
+        "date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "benchmark_close",
+    ),
+    "feature_rows": (
+        "symbol",
+        "date",
+        "close",
+        "return_1d",
+        "momentum_5d",
+        "ma_5",
+        "volume_change_1d",
+    ),
+    "label_rows": (
+        "symbol",
+        "date",
+        "future_5d_return",
+        "benchmark_5d_return",
+        "outperform_benchmark_5d",
+    ),
+    "latest_predictions": (
+        "symbol",
+        "date",
+        "model_version",
+        "score",
+        "rank",
+        "return_1d",
+        "momentum_5d",
+        "volume_change_1d",
+    ),
+    "historical_predictions": (
+        "symbol",
+        "date",
+        "model_version",
+        "score",
+        "rank",
+        "return_1d",
+        "momentum_5d",
+        "volume_change_1d",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class DuckDBTableMirror:
@@ -87,6 +136,7 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
             "tables": [],
             "missing_tables": list(PIPELINE_DUCKDB_TABLES),
             "inconsistent_tables": [],
+            "schema_mismatch_tables": [],
             "total_rows": 0,
         }
 
@@ -102,15 +152,29 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
             source_path = source_paths.get(table_name)
             source_exists = source_path.exists() if source_path is not None else None
             source_row_count = _count_csv_rows(source_path) if source_path is not None and source_path.exists() else None
+            expected_columns = list(PIPELINE_DUCKDB_SCHEMAS[table_name])
+            actual_columns: list[str] | None = None
+            missing_columns: list[str] = []
+            extra_columns: list[str] = []
             if exists:
-                # 表名来自固定白名单，只做只读 COUNT，避免状态接口承担任何写入副作用。
+                # 表名来自固定白名单，只做只读 COUNT/schema 查询，避免状态接口承担任何写入副作用。
                 row_count = int(connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0])
+                actual_columns = [
+                    row[1] for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
+                ]
+                missing_columns = [
+                    column for column in expected_columns if column not in actual_columns
+                ]
+                extra_columns = [
+                    column for column in actual_columns if column not in expected_columns
+                ]
             # CSV 和 DuckDB 行数一致是镜像是否过期的最小验收条件，后续再补字段 schema 校验。
             row_count_matches = (
                 None
                 if source_row_count is None or row_count is None
                 else source_row_count == row_count
             )
+            schema_matches = None if actual_columns is None else not missing_columns and not extra_columns
             tables.append(
                 {
                     "name": table_name,
@@ -120,6 +184,11 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
                     "source_exists": source_exists,
                     "source_row_count": source_row_count,
                     "row_count_matches": row_count_matches,
+                    "expected_columns": expected_columns,
+                    "actual_columns": actual_columns,
+                    "missing_columns": missing_columns,
+                    "extra_columns": extra_columns,
+                    "schema_matches": schema_matches,
                 }
             )
 
@@ -127,10 +196,15 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
     inconsistent_tables = [
         table["name"] for table in tables if table["row_count_matches"] is False
     ]
+    schema_mismatch_tables = [
+        table["name"] for table in tables if table["schema_matches"] is False
+    ]
     total_rows = sum(int(table["row_count"] or 0) for table in tables)
     status = "healthy"
     if missing_tables:
         status = "incomplete"
+    elif schema_mismatch_tables:
+        status = "schema_mismatch"
     elif inconsistent_tables:
         status = "inconsistent"
     return {
@@ -141,6 +215,7 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
         "tables": tables,
         "missing_tables": missing_tables,
         "inconsistent_tables": inconsistent_tables,
+        "schema_mismatch_tables": schema_mismatch_tables,
         "total_rows": total_rows,
     }
 
