@@ -6,6 +6,7 @@ from swell_quant.api.local_server import (
     load_data_quality_artifact,
     load_json_artifact,
     load_latest_predictions_artifact,
+    load_settings_artifact,
     load_stock_features_artifact,
     load_stock_predictions_artifact,
     load_stock_prices_artifact,
@@ -16,6 +17,7 @@ from swell_quant.api.local_server import (
     pipeline_status_to_http_status,
     run_pipeline_for_api,
 )
+from swell_quant.core.config import Settings
 from swell_quant.data.quality import validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_csv
 from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
@@ -45,6 +47,30 @@ def test_missing_artifact_payload_points_to_pipeline(tmp_path: Path) -> None:
 
     assert payload["error"] == "artifact_missing"
     assert payload["hint"] == "run `python3 scripts/run_pipeline.py` first"
+
+
+def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
+        deepseek_api_key="deepseek-secret",
+        openai_api_key=None,
+    )
+    settings.ensure_directories()
+    (settings.data_dir / "reports" / "research_status.json").write_text("{}", encoding="utf-8")
+
+    payload = load_settings_artifact(
+        settings.data_dir,
+        settings.duckdb_path,
+        settings.deepseek_api_key is not None,
+        settings.openai_api_key is not None,
+    )
+
+    serialized = str(payload)
+    assert payload["api_keys"]["deepseek_configured"] is True
+    assert payload["api_keys"]["openai_configured"] is False
+    assert "deepseek-secret" not in serialized
+    assert any(item["name"] == "status" and item["exists"] is True for item in payload["artifacts"])
 
 
 def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:

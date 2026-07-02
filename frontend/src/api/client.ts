@@ -2,6 +2,7 @@ import type {
   DataQuality,
   LatestBacktest,
   LatestPredictions,
+  LocalSettings,
   PipelineRun,
   ResearchStatus,
   StockFeatures,
@@ -36,6 +37,7 @@ async function requestText(path: string): Promise<string> {
 
 export const api = {
   getStatus: () => requestJson<ResearchStatus>("/api/status"),
+  getSettings: () => requestJson<LocalSettings>("/api/settings"),
   getPipeline: () => requestJson<PipelineRun>("/api/pipeline"),
   getDataQuality: () => requestJson<DataQuality>("/api/data-quality"),
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),

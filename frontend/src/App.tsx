@@ -29,6 +29,7 @@ import {
   FileTextOutlined,
   LineChartOutlined,
   ReloadOutlined,
+  SettingOutlined,
   StockOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
@@ -39,6 +40,7 @@ import type {
   BacktestPoint,
   DataQualityIssue,
   LatestBacktest,
+  LocalSettings,
   PipelineRun,
   Prediction,
   ResearchStatus,
@@ -51,7 +53,14 @@ import type {
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
-type PageKey = "dashboard" | "tasks" | "predictions" | "backtests" | "stocks" | "reports";
+type PageKey =
+  | "dashboard"
+  | "tasks"
+  | "predictions"
+  | "backtests"
+  | "stocks"
+  | "reports"
+  | "settings";
 
 function formatPercent(value?: number): string {
   if (value === undefined || Number.isNaN(value)) {
@@ -705,6 +714,76 @@ function ReportsPage({
   );
 }
 
+function SettingsPage({ settings }: { settings?: LocalSettings }) {
+  return (
+    <>
+      <PageTitle title="设置" description="查看本地研究环境、数据目录、API key 配置状态和关键产物是否存在。" />
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={10}>
+          <Card title="服务状态">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="服务">{settings?.service.name ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="模式">{settings?.service.mode ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="数据目录">{settings?.paths.data_dir ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="DuckDB">{settings?.paths.duckdb_path ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="声明">
+                {settings?.service.disclaimer ?? "仅用于研究，不构成投资建议"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+        <Col xs={24} xl={14}>
+          <Card title="配置与产物">
+            <Row gutter={[16, 16]} className="settings-key-row">
+              <Col xs={24} md={12}>
+                <Card size="small">
+                  <Statistic
+                    title="DeepSeek Key"
+                    value={settings?.api_keys.deepseek_configured ? "已配置" : "未配置"}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Card size="small">
+                  <Statistic
+                    title="OpenAI Key"
+                    value={settings?.api_keys.openai_configured ? "已配置" : "未配置"}
+                  />
+                </Card>
+              </Col>
+            </Row>
+            <Table
+              rowKey="name"
+              size="middle"
+              dataSource={settings?.artifacts ?? []}
+              pagination={false}
+              columns={[
+                { title: "产物", dataIndex: "name", width: 180 },
+                { title: "路径", dataIndex: "path" },
+                {
+                  title: "状态",
+                  dataIndex: "exists",
+                  width: 120,
+                  render: (exists: boolean) => (
+                    <Tag color={exists ? "green" : "orange"}>{exists ? "存在" : "缺失"}</Tag>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+      <Alert
+        className="page-alert"
+        type="info"
+        showIcon
+        message="安全说明"
+        description="设置页只展示 API key 是否配置，不展示任何 secret 明文。"
+      />
+    </>
+  );
+}
+
 function App() {
   const queryClient = useQueryClient();
   const [messageApi, contextHolder] = message.useMessage();
@@ -712,6 +791,7 @@ function App() {
   const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
+  const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const pipelineQuery = useQuery({ queryKey: ["pipeline"], queryFn: api.getPipeline });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const predictionsQuery = useQuery({
@@ -778,7 +858,8 @@ function App() {
     qualityQuery.isLoading ||
     predictionsQuery.isLoading ||
     backtestQuery.isLoading ||
-    reportQuery.isLoading;
+    reportQuery.isLoading ||
+    settingsQuery.isLoading;
   const isStockLoading =
     stockSummaryQuery.isLoading ||
     stockPricesQuery.isLoading ||
@@ -790,7 +871,8 @@ function App() {
     qualityQuery.isError ||
     predictionsQuery.isError ||
     backtestQuery.isError ||
-    reportQuery.isError;
+    reportQuery.isError ||
+    settingsQuery.isError;
 
   const pageContent = {
     dashboard: (
@@ -825,6 +907,7 @@ function App() {
       />
     ),
     reports: <ReportsPage report={report} status={status} qualityIssues={quality?.issues ?? []} />,
+    settings: <SettingsPage settings={settingsQuery.data} />,
   } satisfies Record<PageKey, ReactNode>;
 
   return (
@@ -846,6 +929,7 @@ function App() {
             { key: "backtests", icon: <DatabaseOutlined />, label: "回测" },
             { key: "stocks", icon: <StockOutlined />, label: "单股" },
             { key: "reports", icon: <FileTextOutlined />, label: "报告" },
+            { key: "settings", icon: <SettingOutlined />, label: "设置" },
           ]}
         />
       </Sider>

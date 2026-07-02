@@ -81,6 +81,10 @@ body,
   width: 180px;
 }
 
+.settings-key-row {
+  margin-bottom: 16px;
+}
+
 .report-preview {
   min-height: 176px;
   margin: 0;

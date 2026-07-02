@@ -185,3 +185,26 @@ export interface StockPredictions {
   predictions: StockPrediction[];
   disclaimer: string;
 }
+
+export interface SettingsArtifact {
+  name: string;
+  path: string;
+  exists: boolean;
+}
+
+export interface LocalSettings {
+  service: {
+    name: string;
+    mode: string;
+    disclaimer: string;
+  };
+  paths: {
+    data_dir: string;
+    duckdb_path: string;
+  };
+  api_keys: {
+    deepseek_configured: boolean;
+    openai_configured: boolean;
+  };
+  artifacts: SettingsArtifact[];
+}

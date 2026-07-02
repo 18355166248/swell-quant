@@ -39,6 +39,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 可用端点：
 
 - `GET /api/health`
+- `GET /api/settings`
 - `GET /api/status`
 - `GET /api/pipeline`
 - `GET /api/data-quality`
@@ -61,7 +62,7 @@ npm install
 npm run dev
 ```
 
-当前前端包含工作台、任务、预测、回测、单股和报告视图。任务视图会展示最近 pipeline 的步骤明细，并可触发后端 `POST /api/pipeline/run`；单股视图会展示样例标的的价格、因子和历史预测；所有预测、回测、单股和报告视图都保留研究用途声明。
+当前前端包含工作台、任务、预测、回测、单股、报告和设置视图。任务视图会展示最近 pipeline 的步骤明细，并可触发后端 `POST /api/pipeline/run`；单股视图会展示样例标的的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、单股和报告视图都保留研究用途声明。
 
 前端构建检查：
 

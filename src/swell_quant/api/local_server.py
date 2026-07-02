@@ -21,11 +21,24 @@ _PIPELINE_RUN_LOCK = threading.Lock()
 
 class ResearchApiHandler(BaseHTTPRequestHandler):
     data_dir = Path("./data")
+    duckdb_path = Path("./data/duckdb/swell_quant.duckdb")
+    deepseek_api_key_configured = False
+    openai_api_key_configured = False
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         route = urlparse(self.path).path
         if route == "/api/health":
             self._send_json({"status": "ok", "service": "swell-quant-local-api"})
+            return
+        if route == "/api/settings":
+            self._send_json(
+                load_settings_artifact(
+                    self.data_dir,
+                    self.duckdb_path,
+                    self.deepseek_api_key_configured,
+                    self.openai_api_key_configured,
+                )
+            )
             return
         if route == "/api/status":
             self._send_artifact_json(self.data_dir / "reports" / "research_status.json")
@@ -110,12 +123,26 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def create_server(host: str, port: int, data_dir: Path) -> ThreadingHTTPServer:
+def create_server(
+    host: str,
+    port: int,
+    data_dir: Path,
+    settings: Settings | None = None,
+) -> ThreadingHTTPServer:
+    resolved_settings = settings or Settings(
+        data_dir=data_dir,
+        duckdb_path=data_dir / "duckdb" / "swell_quant.duckdb",
+    )
     # 为每个 server 创建独立 handler 子类，避免多个测试或本地服务共享 data_dir。
     handler_class = type(
         "ConfiguredResearchApiHandler",
         (ResearchApiHandler,),
-        {"data_dir": data_dir},
+        {
+            "data_dir": resolved_settings.data_dir,
+            "duckdb_path": resolved_settings.duckdb_path,
+            "deepseek_api_key_configured": resolved_settings.deepseek_api_key is not None,
+            "openai_api_key_configured": resolved_settings.openai_api_key is not None,
+        },
     )
     return ThreadingHTTPServer((host, port), handler_class)
 
@@ -187,6 +214,51 @@ def load_json_artifact(path: Path) -> dict[str, Any]:
 
 def load_text_artifact(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def load_settings_artifact(
+    data_dir: Path,
+    duckdb_path: Path,
+    deepseek_api_key_configured: bool,
+    openai_api_key_configured: bool,
+) -> dict[str, Any]:
+    artifacts = {
+        "raw_prices": data_dir / "raw" / "sample_prices.csv",
+        "data_quality": data_dir / "processed" / "data_quality.json",
+        "features": data_dir / "processed" / "sample_features.csv",
+        "labels": data_dir / "processed" / "sample_labels.csv",
+        "model": data_dir / "models" / "baseline-rule-v1.json",
+        "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
+        "historical_predictions": data_dir / "processed" / "historical_predictions.csv",
+        "backtest": data_dir / "reports" / "sample_backtest.json",
+        "report": data_dir / "reports" / "sample_research_summary.md",
+        "pipeline": data_dir / "reports" / "pipeline_run.json",
+        "status": data_dir / "reports" / "research_status.json",
+    }
+    return {
+        "service": {
+            "name": "swell-quant-local-api",
+            "mode": "local-research",
+            "disclaimer": "仅用于研究，不构成投资建议",
+        },
+        "paths": {
+            "data_dir": str(data_dir),
+            "duckdb_path": str(duckdb_path),
+        },
+        "api_keys": {
+            # 只暴露是否配置，避免把任何 secret 明文返回给前端或日志。
+            "deepseek_configured": deepseek_api_key_configured,
+            "openai_configured": openai_api_key_configured,
+        },
+        "artifacts": [
+            {
+                "name": name,
+                "path": str(path),
+                "exists": path.exists(),
+            }
+            for name, path in artifacts.items()
+        ],
+    }
 
 
 def load_data_quality_artifact(path: Path) -> dict[str, Any]:
