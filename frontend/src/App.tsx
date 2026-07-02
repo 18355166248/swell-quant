@@ -1202,6 +1202,7 @@ function ModelsPage({
               columns={[
                 { title: "版本", dataIndex: "model_version" },
                 { title: "类型", dataIndex: "model_type", width: 130 },
+                { title: "后端", dataIndex: "training_backend", width: 150 },
                 { title: "特征", dataIndex: "feature_count", width: 80, align: "right" },
                 { title: "预测日", dataIndex: "prediction_date", width: 120 },
                 {
@@ -1221,6 +1222,9 @@ function ModelsPage({
             <Descriptions column={1} size="small">
               <Descriptions.Item label="模型版本">{model?.model_version ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="模型类型">{model?.model_type ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="目标模型">{model?.requested_model_type ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="训练后端">{model?.training_backend ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="依赖状态">{model?.dependency_status ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="训练区间">
                 {model?.train_start ?? "-"} 至 {model?.train_end ?? "-"}
               </Descriptions.Item>

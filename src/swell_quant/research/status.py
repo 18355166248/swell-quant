@@ -53,6 +53,9 @@ def build_research_status(
         "model": {
             "model_version": metadata.model_version,
             "model_type": metadata.model_type,
+            "requested_model_type": metadata.requested_model_type,
+            "training_backend": metadata.training_backend,
+            "dependency_status": metadata.dependency_status,
             "train_start": metadata.train_start,
             "train_end": metadata.train_end,
             "prediction_date": metadata.prediction_date,

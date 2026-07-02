@@ -583,6 +583,12 @@ def load_latest_model_artifact(path: Path) -> dict[str, Any]:
         "train_end": payload["train_end"],
         "prediction_date": payload["prediction_date"],
         "row_count": payload["row_count"],
+        "requested_model_type": payload.get("requested_model_type", "rule_baseline"),
+        "training_backend": payload.get(
+            "training_backend", payload.get("model_type", "rule_baseline")
+        ),
+        "dependency_status": payload.get("dependency_status", "legacy_not_recorded"),
+        "training_params": payload.get("training_params", {}),
         "label_gap_days": payload.get("label_gap_days", 5),
         "evaluation_status": payload.get("evaluation_status", "not_available"),
         "evaluation_train_start": payload.get("evaluation_train_start"),
@@ -645,6 +651,9 @@ def model_summary_payload(path: Path) -> dict[str, Any]:
         "train_end",
         "prediction_date",
         "row_count",
+        "requested_model_type",
+        "training_backend",
+        "dependency_status",
         "evaluation_status",
         "test_start",
         "test_end",

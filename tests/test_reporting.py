@@ -37,6 +37,9 @@ def test_research_summary_contains_required_sections() -> None:
     assert "数据质量检查：通过" in summary
     assert "仅用于研究，不构成投资建议" in summary
     assert "baseline-rule-v1" in summary
+    assert "目标模型：`lightgbm`" in summary
+    assert "训练后端：`rule_baseline_fallback`" in summary
+    assert "依赖状态：" in summary
     assert "时间序列评估状态：ready" in summary
     assert "标签 Gap：5 个交易日" in summary
     assert "测试窗：2024-01-16 至 2024-01-16" in summary

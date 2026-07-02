@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -12,6 +13,23 @@ from swell_quant.research.labels import LabelRow
 
 
 BASELINE_MODEL_VERSION = "baseline-rule-v1"
+DEFAULT_MODEL_TYPE = "lightgbm"
+BASELINE_FEATURE_NAMES = [
+    "momentum_5d",
+    "return_1d",
+    "volatility_5d",
+    "rsi_6",
+    "macd_hist",
+    "volume_change_1d",
+]
+BASELINE_TRAINING_PARAMS: dict[str, float | int | str | bool | None] = {
+    "score_formula": (
+        "0.7*momentum_5d + 0.2*return_1d - 0.1*volatility_5d "
+        "+ 0.05*((rsi_6-50)/100) + 0.05*macd_hist + 0.1*volume_change_1d"
+    ),
+    "requires_fit": False,
+    "random_seed": None,
+}
 
 
 @dataclass(frozen=True)
@@ -33,6 +51,10 @@ class ModelMetadata:
     test_start: str | None = None
     test_end: str | None = None
     metrics: dict[str, float | int | str | None] | None = None
+    requested_model_type: str = DEFAULT_MODEL_TYPE
+    training_backend: str = "rule_baseline"
+    dependency_status: str = "not_checked"
+    training_params: dict[str, float | int | str | bool | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -59,18 +81,13 @@ def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> 
 
     split = build_time_series_evaluation_split(usable_dates)
     metrics = build_baseline_evaluation_metrics(features, usable_labels, split)
-    # baseline 只记录可复现元数据，不拟合参数；后续接 LightGBM 时沿用同一模型产物接口。
+    lightgbm_available = is_lightgbm_available()
+    dependency_status = "lightgbm_available" if lightgbm_available else "lightgbm_missing"
+    # 当前环境未安装 LightGBM 时显式降级到规则模型；元数据保留目标模型类型，方便页面和报告识别。
     return ModelMetadata(
         model_version=BASELINE_MODEL_VERSION,
         model_type="rule_baseline",
-        feature_names=[
-            "momentum_5d",
-            "return_1d",
-            "volatility_5d",
-            "rsi_6",
-            "macd_hist",
-            "volume_change_1d",
-        ],
+        feature_names=BASELINE_FEATURE_NAMES,
         train_start=usable_dates[0].isoformat(),
         train_end=usable_dates[-1].isoformat(),
         prediction_date=max(row.trade_date for row in features).isoformat(),
@@ -85,7 +102,15 @@ def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> 
         test_start=_format_date(split["test_start"]),
         test_end=_format_date(split["test_end"]),
         metrics=metrics,
+        requested_model_type=DEFAULT_MODEL_TYPE,
+        training_backend="rule_baseline_fallback",
+        dependency_status=dependency_status,
+        training_params=BASELINE_TRAINING_PARAMS,
     )
+
+
+def is_lightgbm_available() -> bool:
+    return importlib.util.find_spec("lightgbm") is not None
 
 
 def build_time_series_evaluation_split(
@@ -279,6 +304,12 @@ def read_model_metadata(path: Path) -> ModelMetadata:
         test_start=payload.get("test_start"),
         test_end=payload.get("test_end"),
         metrics=payload.get("metrics"),
+        requested_model_type=payload.get("requested_model_type", "rule_baseline"),
+        training_backend=payload.get(
+            "training_backend", payload.get("model_type", "rule_baseline")
+        ),
+        dependency_status=payload.get("dependency_status", "legacy_not_recorded"),
+        training_params=payload.get("training_params"),
     )
 
 

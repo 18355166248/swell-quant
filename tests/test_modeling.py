@@ -22,6 +22,11 @@ def test_baseline_model_metadata_uses_labeled_rows() -> None:
 
     assert metadata.model_version == BASELINE_MODEL_VERSION
     assert metadata.model_type == "rule_baseline"
+    assert metadata.requested_model_type == "lightgbm"
+    assert metadata.training_backend == "rule_baseline_fallback"
+    assert metadata.dependency_status in {"lightgbm_available", "lightgbm_missing"}
+    assert metadata.training_params is not None
+    assert metadata.training_params["requires_fit"] is False
     assert metadata.feature_names == [
         "momentum_5d",
         "return_1d",

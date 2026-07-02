@@ -95,6 +95,9 @@ export interface ResearchStatus {
   model: {
     model_version: string;
     model_type: string;
+    requested_model_type: string;
+    training_backend: string;
+    dependency_status: string;
     train_start: string;
     train_end: string;
     prediction_date: string;
@@ -376,6 +379,10 @@ export interface LatestModel {
   model_type: string;
   feature_names: string[];
   feature_count: number;
+  requested_model_type: string;
+  training_backend: string;
+  dependency_status: string;
+  training_params: Record<string, number | string | boolean | null>;
   train_start: string;
   train_end: string;
   prediction_date: string;
@@ -398,6 +405,9 @@ export interface ModelSummary {
   model_version: string;
   model_type: string;
   feature_count: number;
+  requested_model_type: string;
+  training_backend: string;
+  dependency_status: string;
   train_start: string;
   train_end: string;
   prediction_date: string;

@@ -60,6 +60,9 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["pipeline"]["status"] == "success"
     assert status["data_quality"]["passed"] is True
     assert status["model"]["model_version"] == "baseline-rule-v1"
+    assert status["model"]["requested_model_type"] == "lightgbm"
+    assert status["model"]["training_backend"] == "rule_baseline_fallback"
+    assert status["model"]["dependency_status"] in {"lightgbm_available", "lightgbm_missing"}
     assert status["model"]["evaluation_status"] == "ready"
     assert status["model"]["label_gap_days"] == 5
     assert status["model"]["metrics"]["test_prediction_dates"] == 1
