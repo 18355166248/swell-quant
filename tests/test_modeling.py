@@ -1,12 +1,15 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+import swell_quant.research.modeling as modeling
 from swell_quant.data.sample_data import generate_sample_bars
 from swell_quant.research.features import compute_features, read_features_csv, write_features_csv
 from swell_quant.research.labels import compute_labels
 from swell_quant.research.modeling import (
     BASELINE_MODEL_VERSION,
+    LIGHTGBM_MODEL_VERSION,
     build_training_samples,
     generate_historical_predictions,
     generate_predictions,
@@ -15,6 +18,30 @@ from swell_quant.research.modeling import (
     train_model,
     write_training_samples_csv,
 )
+
+
+class FakeDataset:
+    def __init__(
+        self,
+        rows: list[list[float]],
+        label: list[int],
+        feature_name: list[str],
+    ) -> None:
+        self.rows = rows
+        self.label = label
+        self.feature_name = feature_name
+
+
+class FakeBooster:
+    def __init__(self) -> None:
+        self.saved_path: str | None = None
+
+    def predict(self, rows: list[list[float]]) -> list[float]:
+        return [sum(value for value in row if value == value) for row in rows]
+
+    def save_model(self, path: str) -> None:
+        self.saved_path = path
+        Path(path).write_text("fake lightgbm model\n", encoding="utf-8")
 
 
 def test_baseline_model_metadata_uses_labeled_rows() -> None:
@@ -79,6 +106,36 @@ def test_train_model_dispatches_requested_backend() -> None:
     assert baseline_metadata.requested_model_type == "rule_baseline"
     assert baseline_metadata.training_backend == "rule_baseline"
     assert baseline_metadata.dependency_status == "not_required"
+
+
+def test_train_model_uses_lightgbm_when_dependency_is_available(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    booster = FakeBooster()
+    fake_lightgbm = SimpleNamespace(
+        Dataset=FakeDataset,
+        train=lambda params, train_set, num_boost_round: booster,
+    )
+    monkeypatch.setattr(modeling, "is_lightgbm_available", lambda: True)
+    monkeypatch.setattr(modeling, "_load_lightgbm_module", lambda: fake_lightgbm)
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+    model_path = tmp_path / "lightgbm-v1.txt"
+
+    metadata = train_model(features, labels, model_output_path=model_path)
+    predictions = generate_predictions(features, metadata.model_version, metadata, booster)
+
+    assert metadata.model_version == LIGHTGBM_MODEL_VERSION
+    assert metadata.model_type == "lightgbm"
+    assert metadata.training_backend == "lightgbm"
+    assert metadata.dependency_status == "lightgbm_available"
+    assert metadata.training_params is not None
+    assert metadata.training_params["objective"] == "binary"
+    assert metadata.model_artifact_path == str(model_path)
+    assert model_path.exists()
+    assert predictions[0].model_version == LIGHTGBM_MODEL_VERSION
+    assert predictions[0].score >= predictions[-1].score
 
 
 def test_train_model_rejects_unsupported_backend() -> None:

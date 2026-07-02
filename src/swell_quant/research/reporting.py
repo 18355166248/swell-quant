@@ -83,7 +83,7 @@ def build_research_summary(
             "",
             "## 风险提示",
             "",
-            "- 当前模型是规则 baseline，不是最终 LightGBM 模型。",
+            f"- 当前模型类型：{metadata.model_type}，仍处于离线研究验证阶段。",
             "- 样例数据为本地生成数据，不代表真实 A 股行情。",
             "- 初始股票池和基准同源，跑赢结果不能解读为跨股票池泛化能力。",
             f"- {backtest.disclaimer}",

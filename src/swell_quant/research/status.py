@@ -7,7 +7,12 @@ from typing import Any
 
 from swell_quant.data.quality import DataQualityReport
 from swell_quant.research.backtest import BacktestResult
-from swell_quant.research.modeling import ModelMetadata, PredictionRow, TrainingSampleRow
+from swell_quant.research.modeling import (
+    LATEST_MODEL_METADATA_FILENAME,
+    ModelMetadata,
+    PredictionRow,
+    TrainingSampleRow,
+)
 
 
 def build_research_status(
@@ -59,6 +64,7 @@ def build_research_status(
             "requested_model_type": metadata.requested_model_type,
             "training_backend": metadata.training_backend,
             "dependency_status": metadata.dependency_status,
+            "model_artifact_path": metadata.model_artifact_path,
             "train_start": metadata.train_start,
             "train_end": metadata.train_end,
             "prediction_date": metadata.prediction_date,
@@ -115,7 +121,7 @@ def build_research_status(
 def default_artifact_paths(data_dir: Path) -> dict[str, Path]:
     return {
         "data_quality": data_dir / "processed" / "data_quality.json",
-        "model": data_dir / "models" / "baseline-rule-v1.json",
+        "model": data_dir / "models" / LATEST_MODEL_METADATA_FILENAME,
         "training_samples": data_dir / "processed" / "training_samples.csv",
         "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
         "historical_predictions": data_dir / "processed" / "historical_predictions.csv",

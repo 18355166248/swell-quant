@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 import csv
+import importlib
 import importlib.util
 import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from swell_quant.research.features import FeatureRow
 from swell_quant.research.labels import LabelRow
 
 
 BASELINE_MODEL_VERSION = "baseline-rule-v1"
+LIGHTGBM_MODEL_VERSION = "lightgbm-v1"
+LATEST_MODEL_METADATA_FILENAME = "latest_model.json"
 DEFAULT_MODEL_TYPE = "lightgbm"
 BASELINE_FEATURE_NAMES = [
     "momentum_5d",
@@ -29,6 +33,18 @@ BASELINE_TRAINING_PARAMS: dict[str, float | int | str | bool | None] = {
     ),
     "requires_fit": False,
     "random_seed": None,
+}
+LIGHTGBM_TRAINING_PARAMS: dict[str, float | int | str | bool | None] = {
+    "objective": "binary",
+    "metric": "binary_logloss",
+    "learning_rate": 0.05,
+    "num_leaves": 7,
+    "min_data_in_leaf": 1,
+    "num_boost_round": 20,
+    "seed": 42,
+    "deterministic": True,
+    "force_col_wise": True,
+    "verbosity": -1,
 }
 
 
@@ -55,6 +71,7 @@ class ModelMetadata:
     training_backend: str = "rule_baseline"
     dependency_status: str = "not_checked"
     training_params: dict[str, float | int | str | bool | None] | None = None
+    model_artifact_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -89,13 +106,87 @@ def train_model(
     features: list[FeatureRow],
     labels: list[LabelRow],
     requested_model_type: str = DEFAULT_MODEL_TYPE,
+    model_output_path: Path | None = None,
 ) -> ModelMetadata:
     normalized_type = requested_model_type.strip().lower()
     if normalized_type in {"", DEFAULT_MODEL_TYPE}:
+        if is_lightgbm_available():
+            return train_lightgbm_model(features, labels, model_output_path=model_output_path)
         return train_baseline_model(features, labels, requested_model_type=DEFAULT_MODEL_TYPE)
     if normalized_type in {"rule_baseline", "baseline"}:
         return train_baseline_model(features, labels, requested_model_type="rule_baseline")
     raise ValueError(f"unsupported model type: {requested_model_type}")
+
+
+def train_lightgbm_model(
+    features: list[FeatureRow],
+    labels: list[LabelRow],
+    model_output_path: Path | None = None,
+) -> ModelMetadata:
+    lightgbm = _load_lightgbm_module()
+    training_samples = build_training_samples(features, labels)
+    train_rows = [row for row in training_samples if row.split == "train"]
+    validation_rows = [row for row in training_samples if row.split == "validation"]
+    test_rows = [row for row in training_samples if row.split == "test"]
+    if not train_rows:
+        raise ValueError("no training rows available for lightgbm model")
+
+    params = dict(LIGHTGBM_TRAINING_PARAMS)
+    num_boost_round = int(params.pop("num_boost_round"))
+    train_set = lightgbm.Dataset(
+        [_feature_vector_from_sample(row) for row in train_rows],
+        label=[row.outperform_benchmark_5d for row in train_rows],
+        feature_name=BASELINE_FEATURE_NAMES,
+    )
+    booster = lightgbm.train(params, train_set, num_boost_round=num_boost_round)
+    if model_output_path is not None:
+        model_output_path.parent.mkdir(parents=True, exist_ok=True)
+        booster.save_model(str(model_output_path))
+
+    split_dates = sorted({row.trade_date for row in training_samples})
+    metrics = build_lightgbm_evaluation_metrics(booster, training_samples)
+    # LightGBM 训练只使用 train split；validation/test 仅用于离线评估，确保监督标签不会回流到同日预测特征。
+    return ModelMetadata(
+        model_version=LIGHTGBM_MODEL_VERSION,
+        model_type="lightgbm",
+        feature_names=BASELINE_FEATURE_NAMES,
+        train_start=min(row.trade_date for row in train_rows).isoformat(),
+        train_end=max(row.trade_date for row in train_rows).isoformat(),
+        prediction_date=max(row.trade_date for row in features).isoformat(),
+        row_count=len(features),
+        disclaimer="仅用于研究，不构成投资建议",
+        label_gap_days=5,
+        evaluation_status="ready"
+        if validation_rows and test_rows
+        else "skipped_insufficient_history",
+        evaluation_train_start=min(row.trade_date for row in train_rows).isoformat(),
+        evaluation_train_end=max(row.trade_date for row in train_rows).isoformat(),
+        validation_start=min((row.trade_date for row in validation_rows), default=None).isoformat()
+        if validation_rows
+        else None,
+        validation_end=max((row.trade_date for row in validation_rows), default=None).isoformat()
+        if validation_rows
+        else None,
+        test_start=min((row.trade_date for row in test_rows), default=None).isoformat()
+        if test_rows
+        else None,
+        test_end=max((row.trade_date for row in test_rows), default=None).isoformat()
+        if test_rows
+        else None,
+        metrics={
+            **metrics,
+            "labeled_row_count": len(training_samples),
+            "training_row_count": len(train_rows),
+            "validation_row_count": len(validation_rows),
+            "test_row_count": len(test_rows),
+            "evaluation_date_count": len(split_dates),
+        },
+        requested_model_type=DEFAULT_MODEL_TYPE,
+        training_backend="lightgbm",
+        dependency_status="lightgbm_available",
+        training_params=LIGHTGBM_TRAINING_PARAMS,
+        model_artifact_path=str(model_output_path) if model_output_path is not None else None,
+    )
 
 
 def train_baseline_model(
@@ -150,6 +241,10 @@ def train_baseline_model(
 
 def is_lightgbm_available() -> bool:
     return importlib.util.find_spec("lightgbm") is not None
+
+
+def _load_lightgbm_module() -> Any:
+    return importlib.import_module("lightgbm")
 
 
 def build_time_series_evaluation_split(
@@ -252,6 +347,46 @@ def build_baseline_evaluation_metrics(
     return metrics
 
 
+def build_lightgbm_evaluation_metrics(
+    booster: Any, rows: list[TrainingSampleRow]
+) -> dict[str, float | int | str | None]:
+    test_rows = [row for row in rows if row.split == "test"]
+    positive_count = sum(1 for row in rows if row.outperform_benchmark_5d)
+    metrics: dict[str, float | int | str | None] = {
+        "positive_rate": round(positive_count / len(rows), 6) if rows else None,
+        "evaluation_status": "ready" if test_rows else "skipped_insufficient_history",
+        "test_prediction_dates": len({row.trade_date for row in test_rows}),
+    }
+    if not test_rows:
+        metrics.update({"top1_outperform_rate": None, "top3_outperform_rate": None})
+        return metrics
+
+    scores = booster.predict([_feature_vector_from_sample(row) for row in test_rows])
+    rows_by_date: dict[date, list[tuple[TrainingSampleRow, float]]] = defaultdict(list)
+    for row, score in zip(test_rows, scores, strict=True):
+        rows_by_date[row.trade_date].append((row, float(score)))
+
+    top1_hits = 0
+    top1_total = 0
+    top3_hits = 0
+    top3_total = 0
+    for trade_date, scored_rows in sorted(rows_by_date.items()):
+        scored_rows.sort(key=lambda item: (-item[1], item[0].symbol))
+        top1_total += 1
+        top1_hits += int(bool(scored_rows[0][0].outperform_benchmark_5d))
+        for row, _score in scored_rows[:3]:
+            top3_total += 1
+            top3_hits += int(bool(row.outperform_benchmark_5d))
+
+    metrics.update(
+        {
+            "top1_outperform_rate": round(top1_hits / top1_total, 6) if top1_total else None,
+            "top3_outperform_rate": round(top3_hits / top3_total, 6) if top3_total else None,
+        }
+    )
+    return metrics
+
+
 def build_training_samples(
     features: list[FeatureRow], labels: list[LabelRow]
 ) -> list[TrainingSampleRow]:
@@ -323,19 +458,52 @@ def _training_split_for_date(trade_date: date, split: dict[str, date | int | str
 
 
 def generate_predictions(
-    features: list[FeatureRow], model_version: str = BASELINE_MODEL_VERSION
+    features: list[FeatureRow],
+    model_version: str = BASELINE_MODEL_VERSION,
+    metadata: ModelMetadata | None = None,
+    model_path: Path | None = None,
 ) -> list[PredictionRow]:
     latest_date = max(row.trade_date for row in features)
     latest_rows = [row for row in features if row.trade_date == latest_date]
+    return _rank_feature_rows(latest_rows, model_version, metadata, model_path)
 
-    scored = [
-        (
-            row,
-            _score_feature_row(row),
-        )
-        for row in latest_rows
-        if row.momentum_5d is not None and row.return_1d is not None
+
+def generate_historical_predictions(
+    features: list[FeatureRow],
+    model_version: str = BASELINE_MODEL_VERSION,
+    metadata: ModelMetadata | None = None,
+    model_path: Path | None = None,
+) -> list[PredictionRow]:
+    by_date: dict[date, list[FeatureRow]] = defaultdict(list)
+    for row in features:
+        by_date[row.trade_date].append(row)
+
+    predictions: list[PredictionRow] = []
+    booster = _load_prediction_booster(metadata, model_path)
+    for trade_date, rows in sorted(by_date.items()):
+        predictions.extend(_rank_feature_rows(rows, model_version, metadata, booster=booster))
+
+    return predictions
+
+
+def _rank_feature_rows(
+    rows: list[FeatureRow],
+    model_version: str,
+    metadata: ModelMetadata | None = None,
+    model_path: Path | None = None,
+    booster: Any | None = None,
+) -> list[PredictionRow]:
+    scorable_rows = [
+        row for row in rows if row.momentum_5d is not None and row.return_1d is not None
     ]
+    prediction_booster = booster or _load_prediction_booster(metadata, model_path)
+    if prediction_booster is None:
+        scored = [(row, _score_feature_row(row)) for row in scorable_rows]
+    else:
+        scores = prediction_booster.predict(
+            [_feature_vector_from_feature(row) for row in scorable_rows]
+        )
+        scored = [(row, float(score)) for row, score in zip(scorable_rows, scores, strict=True)]
     scored.sort(key=lambda item: (-item[1], item[0].symbol))
 
     return [
@@ -353,36 +521,20 @@ def generate_predictions(
     ]
 
 
-def generate_historical_predictions(
-    features: list[FeatureRow], model_version: str = BASELINE_MODEL_VERSION
-) -> list[PredictionRow]:
-    by_date: dict[date, list[FeatureRow]] = defaultdict(list)
-    for row in features:
-        by_date[row.trade_date].append(row)
-
-    predictions: list[PredictionRow] = []
-    for trade_date, rows in sorted(by_date.items()):
-        scored = [
-            (row, _score_feature_row(row))
-            for row in rows
-            if row.momentum_5d is not None and row.return_1d is not None
-        ]
-        scored.sort(key=lambda item: (-item[1], item[0].symbol))
-        for index, (row, score) in enumerate(scored):
-            predictions.append(
-                PredictionRow(
-                    symbol=row.symbol,
-                    trade_date=trade_date,
-                    model_version=model_version,
-                    score=score,
-                    rank=index + 1,
-                    return_1d=row.return_1d,
-                    momentum_5d=row.momentum_5d,
-                    volume_change_1d=row.volume_change_1d,
-                )
-            )
-
-    return predictions
+def _load_prediction_booster(
+    metadata: ModelMetadata | None, model_path: Path | Any | None
+) -> Any | None:
+    if metadata is None or metadata.model_type != "lightgbm":
+        return None
+    if model_path is not None and hasattr(model_path, "predict"):
+        return model_path
+    resolved_path = model_path or (
+        Path(metadata.model_artifact_path) if metadata.model_artifact_path else None
+    )
+    if resolved_path is None:
+        raise ValueError("lightgbm metadata requires model_path for prediction")
+    lightgbm = _load_lightgbm_module()
+    return lightgbm.Booster(model_file=str(resolved_path))
 
 
 def write_model_metadata(path: Path, metadata: ModelMetadata) -> Path:
@@ -419,6 +571,7 @@ def read_model_metadata(path: Path) -> ModelMetadata:
         ),
         dependency_status=payload.get("dependency_status", "legacy_not_recorded"),
         training_params=payload.get("training_params"),
+        model_artifact_path=payload.get("model_artifact_path"),
     )
 
 
@@ -541,6 +694,32 @@ def _score_feature_row(row: FeatureRow) -> float:
         + (row.macd_hist or 0.0) * 0.05
         + (row.volume_change_1d or 0.0) * 0.1
     )
+
+
+def _feature_vector_from_sample(row: TrainingSampleRow) -> list[float]:
+    return [
+        _model_float(row.momentum_5d),
+        _model_float(row.return_1d),
+        _model_float(row.volatility_5d),
+        _model_float(row.rsi_6),
+        _model_float(row.macd_hist),
+        _model_float(row.volume_change_1d),
+    ]
+
+
+def _feature_vector_from_feature(row: FeatureRow) -> list[float]:
+    return [
+        _model_float(row.momentum_5d),
+        _model_float(row.return_1d),
+        _model_float(row.volatility_5d),
+        _model_float(row.rsi_6),
+        _model_float(row.macd_hist),
+        _model_float(row.volume_change_1d),
+    ]
+
+
+def _model_float(value: float | None) -> float:
+    return float("nan") if value is None else float(value)
 
 
 def _format_optional(value: float | None) -> str:

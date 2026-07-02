@@ -50,7 +50,7 @@ def test_research_summary_contains_required_sections() -> None:
     assert "最大回撤" in summary
     assert "夏普比率" in summary
     assert "平均换手率" in summary
-    assert "当前模型是规则 baseline" in summary
+    assert "当前模型类型：rule_baseline" in summary
 
 
 def test_research_artifacts_read_round_trip(tmp_path: Path) -> None:

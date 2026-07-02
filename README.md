@@ -129,6 +129,8 @@ npm run build
 - `data/processed/sample_labels.csv`
 - `data/processed/training_samples.csv`
 - `data/models/baseline-rule-v1.json`
+- `data/models/latest_model.json`
+- `data/models/lightgbm-v1.txt`（安装 LightGBM 且默认模型训练成功时生成）
 - `data/processed/latest_predictions.csv`
 - `data/processed/historical_predictions.csv`
 - `data/duckdb/swell_quant.duckdb`
@@ -137,7 +139,7 @@ npm run build
 - `data/reports/pipeline_run.json`
 - `data/reports/research_status.json`
 
-当前模型是可复现的规则 baseline，用于验证链路，不是最终 LightGBM 模型。模型产物已经记录目标模型、实际训练后端、LightGBM 依赖状态、时间序列评估口径，包括 5 个交易日标签 gap、train/valid/test 评估窗口、基础收益/动量/波动率/RSI/MACD 因子和 baseline 测试指标，后续接入 LightGBM 时沿用同一元数据结构。
+训练入口默认尝试 LightGBM；未安装可选依赖时会显式降级到可复现规则 baseline。模型产物会写入 `latest_model.json` 作为报告、状态和页面的稳定入口，并记录目标模型、实际训练后端、LightGBM 依赖状态、时间序列评估口径，包括 5 个交易日标签 gap、train/valid/test 评估窗口、基础收益/动量/波动率/RSI/MACD 因子和测试指标。
 
 DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/predictions CSV 产物整表镜像到
 `data/duckdb/swell_quant.duckdb`。v1 只支持单写入者本地研究场景，镜像步骤使用覆盖写入，避免样例

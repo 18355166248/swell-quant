@@ -37,6 +37,7 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert (tmp_path / "data" / "processed" / "sample_labels.csv").exists()
     assert (tmp_path / "data" / "processed" / "training_samples.csv").exists()
     assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists()
+    assert (tmp_path / "data" / "models" / "latest_model.json").exists()
     assert (tmp_path / "data" / "processed" / "latest_predictions.csv").exists()
     assert (tmp_path / "data" / "processed" / "historical_predictions.csv").exists()
     assert (tmp_path / "data" / "duckdb" / "swell_quant.duckdb").exists()

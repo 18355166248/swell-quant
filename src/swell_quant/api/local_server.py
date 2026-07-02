@@ -17,6 +17,7 @@ from swell_quant.research.features import read_features_csv
 from swell_quant.research.labels import read_labels_csv
 from swell_quant.research.modeling import (
     BASELINE_FEATURE_NAMES,
+    LATEST_MODEL_METADATA_FILENAME,
     read_predictions_csv,
     read_training_samples_csv,
 )
@@ -84,7 +85,7 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             return
         if route == "/api/models/latest":
             self._send_loader_json(
-                self.data_dir / "models" / "baseline-rule-v1.json",
+                self.data_dir / "models" / LATEST_MODEL_METADATA_FILENAME,
                 load_latest_model_artifact,
             )
             return
@@ -373,7 +374,7 @@ def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
         "features": data_dir / "processed" / "sample_features.csv",
         "labels": data_dir / "processed" / "sample_labels.csv",
         "training_samples": data_dir / "processed" / "training_samples.csv",
-        "model": data_dir / "models" / "baseline-rule-v1.json",
+        "model": data_dir / "models" / LATEST_MODEL_METADATA_FILENAME,
         "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
         "historical_predictions": data_dir / "processed" / "historical_predictions.csv",
         "duckdb": duckdb_path,
@@ -641,6 +642,7 @@ def load_latest_model_artifact(path: Path) -> dict[str, Any]:
             "training_backend", payload.get("model_type", "rule_baseline")
         ),
         "dependency_status": payload.get("dependency_status", "legacy_not_recorded"),
+        "model_artifact_path": payload.get("model_artifact_path"),
         "training_params": payload.get("training_params", {}),
         "label_gap_days": payload.get("label_gap_days", 5),
         "evaluation_status": payload.get("evaluation_status", "not_available"),
@@ -675,7 +677,7 @@ def load_model_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, 
 
 def load_models_artifact(models_dir: Path) -> dict[str, Any]:
     model_paths = sorted(
-        models_dir.glob("*.json"),
+        [path for path in models_dir.glob("*.json") if path.name != LATEST_MODEL_METADATA_FILENAME],
         key=lambda path: (path.stat().st_mtime, path.name),
         reverse=True,
     )

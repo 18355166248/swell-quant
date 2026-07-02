@@ -46,5 +46,5 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 ## 当前边界
 
 - v1 仍使用可复现样例数据，不代表真实 A 股全量数据采集已经完成。
-- 当前模型是规则 baseline，不是最终 LightGBM 模型。
+- 默认模型会尝试 LightGBM；未安装可选依赖时显式降级到规则 baseline。
 - 回测结果仅用于工程链路验证，不构成投资建议或收益承诺。

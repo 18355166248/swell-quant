@@ -98,6 +98,7 @@ export interface ResearchStatus {
     requested_model_type: string;
     training_backend: string;
     dependency_status: string;
+    model_artifact_path: string | null;
     train_start: string;
     train_end: string;
     prediction_date: string;
@@ -395,6 +396,7 @@ export interface LatestModel {
   requested_model_type: string;
   training_backend: string;
   dependency_status: string;
+  model_artifact_path: string | null;
   training_params: Record<string, number | string | boolean | null>;
   train_start: string;
   train_end: string;
@@ -421,6 +423,7 @@ export interface ModelSummary {
   requested_model_type: string;
   training_backend: string;
   dependency_status: string;
+  model_artifact_path?: string | null;
   train_start: string;
   train_end: string;
   prediction_date: string;

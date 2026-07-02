@@ -23,7 +23,8 @@ from swell_quant.research.backtest import (
 from swell_quant.research.features import compute_features, read_features_csv, write_features_csv
 from swell_quant.research.labels import compute_labels, read_labels_csv, write_labels_csv
 from swell_quant.research.modeling import (
-    BASELINE_MODEL_VERSION,
+    LATEST_MODEL_METADATA_FILENAME,
+    LIGHTGBM_MODEL_VERSION,
     build_training_samples,
     generate_historical_predictions,
     generate_predictions,
@@ -102,12 +103,32 @@ def run_training_pipeline(settings: Settings) -> str:
     features = read_features_csv(feature_path)
     labels = read_labels_csv(label_path)
     training_samples = build_training_samples(features, labels)
-    metadata = train_model(features, labels, requested_model_type=settings.model_type)
+    requested_model_type = settings.model_type.strip().lower()
+    model_output_path = (
+        settings.data_dir / "models" / f"{LIGHTGBM_MODEL_VERSION}.txt"
+        if requested_model_type in {"", "lightgbm"}
+        else None
+    )
+    metadata = train_model(
+        features,
+        labels,
+        requested_model_type=settings.model_type,
+        model_output_path=model_output_path,
+    )
     model_path = settings.data_dir / "models" / f"{metadata.model_version}.json"
-    latest_predictions = generate_predictions(features, metadata.model_version)
-    historical_predictions = generate_historical_predictions(features, metadata.model_version)
+    latest_model_path = settings.data_dir / "models" / LATEST_MODEL_METADATA_FILENAME
+    resolved_model_output_path = (
+        Path(metadata.model_artifact_path) if metadata.model_artifact_path else None
+    )
+    latest_predictions = generate_predictions(
+        features, metadata.model_version, metadata, resolved_model_output_path
+    )
+    historical_predictions = generate_historical_predictions(
+        features, metadata.model_version, metadata, resolved_model_output_path
+    )
 
     write_model_metadata(model_path, metadata)
+    write_model_metadata(latest_model_path, metadata)
     write_training_samples_csv(training_sample_path, training_samples)
     write_predictions_csv(latest_prediction_path, latest_predictions)
     write_predictions_csv(historical_prediction_path, historical_predictions)
@@ -146,7 +167,7 @@ def run_duckdb_mirror_pipeline(settings: Settings) -> str:
 
 
 def run_report_pipeline(settings: Settings) -> str:
-    model_path = settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json"
+    model_path = settings.data_dir / "models" / LATEST_MODEL_METADATA_FILENAME
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
     quality_path = settings.data_dir / "processed" / "data_quality.json"
     backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
@@ -163,7 +184,7 @@ def run_report_pipeline(settings: Settings) -> str:
 
 def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
     quality = read_quality_report(settings.data_dir / "processed" / "data_quality.json")
-    metadata = read_model_metadata(settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json")
+    metadata = read_model_metadata(settings.data_dir / "models" / LATEST_MODEL_METADATA_FILENAME)
     predictions = read_predictions_csv(settings.data_dir / "processed" / "latest_predictions.csv")
     training_samples = read_training_samples_csv(
         settings.data_dir / "processed" / "training_samples.csv"
