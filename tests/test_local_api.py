@@ -472,6 +472,7 @@ def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
         "labels",
         "train",
         "backtest",
+        "duckdb_mirror",
         "report",
     ]
     assert (tmp_path / "data" / "reports" / "research_status.json").exists()

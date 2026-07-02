@@ -28,6 +28,7 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert "success labels" in result.stdout
     assert "success train" in result.stdout
     assert "success backtest" in result.stdout
+    assert "success duckdb_mirror" in result.stdout
     assert "success report" in result.stdout
     assert "status" in result.stdout
     assert (tmp_path / "data" / "raw" / "sample_prices.csv").exists()
@@ -37,6 +38,7 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists()
     assert (tmp_path / "data" / "processed" / "latest_predictions.csv").exists()
     assert (tmp_path / "data" / "processed" / "historical_predictions.csv").exists()
+    assert (tmp_path / "data" / "duckdb" / "swell_quant.duckdb").exists()
     assert (tmp_path / "data" / "reports" / "sample_backtest.json").exists()
     assert (tmp_path / "data" / "reports" / "sample_research_summary.md").exists()
     status_path = tmp_path / "data" / "reports" / "research_status.json"
@@ -56,5 +58,6 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
         "labels",
         "train",
         "backtest",
+        "duckdb_mirror",
         "report",
     ]

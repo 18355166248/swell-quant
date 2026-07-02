@@ -100,12 +100,17 @@ npm run build
 - `data/models/baseline-rule-v1.json`
 - `data/processed/latest_predictions.csv`
 - `data/processed/historical_predictions.csv`
+- `data/duckdb/swell_quant.duckdb`
 - `data/reports/sample_backtest.json`
 - `data/reports/sample_research_summary.md`
 - `data/reports/pipeline_run.json`
 - `data/reports/research_status.json`
 
 当前模型是可复现的规则 baseline，用于验证链路，不是最终 LightGBM 模型。
+
+DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/predictions CSV 产物整表镜像到
+`data/duckdb/swell_quant.duckdb`。v1 只支持单写入者本地研究场景，镜像步骤使用覆盖写入，避免样例
+数据重复追加。
 
 ## 重要声明
 

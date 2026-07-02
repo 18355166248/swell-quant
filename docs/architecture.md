@@ -44,6 +44,7 @@ DuckDB v1 使用策略：
 - 采用单机文件模式，数据库文件放在 `data/duckdb/` 下，v1 默认只支持单用户本地研究。
 - 后端统一封装一个写入入口，同一时间只允许一个数据更新、因子生成、训练或回测写任务执行；读请求可以读取已经落盘的稳定结果。
 - 行情、因子和标签表都以 `symbol/date` 作为核心唯一键，增量更新先写临时表，再按键覆盖目标表，避免重复追加。
+- 当前 pipeline 先将 CSV 产物作为可审计中间层，再用 `duckdb_mirror` 步骤整表覆盖到 `raw_prices`、`feature_rows`、`label_rows` 和 predictions 表；接入真实增量采集后再切换为按键覆盖。
 - 常用查询围绕 `date`、`symbol`、`model_version`、`backtest_id` 组织；DuckDB 主要依赖列式扫描和排序后的表结构，v1 不提前设计复杂索引。
 - 封装 `backup_duckdb()`，在数据更新、训练和回测任务结束后自动复制 DuckDB 文件或导出关键表到 `data/processed/`，避免依赖人工判断是否备份。
 

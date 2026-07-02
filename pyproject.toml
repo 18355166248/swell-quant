@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "A-share daily quantitative research dashboard foundation."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "duckdb>=1.0",
+]
 
 [project.optional-dependencies]
 dev = [

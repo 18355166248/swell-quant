@@ -35,6 +35,7 @@ from swell_quant.research.modeling import (
 from swell_quant.research.reporting import build_research_summary, write_research_summary
 from swell_quant.research.status import build_research_status, read_json, write_research_status
 from swell_quant.storage.duckdb_backup import backup_duckdb
+from swell_quant.storage.duckdb_mirror import mirror_pipeline_csvs_to_duckdb
 
 
 def prepare_directories(settings: Settings) -> str:
@@ -121,6 +122,14 @@ def run_backtest_pipeline(settings: Settings) -> str:
     )
 
 
+def run_duckdb_mirror_pipeline(settings: Settings) -> str:
+    result = mirror_pipeline_csvs_to_duckdb(settings.data_dir, settings.duckdb_path)
+    backup_path = backup_duckdb(settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups")
+    backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
+    table_summary = ", ".join(f"{table.table_name}={table.row_count}" for table in result.tables)
+    return f"mirrored {result.total_rows} rows to {result.duckdb_path} ({table_summary}; {backup_message})"
+
+
 def run_report_pipeline(settings: Settings) -> str:
     model_path = settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json"
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
@@ -156,6 +165,7 @@ def build_steps(settings: Settings) -> list[PipelineStep]:
         PipelineStep("labels", lambda: run_label_pipeline(settings)),
         PipelineStep("train", lambda: run_training_pipeline(settings)),
         PipelineStep("backtest", lambda: run_backtest_pipeline(settings)),
+        PipelineStep("duckdb_mirror", lambda: run_duckdb_mirror_pipeline(settings)),
         PipelineStep("report", lambda: run_report_pipeline(settings)),
     ]
 
