@@ -66,6 +66,8 @@ export interface ArtifactStatus {
     name: string;
     path: string;
     exists: boolean;
+    size_bytes: number | null;
+    updated_at: string | null;
   }>;
 }
 

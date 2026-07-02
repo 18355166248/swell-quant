@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -101,19 +102,25 @@ def default_artifact_paths(data_dir: Path) -> dict[str, Path]:
 
 
 def build_artifact_status(artifact_paths: dict[str, Path]) -> dict[str, Any]:
-    artifacts = [
-        {
-            "name": name,
-            "path": str(path),
-            "exists": path.exists(),
-        }
-        for name, path in artifact_paths.items()
-    ]
+    artifacts = [_build_artifact_entry(name, path) for name, path in artifact_paths.items()]
     missing = [artifact["name"] for artifact in artifacts if not artifact["exists"]]
     return {
         "status": "complete" if not missing else "missing",
         "missing": missing,
         "artifacts": artifacts,
+    }
+
+
+def _build_artifact_entry(name: str, path: Path) -> dict[str, Any]:
+    exists = path.exists()
+    # 产物元数据用于验收页和脚本排查“文件存在但明显过旧/为空”的问题，不读取正文以避免放大状态检查成本。
+    stat = path.stat() if exists else None
+    return {
+        "name": name,
+        "path": str(path),
+        "exists": exists,
+        "size_bytes": stat.st_size if stat else None,
+        "updated_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat() if stat else None,
     }
 
 

@@ -55,6 +55,8 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["acceptance"]["status"] == "passed"
     assert status["acceptance"]["failed_count"] == 0
     assert status["artifact_status"]["status"] == "complete"
+    assert status["artifact_status"]["artifacts"][0]["size_bytes"] == 2
+    assert status["artifact_status"]["artifacts"][0]["updated_at"] is not None
     assert status["pipeline"]["status"] == "success"
     assert status["data_quality"]["passed"] is True
     assert status["model"]["model_version"] == "baseline-rule-v1"
@@ -130,4 +132,6 @@ def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_pat
     assert status["acceptance"]["status"] == "failed"
     assert status["artifact_status"]["status"] == "missing"
     assert status["artifact_status"]["missing"] == ["summary"]
+    assert status["artifact_status"]["artifacts"][1]["size_bytes"] is None
+    assert status["artifact_status"]["artifacts"][1]["updated_at"] is None
     assert status["acceptance"]["checks"][-1]["key"] == "artifacts_complete"

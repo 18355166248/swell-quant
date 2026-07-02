@@ -26,7 +26,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | --- | --- |
 | `make pipeline` | 生成样例行情、质量报告、因子、标签、模型、预测、回测、DuckDB 镜像和研究报告。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
-| `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、预测、回测和关键产物完整性门禁。 |
+| `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、预测、回测和关键产物完整性门禁，并在状态快照中暴露产物大小与更新时间用于排查。 |
 | `make smoke` | 串联 pipeline、storage 和 acceptance，作为无页面端到端验收入口。 |
 | `make frontend-build` | 校验前端类型和生产构建。 |
 

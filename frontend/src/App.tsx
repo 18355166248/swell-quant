@@ -98,6 +98,29 @@ function formatNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? "-" : value.toFixed(4);
 }
 
+function formatFileSize(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return "-";
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(new Date(value));
+}
+
 function statusColor(status?: string): string {
   if (status === "success") {
     return "green";
@@ -610,6 +633,19 @@ function AcceptancePage({
             columns={[
               { title: "产物", dataIndex: "name", width: 180 },
               { title: "路径", dataIndex: "path" },
+              {
+                title: "大小",
+                dataIndex: "size_bytes",
+                align: "right",
+                width: 120,
+                render: formatFileSize,
+              },
+              {
+                title: "更新时间",
+                dataIndex: "updated_at",
+                width: 180,
+                render: formatDateTime,
+              },
               {
                 title: "状态",
                 dataIndex: "exists",
