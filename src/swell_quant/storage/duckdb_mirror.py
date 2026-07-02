@@ -39,6 +39,11 @@ PIPELINE_DUCKDB_SCHEMAS = {
         "return_1d",
         "momentum_5d",
         "ma_5",
+        "volatility_5d",
+        "rsi_6",
+        "macd_dif",
+        "macd_signal",
+        "macd_hist",
         "volume_change_1d",
     ),
     "label_rows": (

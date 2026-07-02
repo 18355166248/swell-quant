@@ -22,6 +22,14 @@ def test_baseline_model_metadata_uses_labeled_rows() -> None:
 
     assert metadata.model_version == BASELINE_MODEL_VERSION
     assert metadata.model_type == "rule_baseline"
+    assert metadata.feature_names == [
+        "momentum_5d",
+        "return_1d",
+        "volatility_5d",
+        "rsi_6",
+        "macd_hist",
+        "volume_change_1d",
+    ]
     assert metadata.train_start == "2024-01-02"
     assert metadata.train_end == "2024-01-16"
     assert metadata.prediction_date == "2024-01-21"
@@ -68,3 +76,6 @@ def test_feature_csv_read_round_trip(tmp_path: Path) -> None:
     assert loaded[1].trade_date == rows[1].trade_date
     assert loaded[1].return_1d == pytest.approx(rows[1].return_1d)
     assert loaded[-1].momentum_5d == pytest.approx(rows[-1].momentum_5d)
+    assert loaded[-1].volatility_5d == pytest.approx(rows[-1].volatility_5d, abs=1e-8)
+    assert loaded[-1].rsi_6 == pytest.approx(rows[-1].rsi_6, abs=1e-8)
+    assert loaded[-1].macd_hist == pytest.approx(rows[-1].macd_hist, abs=1e-8)

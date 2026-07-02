@@ -326,6 +326,11 @@ export interface FeatureSample {
   return_1d: number | null;
   momentum_5d: number | null;
   ma_5: number | null;
+  volatility_5d: number | null;
+  rsi_6: number | null;
+  macd_dif: number | null;
+  macd_signal: number | null;
+  macd_hist: number | null;
   volume_change_1d: number | null;
 }
 
@@ -448,6 +453,11 @@ export interface StockFeature {
   return_1d: number | null;
   momentum_5d: number | null;
   ma_5: number | null;
+  volatility_5d: number | null;
+  rsi_6: number | null;
+  macd_dif: number | null;
+  macd_signal: number | null;
+  macd_hist: number | null;
   volume_change_1d: number | null;
 }
 

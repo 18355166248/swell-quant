@@ -482,7 +482,17 @@ def load_duckdb_storage_artifact(duckdb_path: Path, data_dir: Path | None = None
 
 def load_features_artifact(path: Path) -> dict[str, Any]:
     rows = read_features_csv(path)
-    feature_names = ["return_1d", "momentum_5d", "ma_5", "volume_change_1d"]
+    feature_names = [
+        "return_1d",
+        "momentum_5d",
+        "ma_5",
+        "volatility_5d",
+        "rsi_6",
+        "macd_dif",
+        "macd_signal",
+        "macd_hist",
+        "volume_change_1d",
+    ]
     non_null_counts = {
         feature_name: sum(1 for row in rows if getattr(row, feature_name) is not None)
         for feature_name in feature_names
@@ -508,6 +518,11 @@ def load_features_artifact(path: Path) -> dict[str, Any]:
                 "return_1d": row.return_1d,
                 "momentum_5d": row.momentum_5d,
                 "ma_5": row.ma_5,
+                "volatility_5d": row.volatility_5d,
+                "rsi_6": row.rsi_6,
+                "macd_dif": row.macd_dif,
+                "macd_signal": row.macd_signal,
+                "macd_hist": row.macd_hist,
                 "volume_change_1d": row.volume_change_1d,
             }
             for row in latest_rows
@@ -1028,6 +1043,11 @@ def load_stock_features_artifact(path: Path, symbol: str) -> dict[str, Any] | No
                 "return_1d": _parse_optional_float(row["return_1d"]),
                 "momentum_5d": _parse_optional_float(row["momentum_5d"]),
                 "ma_5": _parse_optional_float(row["ma_5"]),
+                "volatility_5d": _parse_optional_float(row["volatility_5d"]),
+                "rsi_6": _parse_optional_float(row["rsi_6"]),
+                "macd_dif": _parse_optional_float(row["macd_dif"]),
+                "macd_signal": _parse_optional_float(row["macd_signal"]),
+                "macd_hist": _parse_optional_float(row["macd_hist"]),
                 "volume_change_1d": _parse_optional_float(row["volume_change_1d"]),
             }
             for row in rows

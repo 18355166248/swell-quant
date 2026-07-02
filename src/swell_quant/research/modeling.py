@@ -63,7 +63,14 @@ def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> 
     return ModelMetadata(
         model_version=BASELINE_MODEL_VERSION,
         model_type="rule_baseline",
-        feature_names=["momentum_5d", "return_1d", "volume_change_1d"],
+        feature_names=[
+            "momentum_5d",
+            "return_1d",
+            "volatility_5d",
+            "rsi_6",
+            "macd_hist",
+            "volume_change_1d",
+        ],
         train_start=usable_dates[0].isoformat(),
         train_end=usable_dates[-1].isoformat(),
         prediction_date=max(row.trade_date for row in features).isoformat(),
@@ -331,6 +338,9 @@ def _score_feature_row(row: FeatureRow) -> float:
     return (
         (row.momentum_5d or 0.0) * 0.7
         + (row.return_1d or 0.0) * 0.2
+        - (row.volatility_5d or 0.0) * 0.1
+        + (((row.rsi_6 or 50.0) - 50.0) / 100.0) * 0.05
+        + (row.macd_hist or 0.0) * 0.05
         + (row.volume_change_1d or 0.0) * 0.1
     )
 

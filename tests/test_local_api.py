@@ -245,10 +245,19 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
         "return_1d",
         "momentum_5d",
         "ma_5",
+        "volatility_5d",
+        "rsi_6",
+        "macd_dif",
+        "macd_signal",
+        "macd_hist",
         "volume_change_1d",
     ]
     assert features_payload["non_null_counts"]["momentum_5d"] == 45
+    assert features_payload["non_null_counts"]["volatility_5d"] == 45
+    assert features_payload["non_null_counts"]["rsi_6"] == 42
+    assert features_payload["non_null_counts"]["macd_hist"] == 60
     assert features_payload["latest_samples"][0]["date"] == "2024-01-21"
+    assert "macd_hist" in features_payload["latest_samples"][0]
     assert labels_payload["row_count"] == 60
     assert labels_payload["labeled_row_count"] == 45
     assert labels_payload["unlabeled_row_count"] == 15

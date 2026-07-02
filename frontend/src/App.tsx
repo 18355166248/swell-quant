@@ -339,7 +339,7 @@ function buildStockPriceOption(data?: StockPrices) {
 function buildStockFactorOption(features: StockFeature[]) {
   return {
     tooltip: { trigger: "axis" },
-    legend: { top: 0, data: ["5 日动量", "1 日收益", "成交量变化"] },
+    legend: { top: 0, data: ["5 日动量", "1 日收益", "RSI6", "MACD 柱", "成交量变化"] },
     grid: { top: 44, left: 48, right: 24, bottom: 36 },
     xAxis: {
       type: "category",
@@ -364,6 +364,19 @@ function buildStockFactorOption(features: StockFeature[]) {
         type: "line",
         showSymbol: false,
         data: features.map((row) => row.return_1d),
+      },
+      {
+        name: "RSI6",
+        type: "line",
+        showSymbol: false,
+        yAxisIndex: 0,
+        data: features.map((row) => row.rsi_6 === null ? null : row.rsi_6 / 100),
+      },
+      {
+        name: "MACD 柱",
+        type: "line",
+        showSymbol: false,
+        data: features.map((row) => row.macd_hist),
       },
       {
         name: "成交量变化",
@@ -1086,6 +1099,9 @@ function DataPage({
             { title: "1 日收益", dataIndex: "return_1d", align: "right", render: formatNumber },
             { title: "5 日动量", dataIndex: "momentum_5d", align: "right", render: formatNumber },
             { title: "MA5", dataIndex: "ma_5", align: "right", render: formatNumber },
+            { title: "5 日波动", dataIndex: "volatility_5d", align: "right", render: formatNumber },
+            { title: "RSI6", dataIndex: "rsi_6", align: "right", render: formatNumber },
+            { title: "MACD 柱", dataIndex: "macd_hist", align: "right", render: formatNumber },
             { title: "成交量变化", dataIndex: "volume_change_1d", align: "right", render: formatNumber },
           ]}
         />
