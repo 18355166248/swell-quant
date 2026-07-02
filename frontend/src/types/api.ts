@@ -198,19 +198,26 @@ export interface DataStatus {
   disclaimer: string;
 }
 
+export type DuckDBStorageHealth = "healthy" | "incomplete" | "missing" | "inconsistent";
+
 export interface DuckDBTableStatus {
   name: string;
   exists: boolean;
   row_count: number | null;
+  source_path: string | null;
+  source_exists: boolean | null;
+  source_row_count: number | null;
+  row_count_matches: boolean | null;
 }
 
 export interface DuckDBStorageStatus {
   exists: boolean;
   path: string;
-  status: "healthy" | "incomplete" | "missing";
+  status: DuckDBStorageHealth;
   file_size_bytes?: number;
   tables: DuckDBTableStatus[];
   missing_tables: string[];
+  inconsistent_tables: string[];
   total_rows: number;
   disclaimer: string;
 }

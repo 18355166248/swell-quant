@@ -58,7 +58,7 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             )
             return
         if route == "/api/storage/duckdb":
-            self._send_json(load_duckdb_storage_artifact(self.duckdb_path))
+            self._send_json(load_duckdb_storage_artifact(self.duckdb_path, self.data_dir))
             return
         if route == "/api/models/latest":
             self._send_loader_json(
@@ -409,8 +409,8 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
     }
 
 
-def load_duckdb_storage_artifact(duckdb_path: Path) -> dict[str, Any]:
-    payload = inspect_duckdb_mirror(duckdb_path)
+def load_duckdb_storage_artifact(duckdb_path: Path, data_dir: Path | None = None) -> dict[str, Any]:
+    payload = inspect_duckdb_mirror(duckdb_path, data_dir=data_dir)
     payload["disclaimer"] = "仅用于研究，不构成投资建议"
     return payload
 

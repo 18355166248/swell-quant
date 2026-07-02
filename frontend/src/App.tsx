@@ -108,6 +108,19 @@ function statusColor(status?: string): string {
   return "default";
 }
 
+function storageStatusColor(status?: string): string {
+  if (status === "healthy") {
+    return "green";
+  }
+  if (status === "inconsistent") {
+    return "red";
+  }
+  if (status === "incomplete" || status === "missing") {
+    return "orange";
+  }
+  return "default";
+}
+
 function buildEquityOption(points: BacktestPoint[]) {
   return {
     tooltip: { trigger: "axis" },
@@ -605,11 +618,17 @@ function DataPage({
           <Card title="DuckDB 本地存储">
             <Descriptions column={2} size="small">
               <Descriptions.Item label="状态">
-                <Tag color={duckdbStorage?.status === "healthy" ? "green" : "orange"}>
+                <Tag color={storageStatusColor(duckdbStorage?.status)}>
                   {duckdbStorage?.status ?? "unknown"}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="总行数">{duckdbStorage?.total_rows ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="缺失表">
+                {duckdbStorage?.missing_tables.length ? duckdbStorage.missing_tables.join(", ") : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="不一致表">
+                {duckdbStorage?.inconsistent_tables.length ? duckdbStorage.inconsistent_tables.join(", ") : "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="文件大小">
                 {duckdbStorage?.file_size_bytes ? `${duckdbStorage.file_size_bytes} bytes` : "-"}
               </Descriptions.Item>
@@ -630,7 +649,24 @@ function DataPage({
                     <Tag color={exists ? "green" : "red"}>{exists ? "存在" : "缺失"}</Tag>
                   ),
                 },
-                { title: "行数", dataIndex: "row_count", align: "right", render: (value) => value ?? "-" },
+                { title: "DuckDB 行数", dataIndex: "row_count", align: "right", render: (value) => value ?? "-" },
+                {
+                  title: "CSV 行数",
+                  dataIndex: "source_row_count",
+                  align: "right",
+                  render: (value) => value ?? "-",
+                },
+                {
+                  title: "一致性",
+                  dataIndex: "row_count_matches",
+                  width: 90,
+                  render: (matches) => {
+                    if (matches === null || matches === undefined) {
+                      return "-";
+                    }
+                    return <Tag color={matches ? "green" : "red"}>{matches ? "一致" : "不一致"}</Tag>;
+                  },
+                },
               ]}
             />
           </Card>
