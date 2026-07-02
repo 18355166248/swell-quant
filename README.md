@@ -30,7 +30,7 @@ python3 scripts/run_pipeline.py
 python3 -m pytest
 ```
 
-本地只读 API 可用于无页面验收：
+本地 API 可用于无页面验收：
 
 ```bash
 python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
@@ -52,6 +52,21 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `POST /api/pipeline/run`
 
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
+
+最小研究看板位于 `frontend/`，默认通过 Vite 代理访问 `127.0.0.1:8765` 的 API：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+前端构建检查：
+
+```bash
+cd frontend
+npm run build
+```
 
 `scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
 
