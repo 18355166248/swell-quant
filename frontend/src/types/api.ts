@@ -568,6 +568,22 @@ export interface LocalSettings {
     data_dir: string;
     duckdb_path: string;
   };
+  runtime: {
+    data_source: string;
+    model_type: string;
+    llm_provider: string;
+  };
+  akshare: {
+    symbols: string[];
+    start_date: string;
+    end_date: string;
+    benchmark_symbol: string;
+  };
+  llm: {
+    provider: string;
+    deepseek_model: string;
+    deepseek_base_url: string;
+  };
   api_keys: {
     deepseek_configured: boolean;
     openai_configured: boolean;

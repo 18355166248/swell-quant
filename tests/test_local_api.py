@@ -132,18 +132,23 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
         duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
         deepseek_api_key="deepseek-secret",
         openai_api_key=None,
+        model_type="lightgbm",
+        llm_provider="deepseek",
+        akshare_symbols=("000001.SZ", "600000.SH"),
     )
     settings.ensure_directories()
     (settings.data_dir / "reports" / "research_status.json").write_text("{}", encoding="utf-8")
 
     payload = load_settings_artifact(
-        settings.data_dir,
-        settings.duckdb_path,
-        settings.deepseek_api_key is not None,
-        settings.openai_api_key is not None,
+        settings,
     )
 
     serialized = str(payload)
+    assert payload["runtime"]["data_source"] == "sample"
+    assert payload["runtime"]["model_type"] == "lightgbm"
+    assert payload["runtime"]["llm_provider"] == "deepseek"
+    assert payload["akshare"]["symbols"] == ["000001.SZ", "600000.SH"]
+    assert payload["llm"]["deepseek_model"] == "deepseek-chat"
     assert payload["api_keys"]["deepseek_configured"] is True
     assert payload["api_keys"]["openai_configured"] is False
     assert "deepseek-secret" not in serialized
@@ -832,6 +837,47 @@ def test_local_api_can_trigger_named_task_through_full_pipeline(tmp_path: Path) 
     assert payload["execution_mode"] == "full_pipeline_refresh"
     assert "dependent artifacts stay consistent" in payload["message"]
     assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists()
+
+
+def test_local_api_pipeline_trigger_uses_configured_settings(tmp_path: Path, monkeypatch) -> None:
+    captured: dict[str, Settings] = {}
+
+    class FakeStatus:
+        value = "success"
+
+    class FakeResult:
+        name = "prepare_directories"
+        status = FakeStatus()
+        message = "ok"
+        duration_seconds = 0.0
+
+    def fake_runner(settings: Settings):
+        captured["settings"] = settings
+        reports_dir = settings.data_dir / "reports"
+        reports_dir.mkdir(parents=True)
+        return (
+            [FakeResult()],
+            reports_dir / "pipeline_run.json",
+            reports_dir / "research_status.json",
+        )
+
+    monkeypatch.setattr(
+        "swell_quant.api.local_server._load_pipeline_runner",
+        lambda: fake_runner,
+    )
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "custom.duckdb",
+        data_source="akshare",
+        model_type="rule_baseline",
+    )
+
+    payload = run_pipeline_for_api(settings)
+
+    assert payload["status"] == "success"
+    assert captured["settings"] is settings
+    assert captured["settings"].data_source == "akshare"
+    assert captured["settings"].model_type == "rule_baseline"
 
 
 def test_local_api_pipeline_trigger_returns_busy_when_locked(tmp_path: Path) -> None:

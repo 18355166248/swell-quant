@@ -2002,6 +2002,17 @@ function SettingsPage({
               <Descriptions.Item label="模式">{settings?.service.mode ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="数据目录">{settings?.paths.data_dir ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="DuckDB">{settings?.paths.duckdb_path ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="数据源">
+                <Tag color={settings?.runtime.data_source === "akshare" ? "blue" : "default"}>
+                  {settings?.runtime.data_source ?? "-"}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="模型类型">{settings?.runtime.model_type ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="LLM">
+                <Tag color={settings?.runtime.llm_provider === "disabled" ? "default" : "green"}>
+                  {settings?.runtime.llm_provider ?? "-"}
+                </Tag>
+              </Descriptions.Item>
               <Descriptions.Item label="声明">
                 {settings?.service.disclaimer ?? "仅用于研究，不构成投资建议"}
               </Descriptions.Item>
@@ -2010,6 +2021,23 @@ function SettingsPage({
         </Col>
         <Col xs={24} xl={14}>
           <Card title="配置与产物">
+            <Descriptions column={2} size="small" className="settings-runtime">
+              <Descriptions.Item label="AKShare 股票池">
+                {settings?.akshare.symbols.join(", ") ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="AKShare 区间">
+                {settings ? `${settings.akshare.start_date} 至 ${settings.akshare.end_date}` : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="AKShare 基准">
+                {settings?.akshare.benchmark_symbol ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="DeepSeek 模型">
+                {settings?.llm.deepseek_model ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="DeepSeek Base URL">
+                {settings?.llm.deepseek_base_url ?? "-"}
+              </Descriptions.Item>
+            </Descriptions>
             <Row gutter={[16, 16]} className="settings-key-row">
               <Col xs={24} md={12}>
                 <Card size="small">

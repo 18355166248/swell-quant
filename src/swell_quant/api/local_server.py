@@ -40,8 +40,10 @@ TASK_TRIGGER_ROUTES = {
 class ResearchApiHandler(BaseHTTPRequestHandler):
     data_dir = Path("./data")
     duckdb_path = Path("./data/duckdb/swell_quant.duckdb")
-    deepseek_api_key_configured = False
-    openai_api_key_configured = False
+    settings = Settings(
+        data_dir=data_dir,
+        duckdb_path=duckdb_path,
+    )
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
@@ -53,10 +55,7 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         if route == "/api/settings":
             self._send_json(
                 load_settings_artifact(
-                    self.data_dir,
-                    self.duckdb_path,
-                    self.deepseek_api_key_configured,
-                    self.openai_api_key_configured,
+                    self.settings,
                 )
             )
             return
@@ -168,7 +167,10 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         route = urlparse(self.path).path
         if route in TASK_TRIGGER_ROUTES:
-            payload = run_pipeline_for_api(self.data_dir, requested_task=TASK_TRIGGER_ROUTES[route])
+            payload = run_pipeline_for_api(
+                self.settings,
+                requested_task=TASK_TRIGGER_ROUTES[route],
+            )
             status = pipeline_status_to_http_status(payload["status"])
             self._send_json(payload, status=status)
             return
@@ -227,8 +229,7 @@ def create_server(
         {
             "data_dir": resolved_settings.data_dir,
             "duckdb_path": resolved_settings.duckdb_path,
-            "deepseek_api_key_configured": resolved_settings.deepseek_api_key is not None,
-            "openai_api_key_configured": resolved_settings.openai_api_key is not None,
+            "settings": resolved_settings,
         },
     )
     return ThreadingHTTPServer((host, port), handler_class)
@@ -243,10 +244,18 @@ def pipeline_status_to_http_status(status: str) -> HTTPStatus:
 
 
 def run_pipeline_for_api(
-    data_dir: Path,
+    settings: Settings | Path,
     lock: threading.Lock | None = None,
     requested_task: str = "pipeline",
 ) -> dict[str, Any]:
+    resolved_settings = (
+        Settings(
+            data_dir=settings,
+            duckdb_path=settings / "duckdb" / "swell_quant.duckdb",
+        )
+        if isinstance(settings, Path)
+        else settings
+    )
     run_lock = _PIPELINE_RUN_LOCK if lock is None else lock
     # pipeline 会连续写 raw/processed/models/reports，进程内先串行化，避免并发触发覆盖同一批产物。
     if not run_lock.acquire(blocking=False):
@@ -258,17 +267,13 @@ def run_pipeline_for_api(
         }
 
     try:
-        return _run_pipeline_for_api_unlocked(data_dir, requested_task)
+        return _run_pipeline_for_api_unlocked(resolved_settings, requested_task)
     finally:
         run_lock.release()
 
 
-def _run_pipeline_for_api_unlocked(data_dir: Path, requested_task: str) -> dict[str, Any]:
+def _run_pipeline_for_api_unlocked(settings: Settings, requested_task: str) -> dict[str, Any]:
     runner = _load_pipeline_runner()
-    settings = Settings(
-        data_dir=data_dir,
-        duckdb_path=data_dir / "duckdb" / "swell_quant.duckdb",
-    )
     results, manifest_path, status_path = runner(settings)
     status = "failed" if any(result.status.value == "failed" for result in results) else "success"
     return {
@@ -336,12 +341,9 @@ def load_acceptance_artifact(path: Path) -> dict[str, Any]:
 
 
 def load_settings_artifact(
-    data_dir: Path,
-    duckdb_path: Path,
-    deepseek_api_key_configured: bool,
-    openai_api_key_configured: bool,
+    settings: Settings,
 ) -> dict[str, Any]:
-    artifact_status = load_artifacts_artifact(data_dir, duckdb_path)
+    artifact_status = load_artifacts_artifact(settings.data_dir, settings.duckdb_path)
     return {
         "service": {
             "name": "swell-quant-local-api",
@@ -349,13 +351,29 @@ def load_settings_artifact(
             "disclaimer": "仅用于研究，不构成投资建议",
         },
         "paths": {
-            "data_dir": str(data_dir),
-            "duckdb_path": str(duckdb_path),
+            "data_dir": str(settings.data_dir),
+            "duckdb_path": str(settings.duckdb_path),
+        },
+        "runtime": {
+            "data_source": settings.data_source,
+            "model_type": settings.model_type,
+            "llm_provider": settings.llm_provider,
+        },
+        "akshare": {
+            "symbols": list(settings.akshare_symbols),
+            "start_date": settings.akshare_start_date,
+            "end_date": settings.akshare_end_date,
+            "benchmark_symbol": settings.akshare_benchmark_symbol,
+        },
+        "llm": {
+            "provider": settings.llm_provider,
+            "deepseek_model": settings.deepseek_model,
+            "deepseek_base_url": settings.deepseek_base_url,
         },
         "api_keys": {
             # 只暴露是否配置，避免把任何 secret 明文返回给前端或日志。
-            "deepseek_configured": deepseek_api_key_configured,
-            "openai_configured": openai_api_key_configured,
+            "deepseek_configured": settings.deepseek_api_key is not None,
+            "openai_configured": settings.openai_api_key is not None,
         },
         "artifacts": artifact_status["artifacts"],
     }
