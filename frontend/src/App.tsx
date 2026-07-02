@@ -40,7 +40,9 @@ import type {
   BacktestPoint,
   BacktestSummary,
   DataQualityIssue,
+  DataStatus,
   LatestBacktest,
+  LatestModel,
   LocalSettings,
   PipelineRun,
   Prediction,
@@ -290,6 +292,8 @@ function PageTitle({
 
 function DashboardPage({
   status,
+  dataStatus,
+  model,
   quality,
   predictions,
   backtest,
@@ -297,6 +301,8 @@ function DashboardPage({
   report,
 }: {
   status?: ResearchStatus;
+  dataStatus?: DataStatus;
+  model?: LatestModel;
   quality?: ResearchStatus["data_quality"];
   predictions: Prediction[];
   backtest?: LatestBacktest;
@@ -316,18 +322,21 @@ function DashboardPage({
           <Card>
             <Statistic
               title="数据行数"
-              value={quality?.row_count ?? 0}
+              value={dataStatus?.row_count ?? quality?.row_count ?? 0}
               prefix={<DatabaseOutlined />}
             />
             <Text type="secondary">
-              {quality?.symbol_count ?? 0} 只标的，{quality?.issue_count ?? 0} 个质量问题
+              {dataStatus?.symbol_count ?? quality?.symbol_count ?? 0} 只标的，
+              {dataStatus?.issue_count ?? quality?.issue_count ?? 0} 个质量问题
             </Text>
           </Card>
         </Col>
         <Col xs={24} md={12} xl={6}>
           <Card>
             <Statistic title="最新预测" value={predictions.length} suffix="条" />
-            <Text type="secondary">模型：{predictions[0]?.model_version ?? status?.model.model_version ?? "-"}</Text>
+            <Text type="secondary">
+              模型：{model?.model_version ?? predictions[0]?.model_version ?? status?.model.model_version ?? "-"}
+            </Text>
           </Card>
         </Col>
         <Col xs={24} md={12} xl={6}>
@@ -375,11 +384,12 @@ function DashboardPage({
         <Col xs={24} xl={12}>
           <Card title="数据质量">
             <Space direction="vertical" size={8}>
-              <Tag color={quality?.passed ? "green" : "red"}>
-                {quality?.passed ? "质量检查通过" : "存在质量问题"}
+              <Tag color={(dataStatus?.quality_passed ?? quality?.passed) ? "green" : "red"}>
+                {(dataStatus?.quality_passed ?? quality?.passed) ? "质量检查通过" : "存在质量问题"}
               </Tag>
               <Text>
-                覆盖区间：{quality?.start_date ?? "-"} 至 {quality?.end_date ?? "-"}
+                覆盖区间：{dataStatus?.start_date ?? quality?.start_date ?? "-"} 至{" "}
+                {dataStatus?.end_date ?? quality?.end_date ?? "-"}
               </Text>
               <Text type="secondary">当前样例链路使用可复现本地数据，后续会替换为真实 A 股日频数据源。</Text>
             </Space>
@@ -900,7 +910,9 @@ function App() {
     queryKey: ["tasks", "pipeline-latest"],
     queryFn: () => api.getTaskDetail("pipeline-latest"),
   });
+  const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
+  const latestModelQuery = useQuery({ queryKey: ["model", "latest"], queryFn: api.getLatestModel });
   const predictionsQuery = useQuery({
     queryKey: ["predictions", "latest"],
     queryFn: api.getLatestPredictions,
@@ -985,7 +997,9 @@ function App() {
     qualityQuery.isLoading ||
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
+    dataStatusQuery.isLoading ||
     predictionsQuery.isLoading ||
+    latestModelQuery.isLoading ||
     backtestsQuery.isLoading ||
     backtestDetailQuery.isLoading ||
     backtestQuery.isLoading ||
@@ -1005,7 +1019,9 @@ function App() {
     qualityQuery.isError ||
     tasksQuery.isError ||
     taskDetailQuery.isError ||
+    dataStatusQuery.isError ||
     predictionsQuery.isError ||
+    latestModelQuery.isError ||
     backtestsQuery.isError ||
     backtestDetailQuery.isError ||
     backtestQuery.isError ||
@@ -1019,6 +1035,8 @@ function App() {
     dashboard: (
       <DashboardPage
         status={status}
+        dataStatus={dataStatusQuery.data}
+        model={latestModelQuery.data}
         quality={quality}
         predictions={predictions}
         backtest={backtest}

@@ -48,6 +48,18 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         if route == "/api/pipeline":
             self._send_artifact_json(self.data_dir / "reports" / "pipeline_run.json")
             return
+        if route == "/api/data/status":
+            self._send_loader_json(
+                self.data_dir / "processed" / "data_quality.json",
+                load_data_status_artifact,
+            )
+            return
+        if route == "/api/models/latest":
+            self._send_loader_json(
+                self.data_dir / "models" / "baseline-rule-v1.json",
+                load_latest_model_artifact,
+            )
+            return
         task_response = load_task_route(route, self.data_dir)
         if task_response is not None:
             status, payload = task_response
@@ -356,6 +368,36 @@ def load_data_quality_artifact(path: Path) -> dict[str, Any]:
             }
             for issue in report.issues
         ],
+    }
+
+
+def load_data_status_artifact(path: Path) -> dict[str, Any]:
+    quality = load_data_quality_artifact(path)
+    return {
+        "market": "A_SHARE_DAILY",
+        "universe": "sample_a_share",
+        "row_count": quality["row_count"],
+        "symbol_count": quality["symbol_count"],
+        "start_date": quality["start_date"],
+        "end_date": quality["end_date"],
+        "quality_passed": quality["passed"],
+        "issue_count": quality["issue_count"],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_latest_model_artifact(path: Path) -> dict[str, Any]:
+    payload = load_json_artifact(path)
+    return {
+        "model_version": payload["model_version"],
+        "model_type": payload["model_type"],
+        "feature_names": payload["feature_names"],
+        "feature_count": len(payload["feature_names"]),
+        "train_start": payload["train_start"],
+        "train_end": payload["train_end"],
+        "prediction_date": payload["prediction_date"],
+        "row_count": payload["row_count"],
+        "disclaimer": payload.get("disclaimer", "仅用于研究，不构成投资建议"),
     }
 
 

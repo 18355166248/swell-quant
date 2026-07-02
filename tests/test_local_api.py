@@ -6,7 +6,9 @@ from swell_quant.api.local_server import (
     load_backtest_route,
     load_backtests_artifact,
     load_data_quality_artifact,
+    load_data_status_artifact,
     load_json_artifact,
+    load_latest_model_artifact,
     load_latest_predictions_artifact,
     load_prediction_route,
     load_predictions_artifact,
@@ -146,11 +148,14 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     )
 
     quality = load_data_quality_artifact(quality_path)
+    data_status = load_data_status_artifact(quality_path)
     predictions = load_latest_predictions_artifact(predictions_path)
     backtest = load_backtest_artifact(backtest_path)
 
     assert quality["passed"] is True
     assert quality["row_count"] == 60
+    assert data_status["market"] == "A_SHARE_DAILY"
+    assert data_status["quality_passed"] is True
     assert predictions["count"] == 3
     assert predictions["predictions"][0]["rank"] == 1
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"
@@ -158,6 +163,31 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert backtest["trade_count"] == 14
     assert backtest["equity_curve"][0]["date"] == "2024-01-08"
     assert "portfolio_value" in backtest["equity_curve"][0]
+
+
+def test_local_api_latest_model_artifact(tmp_path: Path) -> None:
+    model_path = tmp_path / "model.json"
+    model_path.write_text(
+        """
+        {
+          "model_version": "baseline-rule-v1",
+          "model_type": "rule_baseline",
+          "feature_names": ["momentum_5d", "return_1d"],
+          "train_start": "2024-01-02",
+          "train_end": "2024-01-16",
+          "prediction_date": "2024-01-21",
+          "row_count": 60,
+          "disclaimer": "仅用于研究，不构成投资建议"
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    model = load_latest_model_artifact(model_path)
+
+    assert model["model_version"] == "baseline-rule-v1"
+    assert model["feature_count"] == 2
+    assert model["row_count"] == 60
 
 
 def test_local_api_predictions_route_filters_historical_predictions(tmp_path: Path) -> None:

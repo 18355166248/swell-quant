@@ -173,6 +173,30 @@ export interface DataQuality {
   issues: DataQualityIssue[];
 }
 
+export interface DataStatus {
+  market: string;
+  universe: string;
+  row_count: number;
+  symbol_count: number;
+  start_date: string;
+  end_date: string;
+  quality_passed: boolean;
+  issue_count: number;
+  disclaimer: string;
+}
+
+export interface LatestModel {
+  model_version: string;
+  model_type: string;
+  feature_names: string[];
+  feature_count: number;
+  train_start: string;
+  train_end: string;
+  prediction_date: string;
+  row_count: number;
+  disclaimer: string;
+}
+
 export interface StockSummary {
   symbol: string;
   price_row_count: number;

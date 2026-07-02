@@ -24,7 +24,7 @@ def main() -> int:
     settings = Settings.from_env()
     server = create_server(args.host, args.port, settings.data_dir, settings=settings)
     print(f"serving read-only API on http://{args.host}:{args.port}")
-    print("available endpoints: /api/health /api/status /api/settings /api/tasks /api/predictions /api/backtests /api/reports /api/pipeline")
+    print("available endpoints: /api/health /api/status /api/settings /api/data/status /api/models/latest /api/tasks /api/predictions /api/backtests /api/reports /api/pipeline")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
