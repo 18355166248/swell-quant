@@ -12,6 +12,9 @@ from swell_quant.api.local_server import (
     load_stock_prices_artifact,
     load_stock_route,
     load_stock_summary_artifact,
+    load_task_detail_artifact,
+    load_task_route,
+    load_tasks_artifact,
     load_text_artifact,
     missing_artifact_payload,
     pipeline_status_to_http_status,
@@ -71,6 +74,58 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
     assert payload["api_keys"]["openai_configured"] is False
     assert "deepseek-secret" not in serialized
     assert any(item["name"] == "status" and item["exists"] is True for item in payload["artifacts"])
+
+
+def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:
+    pipeline_path = tmp_path / "pipeline_run.json"
+    pipeline_path.write_text(
+        """
+        {
+          "status": "success",
+          "step_count": 2,
+          "started_at": "2026-07-02T00:00:00+00:00",
+          "ended_at": "2026-07-02T00:00:01+00:00",
+          "duration_seconds": 1.0,
+          "steps": [
+            {"name": "data_update", "status": "success", "message": "ok", "duration_seconds": 0.4},
+            {"name": "report", "status": "success", "message": "ok", "duration_seconds": 0.6}
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    tasks = load_tasks_artifact(pipeline_path)
+    detail = load_task_detail_artifact(pipeline_path)
+
+    assert tasks["count"] == 1
+    assert tasks["tasks"][0]["id"] == "pipeline-latest"
+    assert tasks["tasks"][0]["step_count"] == 2
+    assert "steps" not in tasks["tasks"][0]
+    assert detail["id"] == "pipeline-latest"
+    assert detail["steps"][1]["name"] == "report"
+
+
+def test_local_api_task_route_dispatches(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "pipeline_run.json").write_text(
+        '{"status": "failed", "step_count": 1, "steps": [{"name": "train", "status": "failed"}]}',
+        encoding="utf-8",
+    )
+
+    list_status, list_payload = load_task_route("/api/tasks", tmp_path)
+    detail_status, detail_payload = load_task_route("/api/tasks/pipeline-latest", tmp_path)
+    missing_status, missing_payload = load_task_route("/api/tasks/nope", tmp_path)
+    ignored = load_task_route("/api/status", tmp_path)
+
+    assert list_status.value == 200
+    assert list_payload["tasks"][0]["failed_step"] == "train"
+    assert detail_status.value == 200
+    assert detail_payload["failed_step"] == "train"
+    assert missing_status.value == 404
+    assert missing_payload["error"] == "task_not_found"
+    assert ignored is None
 
 
 def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:

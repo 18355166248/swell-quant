@@ -22,6 +22,27 @@ export interface PipelineRun {
   message?: string;
 }
 
+export interface TaskSummary {
+  id: string;
+  type: string;
+  status: string;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  step_count: number;
+  failed_step: string | null;
+  output_path: string;
+}
+
+export interface TaskList {
+  count: number;
+  tasks: TaskSummary[];
+}
+
+export interface TaskDetail extends TaskSummary {
+  steps: PipelineStep[];
+}
+
 export interface ResearchStatus {
   pipeline: {
     status: string;

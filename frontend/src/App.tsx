@@ -48,6 +48,8 @@ import type {
   StockPrediction,
   StockPrices,
   StockSummary,
+  TaskDetail,
+  TaskSummary,
 } from "./types/api";
 
 const { Header, Sider, Content } = Layout;
@@ -395,15 +397,17 @@ function DashboardPage({
 }
 
 function TasksPage({
-  pipeline,
+  tasks,
+  taskDetail,
   onRunPipeline,
   isRunning,
 }: {
-  pipeline?: PipelineRun;
+  tasks: TaskSummary[];
+  taskDetail?: TaskDetail;
   onRunPipeline: () => void;
   isRunning: boolean;
 }) {
-  const steps = pipeline?.steps ?? [];
+  const steps = taskDetail?.steps ?? [];
   const timelineItems = steps.map((step) => ({
     color: step.status === "success" ? "green" : step.status === "failed" ? "red" : "gray",
     dot: step.status === "success" ? <CheckCircleOutlined /> : step.status === "failed" ? <CloseCircleOutlined /> : undefined,
@@ -432,15 +436,34 @@ function TasksPage({
       />
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={8}>
-          <Card title="最近任务">
+          <Card title="任务列表">
+            <Table<TaskSummary>
+              rowKey="id"
+              size="small"
+              dataSource={tasks}
+              pagination={false}
+              columns={[
+                { title: "任务", dataIndex: "id" },
+                {
+                  title: "状态",
+                  dataIndex: "status",
+                  width: 92,
+                  render: (status: string) => <Tag color={statusColor(status)}>{status}</Tag>,
+                },
+              ]}
+            />
+            <Divider />
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="状态">
-                <Tag color={statusColor(pipeline?.status)}>{pipeline?.status ?? "-"}</Tag>
+              <Descriptions.Item label="类型">{taskDetail?.type ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="开始时间">{taskDetail?.started_at ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="结束时间">{taskDetail?.ended_at ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="耗时">
+                {taskDetail?.duration_seconds === null || taskDetail?.duration_seconds === undefined
+                  ? "-"
+                  : `${taskDetail.duration_seconds.toFixed(4)}s`}
               </Descriptions.Item>
-              <Descriptions.Item label="开始时间">{pipeline?.started_at ?? "-"}</Descriptions.Item>
-              <Descriptions.Item label="结束时间">{pipeline?.finished_at ?? pipeline?.ended_at ?? "-"}</Descriptions.Item>
-              <Descriptions.Item label="耗时">{pipeline?.duration_seconds?.toFixed(4) ?? "-"}s</Descriptions.Item>
-              <Descriptions.Item label="步骤数">{pipeline?.steps?.length ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="失败阶段">{taskDetail?.failed_step ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="输出">{taskDetail?.output_path ?? "-"}</Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
@@ -793,6 +816,11 @@ function App() {
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const pipelineQuery = useQuery({ queryKey: ["pipeline"], queryFn: api.getPipeline });
+  const tasksQuery = useQuery({ queryKey: ["tasks"], queryFn: api.getTasks });
+  const taskDetailQuery = useQuery({
+    queryKey: ["tasks", "pipeline-latest"],
+    queryFn: () => api.getTaskDetail("pipeline-latest"),
+  });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const predictionsQuery = useQuery({
     queryKey: ["predictions", "latest"],
@@ -856,6 +884,8 @@ function App() {
   const isLoading =
     statusQuery.isLoading ||
     qualityQuery.isLoading ||
+    tasksQuery.isLoading ||
+    taskDetailQuery.isLoading ||
     predictionsQuery.isLoading ||
     backtestQuery.isLoading ||
     reportQuery.isLoading ||
@@ -869,6 +899,8 @@ function App() {
   const hasError =
     statusQuery.isError ||
     qualityQuery.isError ||
+    tasksQuery.isError ||
+    taskDetailQuery.isError ||
     predictionsQuery.isError ||
     backtestQuery.isError ||
     reportQuery.isError ||
@@ -887,7 +919,8 @@ function App() {
     ),
     tasks: (
       <TasksPage
-        pipeline={pipeline}
+        tasks={tasksQuery.data?.tasks ?? []}
+        taskDetail={taskDetailQuery.data}
         isRunning={runPipelineMutation.isPending}
         onRunPipeline={() => runPipelineMutation.mutate()}
       />

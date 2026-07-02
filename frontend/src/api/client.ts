@@ -9,6 +9,8 @@ import type {
   StockPredictions,
   StockPrices,
   StockSummary,
+  TaskDetail,
+  TaskList,
 } from "../types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -39,6 +41,8 @@ export const api = {
   getStatus: () => requestJson<ResearchStatus>("/api/status"),
   getSettings: () => requestJson<LocalSettings>("/api/settings"),
   getPipeline: () => requestJson<PipelineRun>("/api/pipeline"),
+  getTasks: () => requestJson<TaskList>("/api/tasks"),
+  getTaskDetail: (taskId: string) => requestJson<TaskDetail>(`/api/tasks/${taskId}`),
   getDataQuality: () => requestJson<DataQuality>("/api/data-quality"),
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),

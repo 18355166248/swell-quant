@@ -46,6 +46,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         if route == "/api/pipeline":
             self._send_artifact_json(self.data_dir / "reports" / "pipeline_run.json")
             return
+        task_response = load_task_route(route, self.data_dir)
+        if task_response is not None:
+            status, payload = task_response
+            self._send_json(payload, status=status)
+            return
         if route == "/api/data-quality":
             self._send_loader_json(
                 self.data_dir / "processed" / "data_quality.json",
@@ -258,6 +263,60 @@ def load_settings_artifact(
             }
             for name, path in artifacts.items()
         ],
+    }
+
+
+def load_task_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route == "/api/tasks":
+        pipeline_path = data_dir / "reports" / "pipeline_run.json"
+        if not pipeline_path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(pipeline_path)
+        return HTTPStatus.OK, load_tasks_artifact(pipeline_path)
+    if route == "/api/tasks/pipeline-latest":
+        pipeline_path = data_dir / "reports" / "pipeline_run.json"
+        if not pipeline_path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(pipeline_path)
+        return HTTPStatus.OK, load_task_detail_artifact(pipeline_path)
+    if route.startswith("/api/tasks/"):
+        task_id = route[len("/api/tasks/") :]
+        return HTTPStatus.NOT_FOUND, {"error": "task_not_found", "task_id": task_id}
+    return None
+
+
+def load_tasks_artifact(path: Path) -> dict[str, Any]:
+    detail = load_task_detail_artifact(path)
+    summary = {
+        key: detail[key]
+        for key in (
+            "id",
+            "type",
+            "status",
+            "started_at",
+            "ended_at",
+            "duration_seconds",
+            "step_count",
+            "failed_step",
+            "output_path",
+        )
+    }
+    return {"count": 1, "tasks": [summary]}
+
+
+def load_task_detail_artifact(path: Path) -> dict[str, Any]:
+    manifest = load_json_artifact(path)
+    steps = manifest.get("steps", [])
+    failed_step = next((step["name"] for step in steps if step.get("status") == "failed"), None)
+    return {
+        "id": "pipeline-latest",
+        "type": "pipeline",
+        "status": manifest.get("status", "unknown"),
+        "started_at": manifest.get("started_at"),
+        "ended_at": manifest.get("ended_at"),
+        "duration_seconds": manifest.get("duration_seconds"),
+        "step_count": manifest.get("step_count", len(steps)),
+        "failed_step": failed_step,
+        "output_path": str(path),
+        "steps": steps,
     }
 
 
