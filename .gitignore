@@ -1,0 +1,21 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Research data and generated artifacts stay local.
+data/raw/*
+data/processed/*
+data/duckdb/*
+data/models/*
+data/reports/*
+
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/duckdb/.gitkeep
+!data/models/.gitkeep
+!data/reports/.gitkeep
