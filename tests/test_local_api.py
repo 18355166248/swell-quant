@@ -5,13 +5,18 @@ from swell_quant.api.local_server import (
     load_data_quality_artifact,
     load_json_artifact,
     load_latest_predictions_artifact,
+    load_stock_features_artifact,
+    load_stock_predictions_artifact,
+    load_stock_prices_artifact,
+    load_stock_route,
+    load_stock_summary_artifact,
     load_text_artifact,
     missing_artifact_payload,
 )
 from swell_quant.data.quality import validate_price_bars, write_quality_report
-from swell_quant.data.sample_data import generate_sample_bars
+from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_csv
 from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
-from swell_quant.research.features import compute_features
+from swell_quant.research.features import compute_features, write_features_csv
 from swell_quant.research.modeling import generate_historical_predictions, generate_predictions, write_predictions_csv
 
 
@@ -60,3 +65,52 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"
     assert backtest["backtest_id"] == "sample-topn-baseline"
     assert backtest["trade_count"] == 14
+
+
+def test_local_api_stock_artifact_loaders(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    predictions = generate_historical_predictions(features)
+    raw_dir = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+    write_price_bars_csv(raw_dir / "sample_prices.csv", bars)
+    write_features_csv(processed_dir / "sample_features.csv", features)
+    write_predictions_csv(processed_dir / "historical_predictions.csv", predictions)
+
+    summary = load_stock_summary_artifact(tmp_path, "000300.SH")
+    prices = load_stock_prices_artifact(raw_dir / "sample_prices.csv", "000300.SH")
+    stock_features = load_stock_features_artifact(processed_dir / "sample_features.csv", "000300.SH")
+    stock_predictions = load_stock_predictions_artifact(
+        processed_dir / "historical_predictions.csv", "000300.SH"
+    )
+
+    assert summary is not None
+    assert summary["price_row_count"] == 20
+    assert summary["prediction_row_count"] == 15
+    assert prices is not None and prices["prices"][0]["date"] == "2024-01-02"
+    assert stock_features is not None and stock_features["features"][0]["return_1d"] is None
+    assert stock_predictions is not None
+    assert stock_predictions["predictions"][0]["rank"] == 1
+    assert load_stock_summary_artifact(tmp_path, "NOPE") is None
+
+
+def test_local_api_stock_route_dispatches(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=8)
+    features = compute_features(bars)
+    raw_dir = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+    write_price_bars_csv(raw_dir / "sample_prices.csv", bars)
+    write_features_csv(processed_dir / "sample_features.csv", features)
+    write_predictions_csv(
+        processed_dir / "historical_predictions.csv", generate_historical_predictions(features)
+    )
+
+    status, payload = load_stock_route("/api/stocks/000300.SH/prices", tmp_path)
+    missing_status, missing_payload = load_stock_route("/api/stocks/NOPE", tmp_path)
+    ignored = load_stock_route("/api/status", tmp_path)
+
+    assert status.value == 200
+    assert payload["count"] == 8
+    assert missing_status.value == 404
+    assert missing_payload["error"] == "symbol_not_found"
+    assert ignored is None

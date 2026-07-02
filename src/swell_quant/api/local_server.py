@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import csv
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -43,6 +44,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 self.data_dir / "reports" / "sample_backtest.json",
                 load_backtest_artifact,
             )
+            return
+        stock_response = load_stock_route(route, self.data_dir)
+        if stock_response is not None:
+            status, payload = stock_response
+            self._send_json(payload, status=status)
             return
         if route == "/api/report":
             self._send_artifact_text(
@@ -167,9 +173,132 @@ def load_backtest_artifact(path: Path) -> dict[str, Any]:
     }
 
 
+def load_stock_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    prefix = "/api/stocks/"
+    if not route.startswith(prefix):
+        return None
+
+    remainder = route[len(prefix) :]
+    parts = [part for part in remainder.split("/") if part]
+    if not parts:
+        return HTTPStatus.NOT_FOUND, {"error": "not_found", "path": route}
+
+    symbol = parts[0]
+    if len(parts) == 1:
+        payload = load_stock_summary_artifact(data_dir, symbol)
+    elif parts == [symbol, "prices"]:
+        payload = load_stock_prices_artifact(data_dir / "raw" / "sample_prices.csv", symbol)
+    elif parts == [symbol, "features"]:
+        payload = load_stock_features_artifact(data_dir / "processed" / "sample_features.csv", symbol)
+    elif parts == [symbol, "predictions"]:
+        payload = load_stock_predictions_artifact(
+            data_dir / "processed" / "historical_predictions.csv", symbol
+        )
+    else:
+        return HTTPStatus.NOT_FOUND, {"error": "not_found", "path": route}
+
+    if payload is None:
+        return HTTPStatus.NOT_FOUND, {"error": "symbol_not_found", "symbol": symbol}
+    return HTTPStatus.OK, payload
+
+
+def load_stock_summary_artifact(data_dir: Path, symbol: str) -> dict[str, Any] | None:
+    prices = load_stock_prices_artifact(data_dir / "raw" / "sample_prices.csv", symbol)
+    if prices is None:
+        return None
+    predictions = load_stock_predictions_artifact(
+        data_dir / "processed" / "historical_predictions.csv", symbol
+    )
+    return {
+        "symbol": symbol,
+        "price_row_count": prices["count"],
+        "prediction_row_count": 0 if predictions is None else predictions["count"],
+        "start_date": prices["prices"][0]["date"] if prices["prices"] else None,
+        "end_date": prices["prices"][-1]["date"] if prices["prices"] else None,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_stock_prices_artifact(path: Path, symbol: str) -> dict[str, Any] | None:
+    rows = [row for row in _read_csv_rows(path) if row["symbol"] == symbol]
+    if not rows:
+        return None
+    return {
+        "symbol": symbol,
+        "count": len(rows),
+        "prices": [
+            {
+                "date": row["date"],
+                "open": float(row["open"]),
+                "high": float(row["high"]),
+                "low": float(row["low"]),
+                "close": float(row["close"]),
+                "volume": int(row["volume"]),
+                "benchmark_close": float(row["benchmark_close"]),
+            }
+            for row in rows
+        ],
+    }
+
+
+def load_stock_features_artifact(path: Path, symbol: str) -> dict[str, Any] | None:
+    rows = [row for row in _read_csv_rows(path) if row["symbol"] == symbol]
+    if not rows:
+        return None
+    return {
+        "symbol": symbol,
+        "count": len(rows),
+        "features": [
+            {
+                "date": row["date"],
+                "close": float(row["close"]),
+                "return_1d": _parse_optional_float(row["return_1d"]),
+                "momentum_5d": _parse_optional_float(row["momentum_5d"]),
+                "ma_5": _parse_optional_float(row["ma_5"]),
+                "volume_change_1d": _parse_optional_float(row["volume_change_1d"]),
+            }
+            for row in rows
+        ],
+    }
+
+
+def load_stock_predictions_artifact(path: Path, symbol: str) -> dict[str, Any] | None:
+    rows = [row for row in _read_csv_rows(path) if row["symbol"] == symbol]
+    if not rows:
+        return None
+    return {
+        "symbol": symbol,
+        "count": len(rows),
+        "predictions": [
+            {
+                "date": row["date"],
+                "model_version": row["model_version"],
+                "score": float(row["score"]),
+                "rank": int(row["rank"]),
+                "return_1d": _parse_optional_float(row["return_1d"]),
+                "momentum_5d": _parse_optional_float(row["momentum_5d"]),
+                "volume_change_1d": _parse_optional_float(row["volume_change_1d"]),
+            }
+            for row in rows
+        ],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
 def missing_artifact_payload(path: Path) -> dict[str, str]:
     return {
         "error": "artifact_missing",
         "path": str(path),
         "hint": "run `python3 scripts/run_pipeline.py` first",
     }
+
+
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    with path.open("r", newline="", encoding="utf-8") as file:
+        return list(csv.DictReader(file))
+
+
+def _parse_optional_float(value: str) -> float | None:
+    return None if value == "" else float(value)

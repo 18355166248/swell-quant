@@ -44,6 +44,10 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/data-quality`
 - `GET /api/predictions/latest`
 - `GET /api/backtest/latest`
+- `GET /api/stocks/{symbol}`
+- `GET /api/stocks/{symbol}/prices`
+- `GET /api/stocks/{symbol}/features`
+- `GET /api/stocks/{symbol}/predictions`
 - `GET /api/report`
 
 `scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
