@@ -1,7 +1,19 @@
-.PHONY: pipeline storage acceptance smoke lint format-check frontend-build ci-local
+.PHONY: help pipeline storage acceptance smoke lint format-check test frontend-build ci-local
 
 PYTHON ?= python3
 NPM ?= npm
+
+help:
+	@printf "Swell Quant local commands:\n"
+	@printf "  make pipeline        Run the offline research pipeline\n"
+	@printf "  make storage         Check DuckDB mirror tables, row counts, and schemas\n"
+	@printf "  make acceptance      Check research acceptance gates\n"
+	@printf "  make smoke           Run pipeline plus storage and acceptance checks\n"
+	@printf "  make lint            Run Python lint with ruff\n"
+	@printf "  make format-check    Check Python formatting with ruff\n"
+	@printf "  make test            Run Python tests\n"
+	@printf "  make frontend-build  Run TypeScript and Vite build\n"
+	@printf "  make ci-local        Run the full local quality gate\n"
 
 pipeline:
 	$(PYTHON) scripts/run_pipeline.py
