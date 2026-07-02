@@ -23,6 +23,7 @@ import type {
   StockSummary,
   TaskDetail,
   TaskList,
+  TrainingSamplesSummary,
 } from "../types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -88,6 +89,7 @@ export const api = {
   getModels: () => requestJson<ModelList>("/api/models"),
   getModel: (modelVersion: string) => requestJson<LatestModel>(`/api/models/${modelVersion}`),
   getLatestModel: () => requestJson<LatestModel>("/api/models/latest"),
+  getTrainingSamples: () => requestJson<TrainingSamplesSummary>("/api/training-samples"),
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
   getPredictions: (query: PredictionQuery = {}) => {
     const params = new URLSearchParams();

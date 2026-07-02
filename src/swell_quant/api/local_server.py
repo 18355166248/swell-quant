@@ -15,7 +15,11 @@ from swell_quant.data.quality import read_quality_report
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.labels import read_labels_csv
-from swell_quant.research.modeling import read_predictions_csv
+from swell_quant.research.modeling import (
+    BASELINE_FEATURE_NAMES,
+    read_predictions_csv,
+    read_training_samples_csv,
+)
 from swell_quant.research.status import build_artifact_status
 from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror
 
@@ -110,6 +114,12 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             self._send_loader_json(
                 self.data_dir / "processed" / "sample_labels.csv",
                 load_labels_artifact,
+            )
+            return
+        if route == "/api/training-samples":
+            self._send_loader_json(
+                self.data_dir / "processed" / "training_samples.csv",
+                load_training_samples_artifact,
             )
             return
         if route == "/api/predictions/latest":
@@ -563,6 +573,48 @@ def load_labels_artifact(path: Path) -> dict[str, Any]:
             {
                 "symbol": row.symbol,
                 "date": row.trade_date.isoformat(),
+                "future_5d_return": row.future_5d_return,
+                "benchmark_5d_return": row.benchmark_5d_return,
+                "outperform_benchmark_5d": row.outperform_benchmark_5d,
+            }
+            for row in latest_rows
+        ],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_training_samples_artifact(path: Path) -> dict[str, Any]:
+    rows = read_training_samples_csv(path)
+    split_counts = {
+        split: sum(1 for row in rows if row.split == split)
+        for split in sorted({row.split for row in rows})
+    }
+    positive_count = sum(1 for row in rows if row.outperform_benchmark_5d == 1)
+    missing_feature_counts = {
+        feature_name: sum(1 for row in rows if getattr(row, feature_name) is None)
+        for feature_name in BASELINE_FEATURE_NAMES
+    }
+    latest_rows = sorted(rows, key=lambda row: (row.trade_date, row.symbol), reverse=True)[:10]
+    return {
+        "row_count": len(rows),
+        "symbol_count": len({row.symbol for row in rows}),
+        "start_date": min((row.trade_date for row in rows), default=None).isoformat()
+        if rows
+        else None,
+        "end_date": max((row.trade_date for row in rows), default=None).isoformat()
+        if rows
+        else None,
+        "feature_names": BASELINE_FEATURE_NAMES,
+        "split_counts": split_counts,
+        "positive_count": positive_count,
+        "negative_count": len(rows) - positive_count,
+        "positive_rate": positive_count / len(rows) if rows else None,
+        "missing_feature_counts": missing_feature_counts,
+        "latest_samples": [
+            {
+                "symbol": row.symbol,
+                "date": row.trade_date.isoformat(),
+                "split": row.split,
                 "future_5d_return": row.future_5d_return,
                 "benchmark_5d_return": row.benchmark_5d_return,
                 "outperform_benchmark_5d": row.outperform_benchmark_5d,

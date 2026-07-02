@@ -426,6 +426,30 @@ export interface ModelList {
   disclaimer: string;
 }
 
+export interface TrainingSamplePreview {
+  symbol: string;
+  date: string;
+  split: string;
+  future_5d_return: number;
+  benchmark_5d_return: number;
+  outperform_benchmark_5d: number;
+}
+
+export interface TrainingSamplesSummary {
+  row_count: number;
+  symbol_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  feature_names: string[];
+  split_counts: Record<string, number>;
+  positive_count: number;
+  negative_count: number;
+  positive_rate: number | null;
+  missing_feature_counts: Record<string, number>;
+  latest_samples: TrainingSamplePreview[];
+  disclaimer: string;
+}
+
 export interface StockSummary {
   symbol: string;
   price_row_count: number;

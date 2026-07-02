@@ -65,6 +65,7 @@ import type {
   StockSummary,
   TaskDetail,
   TaskSummary,
+  TrainingSamplesSummary,
 } from "./types/api";
 
 const { Header, Sider, Content } = Layout;
@@ -1163,11 +1164,13 @@ function DataPage({
 function ModelsPage({
   models,
   model,
+  trainingSamples,
   selectedModelVersion,
   onSelectModel,
 }: {
   models: ModelSummary[];
   model?: LatestModel;
+  trainingSamples?: TrainingSamplesSummary;
   selectedModelVersion: string;
   onSelectModel: (modelVersion: string) => void;
 }) {
@@ -1178,6 +1181,16 @@ function ModelsPage({
   const metricRows = Object.entries(model?.metrics ?? {}).map(([name, value]) => ({
     name,
     value: typeof value === "number" ? formatNumber(value) : (value ?? "-"),
+  }));
+  const splitRows = Object.entries(trainingSamples?.split_counts ?? {}).map(([split, count]) => ({
+    split,
+    count,
+    share: trainingSamples?.row_count ? count / trainingSamples.row_count : 0,
+  }));
+  const missingRows = Object.entries(trainingSamples?.missing_feature_counts ?? {}).map(([featureName, count]) => ({
+    featureName,
+    count,
+    share: trainingSamples?.row_count ? count / trainingSamples.row_count : 0,
   }));
   return (
     <>
@@ -1282,6 +1295,74 @@ function ModelsPage({
         ) : (
           <Empty description="暂无评估指标" />
         )}
+      </Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={10}>
+          <Card title="训练样本">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="样本数">{trainingSamples?.row_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="标的数">{trainingSamples?.symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="日期范围">
+                {trainingSamples?.start_date ?? "-"} 至 {trainingSamples?.end_date ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="跑赢占比">
+                {formatPercent(trainingSamples?.positive_rate ?? undefined)}
+              </Descriptions.Item>
+              <Descriptions.Item label="声明">
+                {trainingSamples?.disclaimer ?? "仅用于研究，不构成投资建议"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+        <Col xs={24} xl={14}>
+          <Card title="样本切分">
+            <Table
+              rowKey="split"
+              size="middle"
+              dataSource={splitRows}
+              pagination={false}
+              columns={[
+                { title: "Split", dataIndex: "split" },
+                { title: "样本数", dataIndex: "count", width: 120, align: "right" },
+                { title: "占比", dataIndex: "share", width: 120, align: "right", render: formatPercent },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+      <Card title="特征缺失">
+        <Table
+          rowKey="featureName"
+          size="middle"
+          dataSource={missingRows}
+          pagination={false}
+          columns={[
+            { title: "特征名", dataIndex: "featureName" },
+            { title: "缺失数", dataIndex: "count", width: 120, align: "right" },
+            { title: "缺失率", dataIndex: "share", width: 120, align: "right", render: formatPercent },
+          ]}
+        />
+      </Card>
+      <Card title="最近训练样本">
+        <Table
+          rowKey={(row: TrainingSamplesSummary["latest_samples"][number]) => `${row.date}-${row.symbol}`}
+          size="middle"
+          dataSource={trainingSamples?.latest_samples ?? []}
+          pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          columns={[
+            { title: "日期", dataIndex: "date", width: 120 },
+            { title: "代码", dataIndex: "symbol", width: 120 },
+            { title: "Split", dataIndex: "split", width: 110 },
+            { title: "未来收益", dataIndex: "future_5d_return", align: "right", render: formatPercent },
+            { title: "基准收益", dataIndex: "benchmark_5d_return", align: "right", render: formatPercent },
+            {
+              title: "是否跑赢",
+              dataIndex: "outperform_benchmark_5d",
+              width: 110,
+              render: (value: number) => (value === 1 ? "是" : "否"),
+            },
+          ]}
+        />
       </Card>
       <Alert
         className="page-alert"
@@ -1957,6 +2038,7 @@ function App() {
   const labelsQuery = useQuery({ queryKey: ["labels"], queryFn: api.getLabels });
   const latestModelQuery = useQuery({ queryKey: ["model", "latest"], queryFn: api.getLatestModel });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
+  const trainingSamplesQuery = useQuery({ queryKey: ["training-samples"], queryFn: api.getTrainingSamples });
   const modelDetailQuery = useQuery({
     queryKey: ["models", selectedModelVersion],
     queryFn: () => api.getModel(selectedModelVersion),
@@ -2077,6 +2159,7 @@ function App() {
     duckdbStorageQuery.isLoading ||
     featuresQuery.isLoading ||
     labelsQuery.isLoading ||
+    trainingSamplesQuery.isLoading ||
     predictionsQuery.isLoading ||
     latestModelQuery.isLoading ||
     modelsQuery.isLoading ||
@@ -2107,6 +2190,7 @@ function App() {
     duckdbStorageQuery.isError ||
     featuresQuery.isError ||
     labelsQuery.isError ||
+    trainingSamplesQuery.isError ||
     predictionsQuery.isError ||
     latestModelQuery.isError ||
     modelsQuery.isError ||
@@ -2166,6 +2250,7 @@ function App() {
       <ModelsPage
         models={modelsQuery.data?.models ?? []}
         model={modelDetailQuery.data ?? latestModelQuery.data}
+        trainingSamples={trainingSamplesQuery.data}
         selectedModelVersion={selectedModelVersion}
         onSelectModel={setSelectedModelVersion}
       />

@@ -34,6 +34,7 @@ from swell_quant.api.local_server import (
     load_task_route,
     load_tasks_artifact,
     load_text_artifact,
+    load_training_samples_artifact,
     missing_artifact_payload,
     normalize_equity_curve,
     pipeline_status_to_http_status,
@@ -235,6 +236,10 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     features_payload = load_features_artifact(features_path)
     labels_path = write_labels_csv(tmp_path / "labels.csv", labels)
     labels_payload = load_labels_artifact(labels_path)
+    training_samples_path = write_training_samples_csv(
+        tmp_path / "training_samples.csv", build_training_samples(features, labels)
+    )
+    training_samples_payload = load_training_samples_artifact(training_samples_path)
     predictions = load_latest_predictions_artifact(predictions_path)
     backtest = load_backtest_artifact(backtest_path)
 
@@ -276,6 +281,19 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert labels_payload["label_window"] == "T+1 open to T+5 close"
     assert labels_payload["entry_price"] == "next_day_open"
     assert labels_payload["exit_price"] == "horizon_day_close"
+    assert training_samples_payload["row_count"] == 45
+    assert training_samples_payload["split_counts"] == {
+        "gap": 30,
+        "test": 3,
+        "train": 9,
+        "validation": 3,
+    }
+    assert (
+        training_samples_payload["positive_count"] + training_samples_payload["negative_count"]
+        == 45
+    )
+    assert training_samples_payload["missing_feature_counts"]["return_1d"] == 3
+    assert training_samples_payload["latest_samples"][0]["split"] == "test"
     assert predictions["count"] == 3
     assert predictions["predictions"][0]["rank"] == 1
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"

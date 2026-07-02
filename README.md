@@ -62,6 +62,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/data-quality`
 - `GET /api/features`
 - `GET /api/labels`
+- `GET /api/training-samples`
 - `GET /api/models`
 - `GET /api/models/latest`
 - `GET /api/models/{model_version}`
