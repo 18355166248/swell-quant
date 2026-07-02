@@ -231,6 +231,12 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert quality["passed"] is True
     assert quality["row_count"] == 60
     assert data_status["market"] == "A_SHARE_DAILY"
+    assert data_status["target_universe"] == "沪深 300 + 中证 500"
+    assert data_status["target_universe_size"] == 800
+    assert data_status["benchmark"] == "CSI800"
+    assert data_status["benchmark_same_source"] is True
+    assert "同源" in data_status["benchmark_note"]
+    assert data_status["update_mode"] == "manual_trigger"
     assert data_status["quality_passed"] is True
     assert features_payload["row_count"] == 60
     assert features_payload["symbol_count"] == 3

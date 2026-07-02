@@ -247,6 +247,16 @@ export interface DataQuality {
 export interface DataStatus {
   market: string;
   universe: string;
+  universe_name: string;
+  target_universe: string;
+  target_universe_size: number;
+  benchmark: string;
+  benchmark_name: string;
+  benchmark_fallback: string;
+  benchmark_same_source: boolean;
+  benchmark_note: string;
+  adjustment: string;
+  update_mode: string;
   row_count: number;
   symbol_count: number;
   start_date: string;

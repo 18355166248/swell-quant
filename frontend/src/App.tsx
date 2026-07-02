@@ -819,6 +819,16 @@ function DataPage({
             <Descriptions column={1} size="small">
               <Descriptions.Item label="市场">{dataStatus?.market ?? "A_SHARE_DAILY"}</Descriptions.Item>
               <Descriptions.Item label="股票池">{dataStatus?.universe ?? "sample_a_share"}</Descriptions.Item>
+              <Descriptions.Item label="股票池名称">{dataStatus?.universe_name ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="v1 目标股票池">
+                {dataStatus?.target_universe ?? "-"}（约 {dataStatus?.target_universe_size ?? "-"} 只）
+              </Descriptions.Item>
+              <Descriptions.Item label="基准">
+                {dataStatus?.benchmark_name ?? "-"}（{dataStatus?.benchmark ?? "-"}）
+              </Descriptions.Item>
+              <Descriptions.Item label="基准兜底">{dataStatus?.benchmark_fallback ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="复权口径">{dataStatus?.adjustment ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="更新方式">{dataStatus?.update_mode ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="开始日期">
                 {dataStatus?.start_date ?? quality?.start_date ?? "-"}
               </Descriptions.Item>
@@ -829,6 +839,15 @@ function DataPage({
                 {dataStatus?.disclaimer ?? "仅用于研究，不构成投资建议"}
               </Descriptions.Item>
             </Descriptions>
+            {dataStatus?.benchmark_same_source ? (
+              <Alert
+                className="page-alert"
+                type="warning"
+                showIcon
+                message="基准同源说明"
+                description={dataStatus.benchmark_note}
+              />
+            ) : null}
           </Card>
         </Col>
         <Col xs={24} xl={16}>
