@@ -14,6 +14,10 @@ def test_top_n_backtest_uses_next_day_open_execution() -> None:
 
     assert result.backtest_id == "sample-topn-baseline"
     assert result.top_n == 2
+    assert result.fee_rate == 0.001
+    assert result.execution_price == "next_day_open"
+    assert result.holding_period == "next_day_open_to_close"
+    assert result.rebalance_rule == "daily_top_n_by_signal_date"
     assert result.trade_count == 2
     assert result.start_date == "2024-01-08"
     assert result.end_date == "2024-01-09"

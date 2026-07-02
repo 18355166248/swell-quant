@@ -15,6 +15,10 @@ class BacktestResult:
     backtest_id: str
     model_version: str
     top_n: int
+    fee_rate: float
+    execution_price: str
+    holding_period: str
+    rebalance_rule: str
     trade_count: int
     start_date: str
     end_date: str
@@ -95,6 +99,10 @@ def run_top_n_backtest(
         backtest_id="sample-topn-baseline",
         model_version=predictions[0].model_version if predictions else "unknown",
         top_n=top_n,
+        fee_rate=fee_rate,
+        execution_price="next_day_open",
+        holding_period="next_day_open_to_close",
+        rebalance_rule="daily_top_n_by_signal_date",
         trade_count=len(curve),
         start_date=str(curve[0]["trade_date"]),
         end_date=str(curve[-1]["trade_date"]),
@@ -118,6 +126,10 @@ def read_backtest_result(path: Path) -> BacktestResult:
         backtest_id=payload["backtest_id"],
         model_version=payload["model_version"],
         top_n=int(payload["top_n"]),
+        fee_rate=float(payload.get("fee_rate", 0.001)),
+        execution_price=payload.get("execution_price", "next_day_open"),
+        holding_period=payload.get("holding_period", "next_day_open_to_close"),
+        rebalance_rule=payload.get("rebalance_rule", "daily_top_n_by_signal_date"),
         trade_count=int(payload["trade_count"]),
         start_date=payload["start_date"],
         end_date=payload["end_date"],

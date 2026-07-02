@@ -68,7 +68,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 
 `GET /api/predictions` 支持 `date`、`model_version` 和 `top_n` 查询参数，用于复现指定交易日和模型版本下的 Top N 预测排名；响应中会返回 `available_dates` 和 `model_versions` 供页面筛选。
 
-`GET /api/backtests/{backtest_id}` 会返回标准化 `equity_curve`，包含信号日、成交日、组合收益、基准收益、组合净值、基准净值和超额净值，便于核对回测口径。
+`GET /api/backtests/{backtest_id}` 会返回手续费率、成交价口径、持有期、调仓规则和标准化 `equity_curve`；曲线包含信号日、成交日、组合收益、基准收益、组合净值、基准净值和超额净值，便于核对回测口径。
 
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
 

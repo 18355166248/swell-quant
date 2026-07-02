@@ -337,9 +337,12 @@ def test_local_api_backtest_route_dispatches(tmp_path: Path) -> None:
 
     assert list_payload["count"] == 1
     assert "equity_curve" not in list_payload["backtests"][0]
+    assert list_payload["backtests"][0]["execution_price"] == "next_day_open"
     assert list_status.value == 200
     assert route_list_payload["backtests"][0]["backtest_id"] == "sample-topn-baseline"
     assert detail_status.value == 200
+    assert detail_payload["fee_rate"] == 0.001
+    assert detail_payload["holding_period"] == "next_day_open_to_close"
     assert detail_payload["equity_curve"][0]["portfolio_value"] > 1.0
     assert latest_status.value == 200
     assert latest_payload["backtest_id"] == "sample-topn-baseline"

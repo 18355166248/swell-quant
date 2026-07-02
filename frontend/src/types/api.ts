@@ -132,6 +132,10 @@ export interface LatestBacktest {
   backtest_id: string;
   model_version: string;
   top_n: number;
+  fee_rate: number;
+  execution_price: string;
+  holding_period: string;
+  rebalance_rule: string;
   trade_count: number;
   start_date: string;
   end_date: string;
@@ -146,6 +150,10 @@ export interface BacktestSummary {
   backtest_id: string;
   model_version: string;
   top_n: number;
+  fee_rate: number;
+  execution_price: string;
+  holding_period: string;
+  rebalance_rule: string;
   trade_count: number;
   start_date: string;
   end_date: string;

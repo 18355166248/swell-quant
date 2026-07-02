@@ -914,6 +914,10 @@ function BacktestsPage({
               <Descriptions.Item label="回测 ID">{backtest?.backtest_id ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="模型版本">{backtest?.model_version ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="Top N">{backtest?.top_n ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="手续费率">{formatPercent(backtest?.fee_rate)}</Descriptions.Item>
+              <Descriptions.Item label="成交价">{backtest?.execution_price ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="持有期">{backtest?.holding_period ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="调仓规则">{backtest?.rebalance_rule ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="开始日期">{backtest?.start_date ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="结束日期">{backtest?.end_date ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="声明">{backtest?.disclaimer ?? "仅用于研究，不构成投资建议"}</Descriptions.Item>
