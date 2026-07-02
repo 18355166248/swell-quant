@@ -48,6 +48,12 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         if route == "/api/status":
             self._send_artifact_json(self.data_dir / "reports" / "research_status.json")
             return
+        if route == "/api/acceptance":
+            self._send_loader_json(
+                self.data_dir / "reports" / "research_status.json",
+                load_acceptance_artifact,
+            )
+            return
         if route == "/api/pipeline":
             self._send_artifact_json(self.data_dir / "reports" / "pipeline_run.json")
             return
@@ -271,6 +277,30 @@ def load_json_artifact(path: Path) -> dict[str, Any]:
 
 def load_text_artifact(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def load_acceptance_artifact(path: Path) -> dict[str, Any]:
+    status = load_json_artifact(path)
+    acceptance = status.get("acceptance")
+    if not isinstance(acceptance, dict):
+        return {
+            "status": "missing",
+            "passed": False,
+            "check_count": 0,
+            "failed_count": 1,
+            "checks": [
+                {
+                    "key": "acceptance_missing",
+                    "name": "验收门禁缺失",
+                    "status": "failed",
+                    "message": "acceptance section missing from research_status.json",
+                }
+            ],
+            "disclaimer": "仅用于研究，不构成投资建议",
+        }
+    payload = dict(acceptance)
+    payload["disclaimer"] = status.get("disclaimer", "仅用于研究，不构成投资建议")
+    return payload
 
 
 def load_settings_artifact(

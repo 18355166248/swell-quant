@@ -1,4 +1,5 @@
 import type {
+  AcceptanceStatus,
   BacktestList,
   DataQuality,
   DataStatus,
@@ -55,6 +56,7 @@ async function requestText(path: string): Promise<string> {
 
 export const api = {
   getStatus: () => requestJson<ResearchStatus>("/api/status"),
+  getAcceptance: () => requestJson<AcceptanceStatus>("/api/acceptance"),
   getSettings: () => requestJson<LocalSettings>("/api/settings"),
   getPipeline: () => requestJson<PipelineRun>("/api/pipeline"),
   getTasks: () => requestJson<TaskList>("/api/tasks"),

@@ -2,6 +2,7 @@ import threading
 from pathlib import Path
 
 from swell_quant.api.local_server import (
+    load_acceptance_artifact,
     load_backtest_artifact,
     load_backtest_route,
     load_backtests_artifact,
@@ -61,6 +62,39 @@ def test_local_api_artifact_loaders_read_status_pipeline_and_report(tmp_path: Pa
     assert load_json_artifact(status_path)["pipeline"]["status"] == "success"
     assert load_json_artifact(pipeline_path)["step_count"] == 8
     assert "不构成投资建议" in load_text_artifact(report_path)
+
+
+def test_local_api_acceptance_artifact_extracts_gate_summary(tmp_path: Path) -> None:
+    status_path = tmp_path / "research_status.json"
+    status_path.write_text(
+        """
+        {
+          "disclaimer": "仅用于研究，不构成投资建议",
+          "acceptance": {
+            "status": "passed",
+            "passed": true,
+            "check_count": 1,
+            "failed_count": 0,
+            "checks": [
+              {"key": "pipeline_success", "name": "Pipeline 执行成功", "status": "passed", "message": "status=success"}
+            ]
+          }
+        }
+        """,
+        encoding="utf-8",
+    )
+    legacy_status_path = tmp_path / "legacy_status.json"
+    legacy_status_path.write_text('{"pipeline": {"status": "success"}}', encoding="utf-8")
+
+    payload = load_acceptance_artifact(status_path)
+    legacy_payload = load_acceptance_artifact(legacy_status_path)
+
+    assert payload["status"] == "passed"
+    assert payload["checks"][0]["key"] == "pipeline_success"
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+    assert legacy_payload["status"] == "missing"
+    assert legacy_payload["passed"] is False
+    assert legacy_payload["checks"][0]["key"] == "acceptance_missing"
 
 
 def test_missing_artifact_payload_points_to_pipeline(tmp_path: Path) -> None:

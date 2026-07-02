@@ -51,11 +51,12 @@ export interface AcceptanceCheck {
 }
 
 export interface AcceptanceStatus {
-  status: "passed" | "failed";
+  status: "passed" | "failed" | "missing";
   passed: boolean;
   check_count: number;
   failed_count: number;
   checks: AcceptanceCheck[];
+  disclaimer?: string;
 }
 
 export interface ResearchStatus {

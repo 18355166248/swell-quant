@@ -43,6 +43,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/health`
 - `GET /api/settings`
 - `GET /api/status`
+- `GET /api/acceptance`
 - `GET /api/pipeline`
 - `GET /api/tasks`
 - `GET /api/tasks/pipeline-latest`
@@ -76,6 +77,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 `GET /api/backtests/{backtest_id}` 会返回手续费率、成交价口径、持有期、调仓规则和标准化 `equity_curve`；曲线包含信号日、成交日、组合收益、基准收益、组合净值、基准净值和超额净值，便于核对回测口径。
 
 `GET /api/status` 会返回当前离线研究链路的验收门禁，覆盖 pipeline、数据质量、DuckDB 镜像、预测结果和回测交易检查。
+
+`GET /api/acceptance` 只返回验收门禁摘要，适合前端首屏、脚本或外部集成直接判断当前研究链路是否可用。
 
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
 

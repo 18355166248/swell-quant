@@ -38,6 +38,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { api, type PredictionQuery } from "./api/client";
 import type {
+  AcceptanceStatus,
   BacktestPoint,
   BacktestSummary,
   DataQuality,
@@ -320,6 +321,7 @@ function PageTitle({
 
 function DashboardPage({
   status,
+  acceptance,
   dataStatus,
   model,
   models,
@@ -330,6 +332,7 @@ function DashboardPage({
   report,
 }: {
   status?: ResearchStatus;
+  acceptance?: AcceptanceStatus;
   dataStatus?: DataStatus;
   model?: LatestModel;
   models: ModelSummary[];
@@ -339,7 +342,8 @@ function DashboardPage({
   pipeline?: PipelineRun;
   report?: string;
 }) {
-  const acceptanceChecks = status?.acceptance?.checks ?? [];
+  const acceptanceStatus = acceptance ?? status?.acceptance;
+  const acceptanceChecks = acceptanceStatus?.checks ?? [];
   return (
     <>
       <PageTitle
@@ -387,8 +391,8 @@ function DashboardPage({
       <Card
         title="验收门禁"
         extra={
-          <Tag color={status?.acceptance?.passed ? "green" : "red"}>
-            {status?.acceptance?.status ?? "unknown"}
+          <Tag color={acceptanceStatus?.passed ? "green" : "red"}>
+            {acceptanceStatus?.status ?? "unknown"}
           </Tag>
         }
       >
@@ -1493,6 +1497,7 @@ function App() {
   });
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
+  const acceptanceQuery = useQuery({ queryKey: ["acceptance"], queryFn: api.getAcceptance });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const pipelineQuery = useQuery({ queryKey: ["pipeline"], queryFn: api.getPipeline });
   const tasksQuery = useQuery({ queryKey: ["tasks"], queryFn: api.getTasks });
@@ -1618,6 +1623,7 @@ function App() {
   const report = reportQuery.data;
   const isLoading =
     statusQuery.isLoading ||
+    acceptanceQuery.isLoading ||
     qualityQuery.isLoading ||
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
@@ -1646,6 +1652,7 @@ function App() {
 
   const hasError =
     statusQuery.isError ||
+    acceptanceQuery.isError ||
     qualityQuery.isError ||
     tasksQuery.isError ||
     taskDetailQuery.isError ||
@@ -1671,6 +1678,7 @@ function App() {
     dashboard: (
       <DashboardPage
         status={status}
+        acceptance={acceptanceQuery.data}
         dataStatus={dataStatusQuery.data}
         model={latestModelQuery.data}
         models={modelsQuery.data?.models ?? []}
