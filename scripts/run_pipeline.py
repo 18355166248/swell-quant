@@ -33,6 +33,7 @@ from swell_quant.research.modeling import (
     write_predictions_csv,
 )
 from swell_quant.research.reporting import build_research_summary, write_research_summary
+from swell_quant.research.status import build_research_status, read_json, write_research_status
 from swell_quant.storage.duckdb_backup import backup_duckdb
 
 
@@ -136,6 +137,16 @@ def run_report_pipeline(settings: Settings) -> str:
     return f"wrote research summary to {summary_path}"
 
 
+def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
+    quality = read_quality_report(settings.data_dir / "processed" / "data_quality.json")
+    metadata = read_model_metadata(settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json")
+    predictions = read_predictions_csv(settings.data_dir / "processed" / "latest_predictions.csv")
+    backtest = read_backtest_result(settings.data_dir / "reports" / "sample_backtest.json")
+    manifest = read_json(manifest_path)
+    status = build_research_status(quality, metadata, predictions, backtest, manifest)
+    return write_research_status(settings.data_dir / "reports" / "research_status.json", status)
+
+
 def build_steps(settings: Settings) -> list[PipelineStep]:
     return [
         PipelineStep("prepare_directories", lambda: prepare_directories(settings)),
@@ -158,10 +169,15 @@ def main() -> int:
     results = run_steps(build_steps(settings))
     manifest_path = settings.data_dir / "reports" / "pipeline_run.json"
     write_run_manifest(manifest_path, results)
+    status_path: Path | None = None
+    if not any(result.status == StepStatus.FAILED for result in results):
+        status_path = write_status_snapshot(settings, manifest_path)
 
     for result in results:
         print(f"{result.status.value:7s} {result.name}: {result.message}")
     print(f"manifest {manifest_path}")
+    if status_path is not None:
+        print(f"status   {status_path}")
 
     if any(result.status == StepStatus.FAILED for result in results):
         return 1
