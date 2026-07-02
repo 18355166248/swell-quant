@@ -40,7 +40,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 - DuckDB 存储：CSV 镜像到本地单文件 DuckDB，检查表行数和 schema。
 - 产物完整性：模型、预测、回测、报告、pipeline 运行记录和 DuckDB 文件都必须存在。
 - API：本地只读 API 路由、pipeline 触发锁、列表和详情接口。
-- 前端：构建检查覆盖页面类型、API 类型和生产 bundle。
+- 前端：构建检查覆盖页面类型、API 类型、验收页产物状态和生产 bundle。
 
 ## 当前边界
 

@@ -39,6 +39,7 @@ import ReactECharts from "echarts-for-react";
 import { api, type PredictionQuery } from "./api/client";
 import type {
   AcceptanceStatus,
+  ArtifactStatus,
   BacktestPoint,
   BacktestSummary,
   DataQuality,
@@ -513,16 +514,19 @@ function DashboardPage({
 
 function AcceptancePage({
   acceptance,
+  artifactStatus,
   pipeline,
   isRunning,
   onRunPipeline,
 }: {
   acceptance?: AcceptanceStatus;
+  artifactStatus?: ArtifactStatus;
   pipeline?: PipelineRun;
   isRunning: boolean;
   onRunPipeline: () => void;
 }) {
   const checks = acceptance?.checks ?? [];
+  const artifacts = artifactStatus?.artifacts ?? [];
   const passedCount = checks.filter((check) => check.status === "passed").length;
   return (
     <>
@@ -587,6 +591,37 @@ function AcceptancePage({
           />
         ) : (
           <Empty description="暂无验收结果" />
+        )}
+      </Card>
+      <Card
+        title="关键产物"
+        extra={
+          <Tag color={artifactStatus?.status === "complete" ? "green" : "red"}>
+            {artifactStatus?.status ?? "unknown"}
+          </Tag>
+        }
+      >
+        {artifacts.length > 0 ? (
+          <Table<ArtifactStatus["artifacts"][number]>
+            rowKey="name"
+            size="middle"
+            pagination={false}
+            dataSource={artifacts}
+            columns={[
+              { title: "产物", dataIndex: "name", width: 180 },
+              { title: "路径", dataIndex: "path" },
+              {
+                title: "状态",
+                dataIndex: "exists",
+                width: 100,
+                render: (exists: boolean) => (
+                  <Tag color={exists ? "green" : "red"}>{exists ? "存在" : "缺失"}</Tag>
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无产物状态" />
         )}
       </Card>
       <Alert
@@ -1782,6 +1817,7 @@ function App() {
     acceptance: (
       <AcceptancePage
         acceptance={acceptanceQuery.data}
+        artifactStatus={status?.artifact_status}
         pipeline={pipeline}
         isRunning={runPipelineMutation.isPending}
         onRunPipeline={() => runPipelineMutation.mutate()}
