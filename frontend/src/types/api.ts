@@ -198,6 +198,27 @@ export interface DataStatus {
   disclaimer: string;
 }
 
+export interface FeatureSample {
+  symbol: string;
+  date: string;
+  close: number;
+  return_1d: number | null;
+  momentum_5d: number | null;
+  ma_5: number | null;
+  volume_change_1d: number | null;
+}
+
+export interface FeatureSummary {
+  row_count: number;
+  symbol_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  feature_names: string[];
+  non_null_counts: Record<string, number>;
+  latest_samples: FeatureSample[];
+  disclaimer: string;
+}
+
 export interface LatestModel {
   model_version: string;
   model_type: string;

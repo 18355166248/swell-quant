@@ -43,6 +43,7 @@ import type {
   DataQuality,
   DataQualityIssue,
   DataStatus,
+  FeatureSummary,
   LatestBacktest,
   LatestModel,
   LatestPredictions,
@@ -539,11 +540,18 @@ function TasksPage({
 function DataPage({
   dataStatus,
   quality,
+  features,
 }: {
   dataStatus?: DataStatus;
   quality?: DataQuality;
+  features?: FeatureSummary;
 }) {
   const issues = quality?.issues ?? [];
+  const featureRows = features?.feature_names.map((featureName) => ({
+    featureName,
+    nonNullCount: features.non_null_counts[featureName] ?? 0,
+    coverage: features.row_count > 0 ? (features.non_null_counts[featureName] ?? 0) / features.row_count : 0,
+  })) ?? [];
   return (
     <>
       <PageTitle
@@ -613,6 +621,60 @@ function DataPage({
           </Card>
         </Col>
       </Row>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={8}>
+          <Card title="因子覆盖">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="行数">{features?.row_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="标的数量">{features?.symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="日期范围">
+                {features?.start_date ?? "-"} 至 {features?.end_date ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="声明">
+                {features?.disclaimer ?? "仅用于研究，不构成投资建议"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+        <Col xs={24} xl={16}>
+          <Card title="特征非空率">
+            <Table
+              rowKey="featureName"
+              size="middle"
+              dataSource={featureRows}
+              pagination={false}
+              columns={[
+                { title: "特征名", dataIndex: "featureName" },
+                { title: "非空行数", dataIndex: "nonNullCount", width: 120, align: "right" },
+                {
+                  title: "覆盖率",
+                  dataIndex: "coverage",
+                  width: 120,
+                  align: "right",
+                  render: formatPercent,
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+      <Card title="最近因子样本">
+        <Table
+          rowKey={(row: FeatureSummary["latest_samples"][number]) => `${row.date}-${row.symbol}`}
+          size="middle"
+          dataSource={features?.latest_samples ?? []}
+          pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          columns={[
+            { title: "日期", dataIndex: "date", width: 120 },
+            { title: "代码", dataIndex: "symbol", width: 120 },
+            { title: "收盘价", dataIndex: "close", align: "right", render: (value: number) => value.toFixed(4) },
+            { title: "1 日收益", dataIndex: "return_1d", align: "right", render: formatNumber },
+            { title: "5 日动量", dataIndex: "momentum_5d", align: "right", render: formatNumber },
+            { title: "MA5", dataIndex: "ma_5", align: "right", render: formatNumber },
+            { title: "成交量变化", dataIndex: "volume_change_1d", align: "right", render: formatNumber },
+          ]}
+        />
+      </Card>
       <Alert
         className="page-alert"
         type="info"
@@ -1270,6 +1332,7 @@ function App() {
   });
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
+  const featuresQuery = useQuery({ queryKey: ["features"], queryFn: api.getFeatures });
   const latestModelQuery = useQuery({ queryKey: ["model", "latest"], queryFn: api.getLatestModel });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
   const modelDetailQuery = useQuery({
@@ -1387,6 +1450,7 @@ function App() {
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
     dataStatusQuery.isLoading ||
+    featuresQuery.isLoading ||
     predictionsQuery.isLoading ||
     latestModelQuery.isLoading ||
     modelsQuery.isLoading ||
@@ -1412,6 +1476,7 @@ function App() {
     tasksQuery.isError ||
     taskDetailQuery.isError ||
     dataStatusQuery.isError ||
+    featuresQuery.isError ||
     predictionsQuery.isError ||
     latestModelQuery.isError ||
     modelsQuery.isError ||
@@ -1440,7 +1505,13 @@ function App() {
         report={report}
       />
     ),
-    data: <DataPage dataStatus={dataStatusQuery.data} quality={qualityQuery.data} />,
+    data: (
+      <DataPage
+        dataStatus={dataStatusQuery.data}
+        quality={qualityQuery.data}
+        features={featuresQuery.data}
+      />
+    ),
     tasks: (
       <TasksPage
         tasks={tasksQuery.data?.tasks ?? []}

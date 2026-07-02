@@ -7,6 +7,7 @@ from swell_quant.api.local_server import (
     load_backtests_artifact,
     load_data_quality_artifact,
     load_data_status_artifact,
+    load_features_artifact,
     load_json_artifact,
     load_latest_model_artifact,
     load_latest_predictions_artifact,
@@ -153,6 +154,8 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
 
     quality = load_data_quality_artifact(quality_path)
     data_status = load_data_status_artifact(quality_path)
+    features_path = write_features_csv(tmp_path / "features.csv", features)
+    features_payload = load_features_artifact(features_path)
     predictions = load_latest_predictions_artifact(predictions_path)
     backtest = load_backtest_artifact(backtest_path)
 
@@ -160,6 +163,16 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert quality["row_count"] == 60
     assert data_status["market"] == "A_SHARE_DAILY"
     assert data_status["quality_passed"] is True
+    assert features_payload["row_count"] == 60
+    assert features_payload["symbol_count"] == 3
+    assert features_payload["feature_names"] == [
+        "return_1d",
+        "momentum_5d",
+        "ma_5",
+        "volume_change_1d",
+    ]
+    assert features_payload["non_null_counts"]["momentum_5d"] == 45
+    assert features_payload["latest_samples"][0]["date"] == "2024-01-21"
     assert predictions["count"] == 3
     assert predictions["predictions"][0]["rank"] == 1
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"

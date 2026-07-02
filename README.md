@@ -46,6 +46,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/tasks/pipeline-latest`
 - `GET /api/data/status`
 - `GET /api/data-quality`
+- `GET /api/features`
 - `GET /api/models`
 - `GET /api/models/latest`
 - `GET /api/models/{model_version}`
@@ -80,7 +81,7 @@ npm install
 npm run dev
 ```
 
-当前前端包含工作台、数据、任务、模型、预测、回测、单股、报告和设置视图。数据视图会展示覆盖范围、质量门禁和异常明细；任务视图会展示最近 pipeline 的步骤明细，并可触发后端 `POST /api/pipeline/run`；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、单股和报告视图都保留研究用途声明。
+当前前端包含工作台、数据、任务、模型、预测、回测、单股、报告和设置视图。数据视图会展示覆盖范围、质量门禁、异常明细和因子覆盖；任务视图会展示最近 pipeline 的步骤明细，并可触发后端 `POST /api/pipeline/run`；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、单股和报告视图都保留研究用途声明。
 
 前端构建检查：
 
