@@ -884,6 +884,9 @@ def normalize_equity_curve(rows: list[dict[str, str | float]]) -> list[dict[str,
                 "portfolio_value": portfolio_value,
                 "benchmark_value": benchmark_value,
                 "excess_value": portfolio_value - benchmark_value,
+                "relative_return": portfolio_value / benchmark_value - 1.0
+                if benchmark_value
+                else 0.0,
                 "portfolio_drawdown": portfolio_value / portfolio_peak - 1.0,
                 "benchmark_drawdown": benchmark_value / benchmark_peak - 1.0,
             }

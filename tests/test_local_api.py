@@ -272,6 +272,7 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert backtest["turnover_rate"] >= 0
     assert backtest["equity_curve"][0]["date"] == "2024-01-08"
     assert "portfolio_value" in backtest["equity_curve"][0]
+    assert "relative_return" in backtest["equity_curve"][0]
     assert "portfolio_drawdown" in backtest["equity_curve"][0]
     assert "benchmark_drawdown" in backtest["equity_curve"][0]
 
@@ -300,8 +301,10 @@ def test_normalize_equity_curve_adds_historical_drawdown() -> None:
 
     assert normalized[0]["portfolio_drawdown"] == 0.0
     assert normalized[0]["benchmark_drawdown"] == 0.0
+    assert round(float(normalized[0]["relative_return"]), 6) == 0.047619
     assert round(float(normalized[1]["portfolio_drawdown"]), 6) == -0.1
     assert round(float(normalized[1]["benchmark_drawdown"]), 6) == -0.02
+    assert round(float(normalized[1]["relative_return"]), 6) == -0.037901
 
 
 def test_local_api_duckdb_storage_artifact_reports_table_counts(tmp_path: Path) -> None:

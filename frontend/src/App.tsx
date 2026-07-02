@@ -243,6 +243,37 @@ function buildDrawdownOption(points: BacktestPoint[]) {
   };
 }
 
+function buildRelativeReturnOption(points: BacktestPoint[]) {
+  return {
+    tooltip: {
+      trigger: "axis",
+      valueFormatter: (value: number) => formatPercent(value),
+    },
+    grid: { top: 28, left: 56, right: 24, bottom: 36 },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: points.map((point) => point.date),
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => formatPercent(value),
+      },
+    },
+    series: [
+      {
+        name: "相对基准",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        areaStyle: { opacity: 0.1 },
+        data: points.map((point) => point.relative_return),
+      },
+    ],
+  };
+}
+
 function buildScoreOption(predictions: Prediction[]) {
   return {
     tooltip: { trigger: "axis" },
@@ -1424,6 +1455,12 @@ function BacktestsPage({
               align: "right",
               render: (value: number) => value.toFixed(4),
             },
+            {
+              title: "相对基准",
+              dataIndex: "relative_return",
+              align: "right",
+              render: formatPercent,
+            },
           ]}
         />
       </Card>
@@ -1447,7 +1484,7 @@ function BacktestsPage({
         )}
       </Card>
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={12}>
+        <Col xs={24} xl={8}>
           <Card title="净值曲线">
             {backtest?.equity_curve?.length ? (
               <ReactECharts className="large-chart" option={buildEquityOption(backtest.equity_curve)} />
@@ -1456,12 +1493,21 @@ function BacktestsPage({
             )}
           </Card>
         </Col>
-        <Col xs={24} xl={12}>
+        <Col xs={24} xl={8}>
           <Card title="回撤曲线">
             {backtest?.equity_curve?.length ? (
               <ReactECharts className="large-chart" option={buildDrawdownOption(backtest.equity_curve)} />
             ) : (
               <Empty description="暂无回撤曲线" />
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} xl={8}>
+          <Card title="相对基准曲线">
+            {backtest?.equity_curve?.length ? (
+              <ReactECharts className="large-chart" option={buildRelativeReturnOption(backtest.equity_curve)} />
+            ) : (
+              <Empty description="暂无相对基准曲线" />
             )}
           </Card>
         </Col>

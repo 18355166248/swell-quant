@@ -176,6 +176,7 @@ export interface BacktestPoint {
   portfolio_value: number;
   benchmark_value: number;
   excess_value: number;
+  relative_return: number;
   portfolio_drawdown: number;
   benchmark_drawdown: number;
 }
