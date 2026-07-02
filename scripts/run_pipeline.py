@@ -28,7 +28,7 @@ from swell_quant.research.modeling import (
     generate_predictions,
     read_model_metadata,
     read_predictions_csv,
-    train_baseline_model,
+    train_model,
     write_model_metadata,
     write_predictions_csv,
 )
@@ -92,13 +92,13 @@ def run_label_pipeline(settings: Settings) -> str:
 def run_training_pipeline(settings: Settings) -> str:
     feature_path = settings.data_dir / "processed" / "sample_features.csv"
     label_path = settings.data_dir / "processed" / "sample_labels.csv"
-    model_path = settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json"
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
     historical_prediction_path = settings.data_dir / "processed" / "historical_predictions.csv"
 
     features = read_features_csv(feature_path)
     labels = read_labels_csv(label_path)
-    metadata = train_baseline_model(features, labels)
+    metadata = train_model(features, labels, requested_model_type=settings.model_type)
+    model_path = settings.data_dir / "models" / f"{metadata.model_version}.json"
     latest_predictions = generate_predictions(features, metadata.model_version)
     historical_predictions = generate_historical_predictions(features, metadata.model_version)
 
@@ -114,12 +114,11 @@ def run_training_pipeline(settings: Settings) -> str:
 
 def run_backtest_pipeline(settings: Settings) -> str:
     price_path = settings.data_dir / "raw" / "sample_prices.csv"
-    feature_path = settings.data_dir / "processed" / "sample_features.csv"
+    historical_prediction_path = settings.data_dir / "processed" / "historical_predictions.csv"
     report_path = settings.data_dir / "reports" / "sample_backtest.json"
 
     bars = read_price_bars_csv(price_path)
-    features = read_features_csv(feature_path)
-    historical_predictions = generate_historical_predictions(features, BASELINE_MODEL_VERSION)
+    historical_predictions = read_predictions_csv(historical_prediction_path)
     result = run_top_n_backtest(bars, historical_predictions, top_n=2)
     write_backtest_result(report_path, result)
     return (

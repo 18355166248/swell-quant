@@ -69,7 +69,24 @@ class PredictionRow:
     volume_change_1d: float | None
 
 
-def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> ModelMetadata:
+def train_model(
+    features: list[FeatureRow],
+    labels: list[LabelRow],
+    requested_model_type: str = DEFAULT_MODEL_TYPE,
+) -> ModelMetadata:
+    normalized_type = requested_model_type.strip().lower()
+    if normalized_type in {"", DEFAULT_MODEL_TYPE}:
+        return train_baseline_model(features, labels, requested_model_type=DEFAULT_MODEL_TYPE)
+    if normalized_type in {"rule_baseline", "baseline"}:
+        return train_baseline_model(features, labels, requested_model_type="rule_baseline")
+    raise ValueError(f"unsupported model type: {requested_model_type}")
+
+
+def train_baseline_model(
+    features: list[FeatureRow],
+    labels: list[LabelRow],
+    requested_model_type: str = DEFAULT_MODEL_TYPE,
+) -> ModelMetadata:
     usable_labels = [
         label
         for label in labels
@@ -83,6 +100,12 @@ def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> 
     metrics = build_baseline_evaluation_metrics(features, usable_labels, split)
     lightgbm_available = is_lightgbm_available()
     dependency_status = "lightgbm_available" if lightgbm_available else "lightgbm_missing"
+    normalized_requested_type = requested_model_type.strip().lower() or DEFAULT_MODEL_TYPE
+    if normalized_requested_type == "rule_baseline":
+        training_backend = "rule_baseline"
+        dependency_status = "not_required"
+    else:
+        training_backend = "rule_baseline_fallback"
     # 当前环境未安装 LightGBM 时显式降级到规则模型；元数据保留目标模型类型，方便页面和报告识别。
     return ModelMetadata(
         model_version=BASELINE_MODEL_VERSION,
@@ -102,8 +125,8 @@ def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> 
         test_start=_format_date(split["test_start"]),
         test_end=_format_date(split["test_end"]),
         metrics=metrics,
-        requested_model_type=DEFAULT_MODEL_TYPE,
-        training_backend="rule_baseline_fallback",
+        requested_model_type=normalized_requested_type,
+        training_backend=training_backend,
         dependency_status=dependency_status,
         training_params=BASELINE_TRAINING_PARAMS,
     )

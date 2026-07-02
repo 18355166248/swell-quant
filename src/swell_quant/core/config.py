@@ -11,6 +11,7 @@ class Settings:
     duckdb_path: Path
     deepseek_api_key: str | None = None
     openai_api_key: str | None = None
+    model_type: str = "lightgbm"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -23,6 +24,7 @@ class Settings:
             duckdb_path=duckdb_path,
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY") or None,
             openai_api_key=os.getenv("OPENAI_API_KEY") or None,
+            model_type=os.getenv("MODEL_TYPE", "lightgbm"),
         )
 
     def ensure_directories(self) -> None:

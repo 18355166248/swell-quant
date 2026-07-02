@@ -10,6 +10,7 @@ from swell_quant.research.modeling import (
     generate_historical_predictions,
     generate_predictions,
     train_baseline_model,
+    train_model,
 )
 
 
@@ -60,6 +61,30 @@ def test_generate_predictions_ranks_latest_date_only() -> None:
     assert {row.trade_date.isoformat() for row in predictions} == {"2024-01-21"}
     assert [row.rank for row in predictions] == [1, 2, 3]
     assert predictions[0].score >= predictions[1].score >= predictions[2].score
+
+
+def test_train_model_dispatches_requested_backend() -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+
+    default_metadata = train_model(features, labels)
+    baseline_metadata = train_model(features, labels, requested_model_type="rule_baseline")
+
+    assert default_metadata.requested_model_type == "lightgbm"
+    assert default_metadata.training_backend == "rule_baseline_fallback"
+    assert baseline_metadata.requested_model_type == "rule_baseline"
+    assert baseline_metadata.training_backend == "rule_baseline"
+    assert baseline_metadata.dependency_status == "not_required"
+
+
+def test_train_model_rejects_unsupported_backend() -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+
+    with pytest.raises(ValueError, match="unsupported model type"):
+        train_model(features, labels, requested_model_type="deep_model")
 
 
 def test_generate_historical_predictions_skips_rows_without_lookback() -> None:

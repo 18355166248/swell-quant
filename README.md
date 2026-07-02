@@ -36,6 +36,9 @@ make ci-local
 python3 -m pip install -e ".[modeling]"
 ```
 
+训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
+`rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。
+
 `make ci-local` 会运行 Python lint、Python format check、后端测试、端到端 smoke 验收和前端构建；这些检查与 GitHub Actions 的 `main` push 和 pull request 门禁保持一致。
 
 本地 API 可用于无页面验收：
