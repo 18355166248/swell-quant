@@ -636,12 +636,14 @@ function DashboardPage({
 function AcceptancePage({
   acceptance,
   artifactStatus,
+  trainingSamples,
   pipeline,
   isRunning,
   onRunPipeline,
 }: {
   acceptance?: AcceptanceStatus;
   artifactStatus?: ArtifactStatus;
+  trainingSamples?: ResearchStatus["training_samples"];
   pipeline?: PipelineRun;
   isRunning: boolean;
   onRunPipeline: () => void;
@@ -649,6 +651,7 @@ function AcceptancePage({
   const checks = acceptance?.checks ?? [];
   const artifacts = artifactStatus?.artifacts ?? [];
   const passedCount = checks.filter((check) => check.status === "passed").length;
+  const splitCounts = trainingSamples?.split_counts ?? {};
   return (
     <>
       <PageTitle
@@ -666,7 +669,7 @@ function AcceptancePage({
         }
       />
       <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12} xl={6}>
           <Card>
             <Statistic
               title="验收状态"
@@ -675,15 +678,29 @@ function AcceptancePage({
             />
           </Card>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12} xl={6}>
           <Card>
             <Statistic title="通过检查" value={passedCount} suffix={`/ ${acceptance?.check_count ?? 0}`} />
           </Card>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12} xl={6}>
           <Card>
             <Statistic title="失败检查" value={acceptance?.failed_count ?? 0} />
             <Text type="secondary">pipeline: {pipeline?.status ?? "unknown"}</Text>
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card>
+            <Statistic title="训练样本" value={trainingSamples?.row_count ?? 0} suffix="条" />
+            <Space size={4} wrap>
+              <Tag color={trainingSamples?.status === "ready" ? "green" : "red"}>
+                {trainingSamples?.status ?? "missing"}
+              </Tag>
+              <Text type="secondary">
+                train {splitCounts.train ?? 0} / validation {splitCounts.validation ?? 0} / test{" "}
+                {splitCounts.test ?? 0}
+              </Text>
+            </Space>
           </Card>
         </Col>
       </Row>
@@ -2224,6 +2241,7 @@ function App() {
       <AcceptancePage
         acceptance={acceptanceQuery.data}
         artifactStatus={status?.artifact_status}
+        trainingSamples={status?.training_samples}
         pipeline={pipeline}
         isRunning={runPipelineMutation.isPending}
         onRunPipeline={() => runPipelineMutation.mutate("pipeline")}
