@@ -160,18 +160,23 @@ def build_steps(settings: Settings) -> list[PipelineStep]:
     ]
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the Swell Quant offline research pipeline.")
-    parser.add_argument("--fail-on-skipped", action="store_true", help="Return non-zero if any step is skipped.")
-    args = parser.parse_args()
-
-    settings = Settings.from_env()
+def run_pipeline(settings: Settings) -> tuple[list, Path, Path | None]:
     results = run_steps(build_steps(settings))
     manifest_path = settings.data_dir / "reports" / "pipeline_run.json"
     write_run_manifest(manifest_path, results)
     status_path: Path | None = None
     if not any(result.status == StepStatus.FAILED for result in results):
         status_path = write_status_snapshot(settings, manifest_path)
+    return results, manifest_path, status_path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run the Swell Quant offline research pipeline.")
+    parser.add_argument("--fail-on-skipped", action="store_true", help="Return non-zero if any step is skipped.")
+    args = parser.parse_args()
+
+    settings = Settings.from_env()
+    results, manifest_path, status_path = run_pipeline(settings)
 
     for result in results:
         print(f"{result.status.value:7s} {result.name}: {result.message}")

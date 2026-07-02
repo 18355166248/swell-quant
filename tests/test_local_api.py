@@ -12,6 +12,7 @@ from swell_quant.api.local_server import (
     load_stock_summary_artifact,
     load_text_artifact,
     missing_artifact_payload,
+    run_pipeline_for_api,
 )
 from swell_quant.data.quality import validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_csv
@@ -114,3 +115,22 @@ def test_local_api_stock_route_dispatches(tmp_path: Path) -> None:
     assert missing_status.value == 404
     assert missing_payload["error"] == "symbol_not_found"
     assert ignored is None
+
+
+def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
+    payload = run_pipeline_for_api(tmp_path / "data")
+
+    assert payload["status"] == "success"
+    assert payload["manifest_path"].endswith("pipeline_run.json")
+    assert payload["status_path"].endswith("research_status.json")
+    assert [step["name"] for step in payload["steps"]] == [
+        "prepare_directories",
+        "data_update",
+        "data_quality",
+        "features",
+        "labels",
+        "train",
+        "backtest",
+        "report",
+    ]
+    assert (tmp_path / "data" / "reports" / "research_status.json").exists()

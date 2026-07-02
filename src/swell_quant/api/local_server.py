@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import csv
+import importlib.util
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from swell_quant.core.config import Settings
 from swell_quant.data.quality import read_quality_report
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.modeling import read_predictions_csv
@@ -59,6 +61,16 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
 
         self._send_json({"error": "not_found", "path": route}, status=HTTPStatus.NOT_FOUND)
 
+    def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
+        route = urlparse(self.path).path
+        if route == "/api/pipeline/run":
+            payload = run_pipeline_for_api(self.data_dir)
+            status = HTTPStatus.OK if payload["status"] == "success" else HTTPStatus.INTERNAL_SERVER_ERROR
+            self._send_json(payload, status=status)
+            return
+
+        self._send_json({"error": "not_found", "path": route}, status=HTTPStatus.NOT_FOUND)
+
     def log_message(self, format: str, *args: Any) -> None:
         return
 
@@ -102,6 +114,40 @@ def create_server(host: str, port: int, data_dir: Path) -> ThreadingHTTPServer:
         {"data_dir": data_dir},
     )
     return ThreadingHTTPServer((host, port), handler_class)
+
+
+def run_pipeline_for_api(data_dir: Path) -> dict[str, Any]:
+    runner = _load_pipeline_runner()
+    settings = Settings(
+        data_dir=data_dir,
+        duckdb_path=data_dir / "duckdb" / "swell_quant.duckdb",
+    )
+    results, manifest_path, status_path = runner(settings)
+    status = "failed" if any(result.status.value == "failed" for result in results) else "success"
+    return {
+        "status": status,
+        "manifest_path": str(manifest_path),
+        "status_path": None if status_path is None else str(status_path),
+        "steps": [
+            {
+                "name": result.name,
+                "status": result.status.value,
+                "message": result.message,
+                "duration_seconds": result.duration_seconds,
+            }
+            for result in results
+        ],
+    }
+
+
+def _load_pipeline_runner() -> Any:
+    script_path = Path(__file__).resolve().parents[3] / "scripts" / "run_pipeline.py"
+    spec = importlib.util.spec_from_file_location("swell_quant_pipeline_runner", script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"unable to load pipeline runner from {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.run_pipeline
 
 
 def load_json_artifact(path: Path) -> dict[str, Any]:
