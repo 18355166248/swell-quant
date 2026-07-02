@@ -4,6 +4,8 @@ export interface PipelineStep {
   name: string;
   status: PipelineStepStatus;
   message: string;
+  started_at?: string;
+  ended_at?: string;
   duration_seconds: number;
 }
 
@@ -12,6 +14,7 @@ export interface PipelineRun {
   manifest_path?: string;
   status_path?: string | null;
   started_at?: string;
+  ended_at?: string;
   finished_at?: string;
   duration_seconds?: number;
   steps?: PipelineStep[];

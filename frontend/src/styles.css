@@ -63,8 +63,28 @@ body,
   height: 346px;
 }
 
+.score-chart {
+  width: 100%;
+  height: 318px;
+}
+
+.large-chart {
+  width: 100%;
+  height: 438px;
+}
+
+.page-alert {
+  margin-bottom: 16px;
+}
+
 .report-preview {
   min-height: 176px;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.report-body {
+  min-height: 520px;
   margin: 0;
   white-space: pre-wrap;
 }

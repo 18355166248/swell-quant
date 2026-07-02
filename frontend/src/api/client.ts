@@ -37,9 +37,15 @@ export const api = {
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),
   getReport: () => requestText("/api/report"),
-  runPipeline: () =>
+  runPipeline: async () => {
     // 这里只触发后端离线链路；前端不直接计算因子、标签、训练或回测，避免两套口径分叉。
-    requestJson<PipelineRun>("/api/pipeline/run", {
+    const response = await fetch(`${API_BASE_URL}/api/pipeline/run`, {
       method: "POST",
-    }),
+    });
+    const payload = (await response.json()) as PipelineRun;
+    if (!response.ok && response.status !== 409) {
+      throw new Error(payload.message ?? payload.error ?? `${response.status} ${response.statusText}`);
+    }
+    return payload;
+  },
 };

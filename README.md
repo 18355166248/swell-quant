@@ -61,6 +61,8 @@ npm install
 npm run dev
 ```
 
+当前前端包含工作台、任务、预测、回测和报告视图。任务视图会展示最近 pipeline 的步骤明细，并可触发后端 `POST /api/pipeline/run`；所有预测、回测和报告视图都保留研究用途声明。
+
 前端构建检查：
 
 ```bash
