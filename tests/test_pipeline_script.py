@@ -51,6 +51,10 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert status["pipeline"]["status"] == "success"
     assert status["acceptance"]["status"] == "passed"
     assert status["data_quality"]["passed"] is True
+    assert status["training_samples"]["status"] == "ready"
+    assert status["training_samples"]["split_counts"]["train"] > 0
+    assert status["training_samples"]["split_counts"]["validation"] > 0
+    assert status["training_samples"]["split_counts"]["test"] > 0
     assert status["predictions"]["count"] == 3
     assert [step["name"] for step in manifest["steps"]] == [
         "prepare_directories",

@@ -7,7 +7,7 @@ from typing import Any
 
 from swell_quant.data.quality import DataQualityReport
 from swell_quant.research.backtest import BacktestResult
-from swell_quant.research.modeling import ModelMetadata, PredictionRow
+from swell_quant.research.modeling import ModelMetadata, PredictionRow, TrainingSampleRow
 
 
 def build_research_status(
@@ -18,10 +18,12 @@ def build_research_status(
     pipeline_manifest: dict[str, Any],
     storage_status: dict[str, Any] | None = None,
     artifact_paths: dict[str, Path] | None = None,
+    training_samples: list[TrainingSampleRow] | None = None,
 ) -> dict[str, Any]:
     top_predictions = sorted(predictions, key=lambda row: row.rank)
     resolved_artifact_paths = artifact_paths or default_artifact_paths(Path("data"))
     artifact_status = build_artifact_status(resolved_artifact_paths)
+    training_sample_status = build_training_sample_status(training_samples, metadata.feature_names)
     gates = build_acceptance_gates(
         quality=quality,
         predictions=top_predictions,
@@ -29,6 +31,7 @@ def build_research_status(
         pipeline_manifest=pipeline_manifest,
         storage_status=storage_status,
         artifact_status=artifact_status,
+        training_sample_status=training_sample_status,
     )
 
     # 状态快照面向 CLI/API/页面复用，只聚合结构化产物，不重新计算研究结果。
@@ -70,6 +73,7 @@ def build_research_status(
             "test_end": metadata.test_end,
             "metrics": metadata.metrics or {},
         },
+        "training_samples": training_sample_status,
         "predictions": {
             "count": len(top_predictions),
             "top": [
@@ -132,6 +136,51 @@ def build_artifact_status(artifact_paths: dict[str, Path]) -> dict[str, Any]:
     }
 
 
+def build_training_sample_status(
+    rows: list[TrainingSampleRow] | None, feature_names: list[str]
+) -> dict[str, Any]:
+    if rows is None:
+        return {
+            "status": "missing",
+            "row_count": 0,
+            "symbol_count": 0,
+            "start_date": None,
+            "end_date": None,
+            "split_counts": {},
+            "positive_count": 0,
+            "negative_count": 0,
+            "positive_rate": None,
+            "missing_feature_counts": {feature_name: 0 for feature_name in feature_names},
+        }
+
+    split_counts: dict[str, int] = {}
+    missing_feature_counts = {feature_name: 0 for feature_name in feature_names}
+    for row in rows:
+        split_counts[row.split] = split_counts.get(row.split, 0) + 1
+        for feature_name in feature_names:
+            if getattr(row, feature_name, None) is None:
+                missing_feature_counts[feature_name] += 1
+
+    dates = [row.trade_date for row in rows]
+    positive_count = sum(1 for row in rows if row.outperform_benchmark_5d == 1)
+    negative_count = sum(1 for row in rows if row.outperform_benchmark_5d == 0)
+    required_splits = ("train", "validation", "test")
+    ready = len(rows) > 0 and all(split_counts.get(split, 0) > 0 for split in required_splits)
+    # 训练样本是模型阶段的输入契约，必须同时覆盖训练/验证/测试切分，避免后续训练只在单一窗口上“看起来成功”。
+    return {
+        "status": "ready" if ready else "incomplete",
+        "row_count": len(rows),
+        "symbol_count": len({row.symbol for row in rows}),
+        "start_date": min(dates).isoformat() if dates else None,
+        "end_date": max(dates).isoformat() if dates else None,
+        "split_counts": split_counts,
+        "positive_count": positive_count,
+        "negative_count": negative_count,
+        "positive_rate": positive_count / len(rows) if rows else None,
+        "missing_feature_counts": missing_feature_counts,
+    }
+
+
 def _build_artifact_entry(name: str, path: Path) -> dict[str, Any]:
     exists = path.exists()
     # 产物元数据用于验收页和脚本排查“文件存在但明显过旧/为空”的问题，不读取正文以避免放大状态检查成本。
@@ -152,7 +201,9 @@ def build_acceptance_gates(
     pipeline_manifest: dict[str, Any],
     storage_status: dict[str, Any] | None,
     artifact_status: dict[str, Any] | None,
+    training_sample_status: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    split_counts = training_sample_status.get("split_counts", {}) if training_sample_status else {}
     checks = [
         _gate_check(
             "pipeline_success",
@@ -173,6 +224,19 @@ def build_acceptance_gates(
             "status=missing"
             if storage_status is None
             else f"status={storage_status.get('status')}",
+        ),
+        _gate_check(
+            "training_samples_ready",
+            "训练样本切分就绪",
+            training_sample_status is not None and training_sample_status.get("status") == "ready",
+            "status=missing"
+            if training_sample_status is None
+            else (
+                f"rows={training_sample_status.get('row_count')}, "
+                f"train={split_counts.get('train', 0)}, "
+                f"validation={split_counts.get('validation', 0)}, "
+                f"test={split_counts.get('test', 0)}"
+            ),
         ),
         _gate_check(
             "predictions_available",

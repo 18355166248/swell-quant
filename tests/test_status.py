@@ -6,6 +6,7 @@ from swell_quant.research.backtest import run_top_n_backtest
 from swell_quant.research.features import compute_features
 from swell_quant.research.labels import compute_labels
 from swell_quant.research.modeling import (
+    build_training_samples,
     generate_historical_predictions,
     generate_predictions,
     train_baseline_model,
@@ -36,6 +37,7 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     labels = compute_labels(bars)
     quality = validate_price_bars(bars)
     metadata = train_baseline_model(features, labels)
+    training_samples = build_training_samples(features, labels)
     predictions = generate_predictions(features)
     backtest = run_top_n_backtest(bars, generate_historical_predictions(features))
     manifest = {
@@ -49,7 +51,14 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
 
     storage_status = {"status": "healthy"}
     status = build_research_status(
-        quality, metadata, predictions, backtest, manifest, storage_status, artifact_paths
+        quality,
+        metadata,
+        predictions,
+        backtest,
+        manifest,
+        storage_status,
+        artifact_paths,
+        training_samples,
     )
 
     assert status["disclaimer"] == "仅用于研究，不构成投资建议"
@@ -67,6 +76,11 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["model"]["evaluation_status"] == "ready"
     assert status["model"]["label_gap_days"] == 5
     assert status["model"]["metrics"]["test_prediction_dates"] == 1
+    assert status["training_samples"]["status"] == "ready"
+    assert status["training_samples"]["row_count"] == len(training_samples)
+    assert status["training_samples"]["split_counts"]["train"] > 0
+    assert status["training_samples"]["split_counts"]["validation"] > 0
+    assert status["training_samples"]["split_counts"]["test"] > 0
     assert status["predictions"]["count"] == 3
     assert status["predictions"]["top"][0]["rank"] == 1
     assert status["backtest"]["trade_count"] == 14
@@ -81,6 +95,41 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
 
 
 def test_build_research_status_fails_acceptance_when_storage_is_stale(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+    quality = validate_price_bars(bars)
+    metadata = train_baseline_model(features, labels)
+    training_samples = build_training_samples(features, labels)
+    predictions = generate_predictions(features)
+    backtest = run_top_n_backtest(bars, generate_historical_predictions(features), top_n=2)
+    manifest = {
+        "status": "success",
+        "started_at": "2024-01-01T00:00:00Z",
+        "ended_at": "2024-01-01T00:00:01Z",
+        "duration_seconds": 1.0,
+        "step_count": 9,
+    }
+
+    status = build_research_status(
+        quality,
+        metadata,
+        predictions,
+        backtest,
+        manifest,
+        {"status": "inconsistent"},
+        write_complete_artifacts(tmp_path),
+        training_samples,
+    )
+
+    assert status["acceptance"]["status"] == "failed"
+    assert status["acceptance"]["failed_count"] == 1
+    assert status["acceptance"]["checks"][2]["key"] == "duckdb_mirror_healthy"
+
+
+def test_build_research_status_fails_acceptance_when_training_samples_are_empty(
+    tmp_path: Path,
+) -> None:
     bars = generate_sample_bars(days=20)
     features = compute_features(bars)
     labels = compute_labels(bars)
@@ -102,13 +151,14 @@ def test_build_research_status_fails_acceptance_when_storage_is_stale(tmp_path: 
         predictions,
         backtest,
         manifest,
-        {"status": "inconsistent"},
+        {"status": "healthy"},
         write_complete_artifacts(tmp_path),
+        [],
     )
 
     assert status["acceptance"]["status"] == "failed"
-    assert status["acceptance"]["failed_count"] == 1
-    assert status["acceptance"]["checks"][2]["key"] == "duckdb_mirror_healthy"
+    assert status["training_samples"]["status"] == "incomplete"
+    assert status["acceptance"]["checks"][3]["key"] == "training_samples_ready"
 
 
 def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_path: Path) -> None:
@@ -117,6 +167,7 @@ def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_pat
     labels = compute_labels(bars)
     quality = validate_price_bars(bars)
     metadata = train_baseline_model(features, labels)
+    training_samples = build_training_samples(features, labels)
     predictions = generate_predictions(features)
     backtest = run_top_n_backtest(bars, generate_historical_predictions(features), top_n=2)
     manifest = {
@@ -140,6 +191,7 @@ def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_pat
             "model": existing_artifact,
             "summary": tmp_path / "missing.md",
         },
+        training_samples,
     )
 
     assert status["acceptance"]["status"] == "failed"

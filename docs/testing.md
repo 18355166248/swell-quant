@@ -26,7 +26,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | --- | --- |
 | `make pipeline` | 生成样例行情、质量报告、因子、标签、模型、预测、回测、DuckDB 镜像和研究报告。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
-| `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、预测、回测和关键产物完整性门禁，并在状态快照中暴露产物大小与更新时间用于排查。 |
+| `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、训练样本切分、预测、回测和关键产物完整性门禁，并在状态快照中暴露产物大小与更新时间用于排查。 |
 | `make smoke` | 串联 pipeline、storage 和 acceptance，作为无页面端到端验收入口。 |
 | `make frontend-build` | 校验前端类型和生产构建。 |
 
@@ -36,6 +36,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 - 因子计算：收益率、动量、均线、波动率、RSI 和 MACD 都只使用历史序列，避免未来函数。
 - 标签生成：未来 5 日收益和基准收益使用 T+1 开盘到 T+5 收盘窗口，只作为监督标签，不进入同日特征。
 - 模型 baseline：固定规则可复现，模型元数据写入特征列表、训练区间、5 个交易日标签 gap、评估窗口、测试指标和研究声明。
+- 训练样本：状态快照校验训练/验证/测试切分都非空，并暴露样本规模、正负样本比例和特征缺失计数。
 - 回测：Top N 调仓、次日开盘价成交、手续费、滑点、停牌、涨停买入受限、无法成交原因、年化收益、最大回撤、逐期回撤曲线、相对基准曲线、夏普、胜率、换手率和确定性净值曲线。
 - DuckDB 存储：CSV 镜像到本地单文件 DuckDB，检查表行数和 schema。
 - 产物完整性：模型、预测、回测、报告、pipeline 运行记录和 DuckDB 文件都必须存在。

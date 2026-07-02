@@ -112,6 +112,18 @@ export interface ResearchStatus {
     test_end: string | null;
     metrics: Record<string, number | string | null>;
   };
+  training_samples: {
+    status: "ready" | "incomplete" | "missing";
+    row_count: number;
+    symbol_count: number;
+    start_date: string | null;
+    end_date: string | null;
+    split_counts: Record<string, number>;
+    positive_count: number;
+    negative_count: number;
+    positive_rate: number | null;
+    missing_feature_counts: Record<string, number>;
+  };
   predictions: {
     count: number;
     top: Prediction[];
@@ -137,6 +149,7 @@ export interface ResearchStatus {
   artifacts: {
     data_quality: string;
     model: string;
+    training_samples: string;
     latest_predictions: string;
     historical_predictions: string;
     duckdb: string;

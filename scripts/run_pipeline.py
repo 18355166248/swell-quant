@@ -29,6 +29,7 @@ from swell_quant.research.modeling import (
     generate_predictions,
     read_model_metadata,
     read_predictions_csv,
+    read_training_samples_csv,
     train_model,
     write_model_metadata,
     write_predictions_csv,
@@ -164,6 +165,9 @@ def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
     quality = read_quality_report(settings.data_dir / "processed" / "data_quality.json")
     metadata = read_model_metadata(settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json")
     predictions = read_predictions_csv(settings.data_dir / "processed" / "latest_predictions.csv")
+    training_samples = read_training_samples_csv(
+        settings.data_dir / "processed" / "training_samples.csv"
+    )
     backtest = read_backtest_result(settings.data_dir / "reports" / "sample_backtest.json")
     manifest = read_json(manifest_path)
     storage_status = inspect_duckdb_mirror(settings.duckdb_path, settings.data_dir)
@@ -175,6 +179,7 @@ def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
         manifest,
         storage_status,
         default_artifact_paths(settings.data_dir),
+        training_samples,
     )
     return write_research_status(settings.data_dir / "reports" / "research_status.json", status)
 
