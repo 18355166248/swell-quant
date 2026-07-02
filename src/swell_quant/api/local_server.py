@@ -16,6 +16,7 @@ from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.labels import read_labels_csv
 from swell_quant.research.modeling import read_predictions_csv
+from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror
 
 
 _PIPELINE_RUN_LOCK = threading.Lock()
@@ -55,6 +56,9 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 self.data_dir / "processed" / "data_quality.json",
                 load_data_status_artifact,
             )
+            return
+        if route == "/api/storage/duckdb":
+            self._send_json(load_duckdb_storage_artifact(self.duckdb_path))
             return
         if route == "/api/models/latest":
             self._send_loader_json(
@@ -403,6 +407,12 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
         "issue_count": quality["issue_count"],
         "disclaimer": "仅用于研究，不构成投资建议",
     }
+
+
+def load_duckdb_storage_artifact(duckdb_path: Path) -> dict[str, Any]:
+    payload = inspect_duckdb_mirror(duckdb_path)
+    payload["disclaimer"] = "仅用于研究，不构成投资建议"
+    return payload
 
 
 def load_features_artifact(path: Path) -> dict[str, Any]:

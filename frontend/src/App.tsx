@@ -43,6 +43,7 @@ import type {
   DataQuality,
   DataQualityIssue,
   DataStatus,
+  DuckDBStorageStatus,
   FeatureSummary,
   LabelSummary,
   LatestBacktest,
@@ -540,11 +541,13 @@ function TasksPage({
 
 function DataPage({
   dataStatus,
+  duckdbStorage,
   quality,
   features,
   labels,
 }: {
   dataStatus?: DataStatus;
+  duckdbStorage?: DuckDBStorageStatus;
   quality?: DataQuality;
   features?: FeatureSummary;
   labels?: LabelSummary;
@@ -599,6 +602,42 @@ function DataPage({
           </Card>
         </Col>
         <Col xs={24} xl={16}>
+          <Card title="DuckDB 本地存储">
+            <Descriptions column={2} size="small">
+              <Descriptions.Item label="状态">
+                <Tag color={duckdbStorage?.status === "healthy" ? "green" : "orange"}>
+                  {duckdbStorage?.status ?? "unknown"}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="总行数">{duckdbStorage?.total_rows ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="文件大小">
+                {duckdbStorage?.file_size_bytes ? `${duckdbStorage.file_size_bytes} bytes` : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="路径">{duckdbStorage?.path ?? "-"}</Descriptions.Item>
+            </Descriptions>
+            <Table
+              rowKey="name"
+              size="small"
+              dataSource={duckdbStorage?.tables ?? []}
+              pagination={false}
+              columns={[
+                { title: "表名", dataIndex: "name" },
+                {
+                  title: "状态",
+                  dataIndex: "exists",
+                  width: 90,
+                  render: (exists: boolean) => (
+                    <Tag color={exists ? "green" : "red"}>{exists ? "存在" : "缺失"}</Tag>
+                  ),
+                },
+                { title: "行数", dataIndex: "row_count", align: "right", render: (value) => value ?? "-" },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={[16, 16]}>
+        <Col xs={24}>
           <Card title="质量问题明细">
             {issues.length > 0 ? (
               <Table<DataQualityIssue>
@@ -1377,6 +1416,7 @@ function App() {
     queryFn: () => api.getTaskDetail("pipeline-latest"),
   });
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
+  const duckdbStorageQuery = useQuery({ queryKey: ["duckdb-storage"], queryFn: api.getDuckDBStorage });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const featuresQuery = useQuery({ queryKey: ["features"], queryFn: api.getFeatures });
   const labelsQuery = useQuery({ queryKey: ["labels"], queryFn: api.getLabels });
@@ -1497,6 +1537,7 @@ function App() {
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
     dataStatusQuery.isLoading ||
+    duckdbStorageQuery.isLoading ||
     featuresQuery.isLoading ||
     labelsQuery.isLoading ||
     predictionsQuery.isLoading ||
@@ -1524,6 +1565,7 @@ function App() {
     tasksQuery.isError ||
     taskDetailQuery.isError ||
     dataStatusQuery.isError ||
+    duckdbStorageQuery.isError ||
     featuresQuery.isError ||
     labelsQuery.isError ||
     predictionsQuery.isError ||
@@ -1557,6 +1599,7 @@ function App() {
     data: (
       <DataPage
         dataStatus={dataStatusQuery.data}
+        duckdbStorage={duckdbStorageQuery.data}
         quality={qualityQuery.data}
         features={featuresQuery.data}
         labels={labelsQuery.data}

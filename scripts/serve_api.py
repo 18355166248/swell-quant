@@ -26,8 +26,8 @@ def main() -> int:
     print(f"serving read-only API on http://{args.host}:{args.port}")
     print(
         "available endpoints: /api/health /api/status /api/settings /api/data/status "
-        "/api/features /api/labels /api/models /api/models/latest /api/tasks /api/predictions "
-        "/api/backtests /api/stocks /api/reports /api/pipeline"
+        "/api/storage/duckdb /api/features /api/labels /api/models /api/models/latest "
+        "/api/tasks /api/predictions /api/backtests /api/stocks /api/reports /api/pipeline"
     )
     try:
         server.serve_forever()

@@ -7,6 +7,7 @@ from swell_quant.api.local_server import (
     load_backtests_artifact,
     load_data_quality_artifact,
     load_data_status_artifact,
+    load_duckdb_storage_artifact,
     load_features_artifact,
     load_json_artifact,
     load_labels_artifact,
@@ -42,6 +43,7 @@ from swell_quant.research.backtest import run_top_n_backtest, write_backtest_res
 from swell_quant.research.features import compute_features, write_features_csv
 from swell_quant.research.labels import compute_labels, write_labels_csv
 from swell_quant.research.modeling import generate_historical_predictions, generate_predictions, write_predictions_csv
+from swell_quant.storage.duckdb_mirror import mirror_pipeline_csvs_to_duckdb
 
 
 def test_local_api_artifact_loaders_read_status_pipeline_and_report(tmp_path: Path) -> None:
@@ -191,6 +193,34 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert backtest["trade_count"] == 14
     assert backtest["equity_curve"][0]["date"] == "2024-01-08"
     assert "portfolio_value" in backtest["equity_curve"][0]
+
+
+def test_local_api_duckdb_storage_artifact_reports_table_counts(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    bars = generate_sample_bars(days=8)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+    write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
+    write_features_csv(data_dir / "processed" / "sample_features.csv", features)
+    write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
+    write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", generate_predictions(features))
+    write_predictions_csv(
+        data_dir / "processed" / "historical_predictions.csv",
+        generate_historical_predictions(features),
+    )
+    duckdb_path = data_dir / "duckdb" / "swell_quant.duckdb"
+    mirror_pipeline_csvs_to_duckdb(data_dir, duckdb_path)
+
+    payload = load_duckdb_storage_artifact(duckdb_path)
+    missing_payload = load_duckdb_storage_artifact(tmp_path / "missing.duckdb")
+
+    assert payload["status"] == "healthy"
+    assert payload["total_rows"] > 0
+    assert payload["tables"][0]["name"] == "raw_prices"
+    assert payload["tables"][0]["row_count"] == len(bars)
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+    assert missing_payload["status"] == "missing"
+    assert missing_payload["missing_tables"]
 
 
 def test_local_api_latest_model_artifact(tmp_path: Path) -> None:

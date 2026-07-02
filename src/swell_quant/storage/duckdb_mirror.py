@@ -4,6 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+PIPELINE_DUCKDB_TABLES = (
+    "raw_prices",
+    "feature_rows",
+    "label_rows",
+    "latest_predictions",
+    "historical_predictions",
+)
+
+
 @dataclass(frozen=True)
 class DuckDBTableMirror:
     table_name: str
@@ -61,3 +70,43 @@ def mirror_pipeline_csvs_to_duckdb(data_dir: Path, duckdb_path: Path) -> DuckDBM
             )
 
     return DuckDBMirrorResult(duckdb_path=duckdb_path, tables=mirrored)
+
+
+def inspect_duckdb_mirror(duckdb_path: Path) -> dict[str, object]:
+    import duckdb
+
+    duckdb_path = duckdb_path.expanduser()
+    if not duckdb_path.exists():
+        return {
+            "exists": False,
+            "path": str(duckdb_path),
+            "status": "missing",
+            "tables": [],
+            "missing_tables": list(PIPELINE_DUCKDB_TABLES),
+            "total_rows": 0,
+        }
+
+    with duckdb.connect(str(duckdb_path), read_only=True) as connection:
+        existing_tables = {
+            row[0] for row in connection.execute("SHOW TABLES").fetchall()
+        }
+        tables: list[dict[str, object]] = []
+        for table_name in PIPELINE_DUCKDB_TABLES:
+            exists = table_name in existing_tables
+            row_count = None
+            if exists:
+                # 表名来自固定白名单，只做只读 COUNT，避免状态接口承担任何写入副作用。
+                row_count = int(connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0])
+            tables.append({"name": table_name, "exists": exists, "row_count": row_count})
+
+    missing_tables = [table["name"] for table in tables if not table["exists"]]
+    total_rows = sum(int(table["row_count"] or 0) for table in tables)
+    return {
+        "exists": True,
+        "path": str(duckdb_path),
+        "status": "healthy" if not missing_tables else "incomplete",
+        "file_size_bytes": duckdb_path.stat().st_size,
+        "tables": tables,
+        "missing_tables": missing_tables,
+        "total_rows": total_rows,
+    }

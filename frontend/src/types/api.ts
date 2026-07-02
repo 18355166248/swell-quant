@@ -198,6 +198,23 @@ export interface DataStatus {
   disclaimer: string;
 }
 
+export interface DuckDBTableStatus {
+  name: string;
+  exists: boolean;
+  row_count: number | null;
+}
+
+export interface DuckDBStorageStatus {
+  exists: boolean;
+  path: string;
+  status: "healthy" | "incomplete" | "missing";
+  file_size_bytes?: number;
+  tables: DuckDBTableStatus[];
+  missing_tables: string[];
+  total_rows: number;
+  disclaimer: string;
+}
+
 export interface FeatureSample {
   symbol: string;
   date: string;
