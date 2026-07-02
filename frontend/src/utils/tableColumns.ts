@@ -1,8 +1,19 @@
 import { createElement } from "react";
 import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import type { ArtifactStatus, Prediction, SettingsArtifact } from "../types/api";
-import { formatDateTime, formatFileSize, formatNumber } from "./display";
+import type {
+  ArtifactStatus,
+  ModelSummary,
+  Prediction,
+  SettingsArtifact,
+  TaskSummary,
+} from "../types/api";
+import {
+  formatDateTime,
+  formatFileSize,
+  formatNumber,
+  statusColor,
+} from "./display";
 
 export function buildPredictionColumns(): ColumnsType<Prediction> {
   return [
@@ -121,6 +132,47 @@ export function buildArtifactColumns<Row extends ArtifactLike = ArtifactRow>({
         ),
     },
   ];
+}
+
+export function buildTaskSummaryColumns(): ColumnsType<TaskSummary> {
+  return [
+    { title: "任务", dataIndex: "id" },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 92,
+      render: (status: string) =>
+        createElement(Tag, { color: statusColor(status) }, status),
+    },
+  ];
+}
+
+export function buildModelSummaryColumns({
+  variant = "detailed",
+}: {
+  variant?: "compact" | "detailed";
+} = {}): ColumnsType<ModelSummary> {
+  const columns: ColumnsType<ModelSummary> = [
+    { title: "版本", dataIndex: "model_version" },
+    { title: "类型", dataIndex: "model_type", width: 130 },
+  ];
+  if (variant === "detailed") {
+    columns.push({ title: "后端", dataIndex: "training_backend", width: 150 });
+  }
+  columns.push(
+    { title: "特征", dataIndex: "feature_count", width: 80, align: "right" },
+    { title: "预测日", dataIndex: "prediction_date", width: 120 },
+  );
+  if (variant === "detailed") {
+    columns.push({
+      title: "评估",
+      dataIndex: "evaluation_status",
+      width: 120,
+      render: (value: string) =>
+        createElement(Tag, { color: value === "ready" ? "green" : "orange" }, value),
+    });
+  }
+  return columns;
 }
 
 function checkStatusColor(status: string): string {

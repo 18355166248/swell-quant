@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildArtifactColumns,
   buildCheckColumns,
+  buildModelSummaryColumns,
   buildPredictionColumns,
+  buildTaskSummaryColumns,
 } from "./tableColumns";
 import type { Prediction } from "../types/api";
 
@@ -101,6 +103,40 @@ describe("table column builders", () => {
     expect(columns[4].render(false).props).toMatchObject({
       color: "orange",
       children: "缺失",
+    });
+  });
+
+  it("builds reusable model summary columns with compact and detailed variants", () => {
+    const compactColumns = buildModelSummaryColumns({ variant: "compact" }) as Array<Record<string, any>>;
+    const detailedColumns = buildModelSummaryColumns() as Array<Record<string, any>>;
+
+    expect(compactColumns.map((column) => column.title)).toEqual([
+      "版本",
+      "类型",
+      "特征",
+      "预测日",
+    ]);
+    expect(detailedColumns.map((column) => column.title)).toEqual([
+      "版本",
+      "类型",
+      "后端",
+      "特征",
+      "预测日",
+      "评估",
+    ]);
+    expect(detailedColumns[5].render("ready").props).toMatchObject({
+      color: "green",
+      children: "ready",
+    });
+  });
+
+  it("builds reusable task summary columns with status colors", () => {
+    const columns = buildTaskSummaryColumns() as Array<Record<string, any>>;
+
+    expect(columns.map((column) => column.title)).toEqual(["任务", "状态"]);
+    expect(columns[1].render("failed").props).toMatchObject({
+      color: "red",
+      children: "failed",
     });
   });
 });
