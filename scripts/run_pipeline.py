@@ -13,6 +13,9 @@ if str(SRC_DIR) not in sys.path:
 
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps
+from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
+from swell_quant.research.features import compute_features, write_features_csv
+from swell_quant.research.labels import compute_labels, write_labels_csv
 from swell_quant.storage.duckdb_backup import backup_duckdb
 
 
@@ -21,20 +24,40 @@ def prepare_directories(settings: Settings) -> str:
     return f"prepared data directories under {settings.data_dir}"
 
 
-def run_data_update_stub(settings: Settings) -> str:
+def run_data_update(settings: Settings) -> str:
     settings.ensure_directories()
+    sample_path = settings.data_dir / "raw" / "sample_prices.csv"
+    ensure_sample_prices(sample_path)
     backup_path = backup_duckdb(settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups")
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
-    # 阶段 1 先把 pipeline 入口和备份钩子跑通，真实 AKShare 采集在数据层实现后接入。
-    return f"data update stub completed ({backup_message})"
+    # 阶段 1 先用可复现样例行情打通链路，真实 AKShare 采集接入后沿用同一产物路径。
+    return f"wrote sample prices to {sample_path} ({backup_message})"
+
+
+def run_feature_pipeline(settings: Settings) -> str:
+    price_path = settings.data_dir / "raw" / "sample_prices.csv"
+    feature_path = settings.data_dir / "processed" / "sample_features.csv"
+    bars = read_price_bars_csv(price_path)
+    features = compute_features(bars)
+    write_features_csv(feature_path, features)
+    return f"wrote {len(features)} feature rows to {feature_path}"
+
+
+def run_label_pipeline(settings: Settings) -> str:
+    price_path = settings.data_dir / "raw" / "sample_prices.csv"
+    label_path = settings.data_dir / "processed" / "sample_labels.csv"
+    bars = read_price_bars_csv(price_path)
+    labels = compute_labels(bars, horizon=5)
+    write_labels_csv(label_path, labels)
+    return f"wrote {len(labels)} label rows to {label_path}"
 
 
 def build_steps(settings: Settings) -> list[PipelineStep]:
     return [
         PipelineStep("prepare_directories", lambda: prepare_directories(settings)),
-        PipelineStep("data_update", lambda: run_data_update_stub(settings)),
-        PipelineStep("features", lambda: "feature pipeline not implemented", enabled=False),
-        PipelineStep("labels", lambda: "label pipeline not implemented", enabled=False),
+        PipelineStep("data_update", lambda: run_data_update(settings)),
+        PipelineStep("features", lambda: run_feature_pipeline(settings)),
+        PipelineStep("labels", lambda: run_label_pipeline(settings)),
         PipelineStep("train", lambda: "training pipeline not implemented", enabled=False),
         PipelineStep("backtest", lambda: "backtest pipeline not implemented", enabled=False),
     ]
