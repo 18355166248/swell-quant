@@ -76,6 +76,19 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert storage["status"] == "healthy"
     assert storage["inconsistent_tables"] == []
 
+    acceptance_result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_acceptance.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    acceptance = json.loads(acceptance_result.stdout)
+    assert acceptance_result.returncode == 0
+    assert acceptance["status"] == "passed"
+    assert acceptance["failed_count"] == 0
+
 
 def test_check_storage_returns_nonzero_for_missing_duckdb(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
@@ -96,3 +109,23 @@ def test_check_storage_returns_nonzero_for_missing_duckdb(tmp_path: Path) -> Non
 
     assert result.returncode == 1
     assert "duckdb_status=missing" in result.stdout
+
+
+def test_check_acceptance_returns_nonzero_before_pipeline_runs(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_acceptance.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "acceptance_status=missing" in result.stdout
