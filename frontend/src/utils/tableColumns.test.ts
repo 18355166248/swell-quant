@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPredictionColumns } from "./tableColumns";
+import {
+  buildArtifactColumns,
+  buildCheckColumns,
+  buildPredictionColumns,
+} from "./tableColumns";
 import type { Prediction } from "../types/api";
 
 describe("table column builders", () => {
@@ -55,5 +59,48 @@ describe("table column builders", () => {
     expect(scoreColumn.render?.(0.123456, prediction, 0)).toBe("0.1235");
     expect(returnColumn.render?.(null, prediction, 0)).toBe("-");
     expect(returnColumn.render?.(0.123456, prediction, 0)).toBe("0.1235");
+  });
+
+  it("builds reusable check columns with optional key visibility", () => {
+    const compactColumns = buildCheckColumns() as Array<Record<string, any>>;
+    const detailedColumns = buildCheckColumns({ showKey: true }) as Array<Record<string, any>>;
+
+    expect(compactColumns.map((column) => column.title)).toEqual(["检查项", "状态", "说明"]);
+    expect(detailedColumns.map((column) => column.title)).toEqual([
+      "检查项",
+      "Key",
+      "状态",
+      "说明",
+    ]);
+    expect(
+      (buildCheckColumns({ nameWidth: 160, statusWidth: 110 }) as Array<Record<string, any>>)
+        .slice(0, 2)
+        .map((column) => column.width),
+    ).toEqual([160, 110]);
+    expect(compactColumns[1].render("passed").props).toMatchObject({
+      color: "green",
+      children: "通过",
+    });
+    expect(compactColumns[1].render("failed").props).toMatchObject({
+      color: "red",
+      children: "失败",
+    });
+  });
+
+  it("builds reusable artifact columns while preserving missing status color policy", () => {
+    const columns = buildArtifactColumns({ missingColor: "orange" }) as Array<Record<string, any>>;
+
+    expect(columns.map((column) => column.title)).toEqual([
+      "产物",
+      "路径",
+      "大小",
+      "更新时间",
+      "状态",
+    ]);
+    expect(columns[2].render(2048)).toBe("2.0 KB");
+    expect(columns[4].render(false).props).toMatchObject({
+      color: "orange",
+      children: "缺失",
+    });
   });
 });

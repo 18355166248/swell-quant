@@ -37,6 +37,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { api, type PredictionQuery, type TaskTrigger } from "./api/client";
+import { PageTitle } from "./components/PageTitle";
 import {
   buildDrawdownOption,
   buildEquityOption,
@@ -46,16 +47,17 @@ import {
   buildStockPriceOption,
 } from "./utils/charts";
 import {
-  formatDateTime,
-  formatFileSize,
   formatNumber,
   formatPercent,
-  preflightStatusColor,
   rejectedTradeReasonLabel,
   statusColor,
   storageStatusColor,
 } from "./utils/display";
-import { buildPredictionColumns } from "./utils/tableColumns";
+import {
+  buildArtifactColumns,
+  buildCheckColumns,
+  buildPredictionColumns,
+} from "./utils/tableColumns";
 import type {
   AcceptanceStatus,
   ArtifactStatus,
@@ -106,26 +108,6 @@ interface PredictionFilters {
   date: string;
   modelVersion: string;
   topN: number;
-}
-
-function PageTitle({
-  title,
-  description,
-  extra,
-}: {
-  title: string;
-  description: string;
-  extra?: ReactNode;
-}) {
-  return (
-    <div className="page-title">
-      <div>
-        <Title level={2}>{title}</Title>
-        <Text type="secondary">{description}</Text>
-      </div>
-      {extra}
-    </div>
-  );
 }
 
 function DashboardPage({
@@ -211,20 +193,7 @@ function DashboardPage({
             size="small"
             pagination={false}
             dataSource={acceptanceChecks}
-            columns={[
-              { title: "检查项", dataIndex: "name" },
-              {
-                title: "状态",
-                dataIndex: "status",
-                width: 90,
-                render: (value: string) => (
-                  <Tag color={value === "passed" ? "green" : "red"}>
-                    {value === "passed" ? "通过" : "失败"}
-                  </Tag>
-                ),
-              },
-              { title: "说明", dataIndex: "message" },
-            ]}
+            columns={buildCheckColumns<ResearchStatus["acceptance"]["checks"][number]>()}
           />
         ) : (
           <Empty description="暂无验收结果" />
@@ -397,21 +366,7 @@ function AcceptancePage({
             size="middle"
             pagination={false}
             dataSource={checks}
-            columns={[
-              { title: "检查项", dataIndex: "name" },
-              { title: "Key", dataIndex: "key", width: 210 },
-              {
-                title: "状态",
-                dataIndex: "status",
-                width: 100,
-                render: (value: string) => (
-                  <Tag color={value === "passed" ? "green" : "red"}>
-                    {value === "passed" ? "通过" : "失败"}
-                  </Tag>
-                ),
-              },
-              { title: "说明", dataIndex: "message" },
-            ]}
+            columns={buildCheckColumns<AcceptanceStatus["checks"][number]>({ showKey: true })}
           />
         ) : (
           <Empty description="暂无验收结果" />
@@ -431,31 +386,7 @@ function AcceptancePage({
             size="middle"
             pagination={false}
             dataSource={artifacts}
-            columns={[
-              { title: "产物", dataIndex: "name", width: 180 },
-              { title: "路径", dataIndex: "path" },
-              {
-                title: "大小",
-                dataIndex: "size_bytes",
-                align: "right",
-                width: 120,
-                render: formatFileSize,
-              },
-              {
-                title: "更新时间",
-                dataIndex: "updated_at",
-                width: 180,
-                render: formatDateTime,
-              },
-              {
-                title: "状态",
-                dataIndex: "exists",
-                width: 100,
-                render: (exists: boolean) => (
-                  <Tag color={exists ? "green" : "red"}>{exists ? "存在" : "缺失"}</Tag>
-                ),
-              },
-            ]}
+            columns={buildArtifactColumns<ArtifactStatus["artifacts"][number]>()}
           />
         ) : (
           <Empty description="暂无产物状态" />
@@ -1750,18 +1681,11 @@ function SettingsPage({
               className="settings-runtime"
               dataSource={settings?.preflight.checks ?? []}
               pagination={false}
-              columns={[
-                { title: "检查项", dataIndex: "name", width: 160 },
-                {
-                  title: "状态",
-                  dataIndex: "status",
-                  width: 110,
-                  render: (status: string) => (
-                    <Tag color={preflightStatusColor(status)}>{status}</Tag>
-                  ),
-                },
-                { title: "说明", dataIndex: "message" },
-              ]}
+              columns={buildCheckColumns({
+                statusLabel: "raw",
+                nameWidth: 160,
+                statusWidth: 110,
+              })}
             />
             <Row gutter={[16, 16]} className="settings-key-row">
               <Col xs={24} md={12}>
@@ -1786,31 +1710,7 @@ function SettingsPage({
               size="middle"
               dataSource={artifacts}
               pagination={false}
-              columns={[
-                { title: "产物", dataIndex: "name", width: 180 },
-                { title: "路径", dataIndex: "path" },
-                {
-                  title: "大小",
-                  dataIndex: "size_bytes",
-                  align: "right",
-                  width: 120,
-                  render: formatFileSize,
-                },
-                {
-                  title: "更新时间",
-                  dataIndex: "updated_at",
-                  width: 180,
-                  render: formatDateTime,
-                },
-                {
-                  title: "状态",
-                  dataIndex: "exists",
-                  width: 120,
-                  render: (exists: boolean) => (
-                    <Tag color={exists ? "green" : "orange"}>{exists ? "存在" : "缺失"}</Tag>
-                  ),
-                },
-              ]}
+              columns={buildArtifactColumns({ missingColor: "orange" })}
             />
           </Card>
         </Col>
