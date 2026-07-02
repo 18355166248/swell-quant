@@ -43,7 +43,23 @@ export interface TaskDetail extends TaskSummary {
   steps: PipelineStep[];
 }
 
+export interface AcceptanceCheck {
+  key: string;
+  name: string;
+  status: "passed" | "failed";
+  message: string;
+}
+
+export interface AcceptanceStatus {
+  status: "passed" | "failed";
+  passed: boolean;
+  check_count: number;
+  failed_count: number;
+  checks: AcceptanceCheck[];
+}
+
 export interface ResearchStatus {
+  acceptance: AcceptanceStatus;
   pipeline: {
     status: string;
     started_at: string;
@@ -87,6 +103,7 @@ export interface ResearchStatus {
     model: string;
     latest_predictions: string;
     historical_predictions: string;
+    duckdb: string;
     backtest: string;
     summary: string;
     pipeline_run: string;

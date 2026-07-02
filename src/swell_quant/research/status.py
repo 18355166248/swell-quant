@@ -15,12 +15,21 @@ def build_research_status(
     predictions: list[PredictionRow],
     backtest: BacktestResult,
     pipeline_manifest: dict[str, Any],
+    storage_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     top_predictions = sorted(predictions, key=lambda row: row.rank)
+    gates = build_acceptance_gates(
+        quality=quality,
+        predictions=top_predictions,
+        backtest=backtest,
+        pipeline_manifest=pipeline_manifest,
+        storage_status=storage_status,
+    )
 
     # 状态快照面向 CLI/API/页面复用，只聚合结构化产物，不重新计算研究结果。
     return {
         "disclaimer": "仅用于研究，不构成投资建议",
+        "acceptance": gates,
         "pipeline": {
             "status": pipeline_manifest.get("status"),
             "started_at": pipeline_manifest.get("started_at"),
@@ -74,10 +83,70 @@ def build_research_status(
             "model": "data/models/baseline-rule-v1.json",
             "latest_predictions": "data/processed/latest_predictions.csv",
             "historical_predictions": "data/processed/historical_predictions.csv",
+            "duckdb": "data/duckdb/swell_quant.duckdb",
             "backtest": "data/reports/sample_backtest.json",
             "summary": "data/reports/sample_research_summary.md",
             "pipeline_run": "data/reports/pipeline_run.json",
         },
+    }
+
+
+def build_acceptance_gates(
+    quality: DataQualityReport,
+    predictions: list[PredictionRow],
+    backtest: BacktestResult,
+    pipeline_manifest: dict[str, Any],
+    storage_status: dict[str, Any] | None,
+) -> dict[str, Any]:
+    checks = [
+        _gate_check(
+            "pipeline_success",
+            "Pipeline 执行成功",
+            pipeline_manifest.get("status") == "success",
+            f"status={pipeline_manifest.get('status')}",
+        ),
+        _gate_check(
+            "data_quality_passed",
+            "数据质量通过",
+            quality.passed,
+            f"issues={quality.issue_count}, rows={quality.row_count}",
+        ),
+        _gate_check(
+            "duckdb_mirror_healthy",
+            "DuckDB 镜像一致",
+            storage_status is not None and storage_status.get("status") == "healthy",
+            "status=missing" if storage_status is None else f"status={storage_status.get('status')}",
+        ),
+        _gate_check(
+            "predictions_available",
+            "预测结果非空",
+            len(predictions) > 0,
+            f"count={len(predictions)}",
+        ),
+        _gate_check(
+            "backtest_has_trades",
+            "回测存在交易",
+            backtest.trade_count > 0,
+            f"trade_count={backtest.trade_count}",
+        ),
+    ]
+    failed_checks = [check for check in checks if check["status"] != "passed"]
+    # 验收门禁是开发期的最小端到端判定，失败项必须结构化暴露给 CLI/API/页面，而不是只留在日志里。
+    return {
+        "status": "passed" if not failed_checks else "failed",
+        "passed": not failed_checks,
+        "check_count": len(checks),
+        "failed_count": len(failed_checks),
+        "checks": checks,
+    }
+
+
+def _gate_check(key: str, name: str, passed: bool, message: str) -> dict[str, str]:
+    return {
+        "key": key,
+        "name": name,
+        "status": "passed" if passed else "failed",
+        "message": message,
     }
 
 

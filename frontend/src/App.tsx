@@ -339,6 +339,7 @@ function DashboardPage({
   pipeline?: PipelineRun;
   report?: string;
 }) {
+  const acceptanceChecks = status?.acceptance?.checks ?? [];
   return (
     <>
       <PageTitle
@@ -382,6 +383,40 @@ function DashboardPage({
           </Card>
         </Col>
       </Row>
+
+      <Card
+        title="验收门禁"
+        extra={
+          <Tag color={status?.acceptance?.passed ? "green" : "red"}>
+            {status?.acceptance?.status ?? "unknown"}
+          </Tag>
+        }
+      >
+        {acceptanceChecks.length > 0 ? (
+          <Table<ResearchStatus["acceptance"]["checks"][number]>
+            rowKey="key"
+            size="small"
+            pagination={false}
+            dataSource={acceptanceChecks}
+            columns={[
+              { title: "检查项", dataIndex: "name" },
+              {
+                title: "状态",
+                dataIndex: "status",
+                width: 90,
+                render: (value: string) => (
+                  <Tag color={value === "passed" ? "green" : "red"}>
+                    {value === "passed" ? "通过" : "失败"}
+                  </Tag>
+                ),
+              },
+              { title: "说明", dataIndex: "message" },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无验收结果" />
+        )}
+      </Card>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={14}>
