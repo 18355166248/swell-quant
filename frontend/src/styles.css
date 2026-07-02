@@ -77,6 +77,10 @@ body,
   margin-bottom: 16px;
 }
 
+.symbol-select {
+  width: 180px;
+}
+
 .report-preview {
   min-height: 176px;
   margin: 0;

@@ -128,3 +128,60 @@ export interface DataQuality {
   issue_count: number;
   issues: DataQualityIssue[];
 }
+
+export interface StockSummary {
+  symbol: string;
+  price_row_count: number;
+  prediction_row_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  disclaimer: string;
+}
+
+export interface StockPrice {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  benchmark_close: number;
+}
+
+export interface StockPrices {
+  symbol: string;
+  count: number;
+  prices: StockPrice[];
+}
+
+export interface StockFeature {
+  date: string;
+  close: number;
+  return_1d: number | null;
+  momentum_5d: number | null;
+  ma_5: number | null;
+  volume_change_1d: number | null;
+}
+
+export interface StockFeatures {
+  symbol: string;
+  count: number;
+  features: StockFeature[];
+}
+
+export interface StockPrediction {
+  date: string;
+  model_version: string;
+  score: number;
+  rank: number;
+  return_1d: number | null;
+  momentum_5d: number | null;
+  volume_change_1d: number | null;
+}
+
+export interface StockPredictions {
+  symbol: string;
+  count: number;
+  predictions: StockPrediction[];
+  disclaimer: string;
+}

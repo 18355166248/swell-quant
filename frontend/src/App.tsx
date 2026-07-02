@@ -10,6 +10,7 @@ import {
   Layout,
   Menu,
   Row,
+  Select,
   Space,
   Spin,
   Statistic,
@@ -28,6 +29,7 @@ import {
   FileTextOutlined,
   LineChartOutlined,
   ReloadOutlined,
+  StockOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -40,12 +42,16 @@ import type {
   PipelineRun,
   Prediction,
   ResearchStatus,
+  StockFeature,
+  StockPrediction,
+  StockPrices,
+  StockSummary,
 } from "./types/api";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
-type PageKey = "dashboard" | "tasks" | "predictions" | "backtests" | "reports";
+type PageKey = "dashboard" | "tasks" | "predictions" | "backtests" | "stocks" | "reports";
 
 function formatPercent(value?: number): string {
   if (value === undefined || Number.isNaN(value)) {
@@ -134,6 +140,82 @@ function buildScoreOption(predictions: Prediction[]) {
         type: "bar",
         data: predictions.map((row) => row.score),
         itemStyle: { color: "#1f6feb" },
+      },
+    ],
+  };
+}
+
+function buildStockPriceOption(data?: StockPrices) {
+  const prices = data?.prices ?? [];
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0, data: ["收盘价", "基准收盘"] },
+    grid: { top: 44, left: 48, right: 24, bottom: 36 },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: prices.map((row) => row.date),
+    },
+    yAxis: {
+      type: "value",
+      min: "dataMin",
+      axisLabel: {
+        formatter: (value: number) => value.toFixed(0),
+      },
+    },
+    series: [
+      {
+        name: "收盘价",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        data: prices.map((row) => row.close),
+      },
+      {
+        name: "基准收盘",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        data: prices.map((row) => row.benchmark_close),
+      },
+    ],
+  };
+}
+
+function buildStockFactorOption(features: StockFeature[]) {
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0, data: ["5 日动量", "1 日收益", "成交量变化"] },
+    grid: { top: 44, left: 48, right: 24, bottom: 36 },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: features.map((row) => row.date),
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => value.toFixed(2),
+      },
+    },
+    series: [
+      {
+        name: "5 日动量",
+        type: "line",
+        showSymbol: false,
+        data: features.map((row) => row.momentum_5d),
+      },
+      {
+        name: "1 日收益",
+        type: "line",
+        showSymbol: false,
+        data: features.map((row) => row.return_1d),
+      },
+      {
+        name: "成交量变化",
+        type: "line",
+        showSymbol: false,
+        data: features.map((row) => row.volume_change_1d),
       },
     ],
   };
@@ -448,6 +530,131 @@ function BacktestsPage({ backtest }: { backtest?: LatestBacktest }) {
   );
 }
 
+function StocksPage({
+  symbol,
+  symbols,
+  onSymbolChange,
+  summary,
+  prices,
+  features,
+  stockPredictions,
+  isLoading,
+}: {
+  symbol: string;
+  symbols: string[];
+  onSymbolChange: (symbol: string) => void;
+  summary?: StockSummary;
+  prices?: StockPrices;
+  features: StockFeature[];
+  stockPredictions: StockPrediction[];
+  isLoading: boolean;
+}) {
+  return (
+    <>
+      <PageTitle
+        title="单股"
+        description="查看单只标的的行情覆盖、因子走势和历史预测表现。历史预测仅用于研究解释。"
+        extra={
+          <Select
+            className="symbol-select"
+            value={symbol}
+            options={symbols.map((item) => ({ label: item, value: item }))}
+            onChange={onSymbolChange}
+          />
+        }
+      />
+      <Spin spinning={isLoading}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12} xl={6}>
+            <Card><Statistic title="价格行数" value={summary?.price_row_count ?? 0} /></Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card><Statistic title="历史预测" value={summary?.prediction_row_count ?? 0} suffix="条" /></Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card><Statistic title="开始日期" value={summary?.start_date ?? "-"} /></Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card><Statistic title="结束日期" value={summary?.end_date ?? "-"} /></Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={12}>
+            <Card title="价格走势">
+              {prices?.prices.length ? (
+                <ReactECharts className="large-chart" option={buildStockPriceOption(prices)} />
+              ) : (
+                <Empty description="暂无价格数据" />
+              )}
+            </Card>
+          </Col>
+          <Col xs={24} xl={12}>
+            <Card title="因子走势">
+              {features.length ? (
+                <ReactECharts className="large-chart" option={buildStockFactorOption(features)} />
+              ) : (
+                <Empty description="暂无因子数据" />
+              )}
+            </Card>
+          </Col>
+        </Row>
+
+        <Card title="历史预测">
+          <Table<StockPrediction>
+            rowKey={(row) => `${row.date}-${row.rank}-${row.score}`}
+            size="middle"
+            dataSource={stockPredictions}
+            pagination={{ pageSize: 10, hideOnSinglePage: true }}
+            columns={[
+              { title: "日期", dataIndex: "date", width: 120 },
+              { title: "模型版本", dataIndex: "model_version", width: 160 },
+              {
+                title: "排名",
+                dataIndex: "rank",
+                width: 90,
+                sorter: (a, b) => a.rank - b.rank,
+              },
+              {
+                title: "预测分数",
+                dataIndex: "score",
+                align: "right",
+                sorter: (a, b) => a.score - b.score,
+                render: (value: number) => value.toFixed(4),
+              },
+              {
+                title: "1 日收益",
+                dataIndex: "return_1d",
+                align: "right",
+                render: formatNumber,
+              },
+              {
+                title: "5 日动量",
+                dataIndex: "momentum_5d",
+                align: "right",
+                render: formatNumber,
+              },
+              {
+                title: "成交量变化",
+                dataIndex: "volume_change_1d",
+                align: "right",
+                render: formatNumber,
+              },
+            ]}
+          />
+        </Card>
+        <Alert
+          className="page-alert"
+          type="info"
+          showIcon
+          message="研究声明"
+          description={summary?.disclaimer ?? "仅用于研究，不构成投资建议"}
+        />
+      </Spin>
+    </>
+  );
+}
+
 function ReportsPage({
   report,
   status,
@@ -502,6 +709,7 @@ function App() {
   const queryClient = useQueryClient();
   const [messageApi, contextHolder] = message.useMessage();
   const [activePage, setActivePage] = useState<PageKey>("dashboard");
+  const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const pipelineQuery = useQuery({ queryKey: ["pipeline"], queryFn: api.getPipeline });
@@ -515,6 +723,26 @@ function App() {
     queryFn: api.getLatestBacktest,
   });
   const reportQuery = useQuery({ queryKey: ["report"], queryFn: api.getReport });
+  const stockSummaryQuery = useQuery({
+    queryKey: ["stocks", selectedSymbol, "summary"],
+    queryFn: () => api.getStockSummary(selectedSymbol),
+    enabled: selectedSymbol.length > 0,
+  });
+  const stockPricesQuery = useQuery({
+    queryKey: ["stocks", selectedSymbol, "prices"],
+    queryFn: () => api.getStockPrices(selectedSymbol),
+    enabled: selectedSymbol.length > 0,
+  });
+  const stockFeaturesQuery = useQuery({
+    queryKey: ["stocks", selectedSymbol, "features"],
+    queryFn: () => api.getStockFeatures(selectedSymbol),
+    enabled: selectedSymbol.length > 0,
+  });
+  const stockPredictionsQuery = useQuery({
+    queryKey: ["stocks", selectedSymbol, "predictions"],
+    queryFn: () => api.getStockPredictions(selectedSymbol),
+    enabled: selectedSymbol.length > 0,
+  });
 
   const runPipelineMutation = useMutation({
     mutationFn: api.runPipeline,
@@ -534,6 +762,14 @@ function App() {
   const status = statusQuery.data;
   const quality = qualityQuery.data;
   const predictions = useMemo(() => predictionsQuery.data?.predictions ?? [], [predictionsQuery.data]);
+  const stockSymbols = useMemo(() => {
+    const symbols = [
+      ...predictions.map((row) => row.symbol),
+      ...(status?.predictions.top.map((row) => row.symbol) ?? []),
+      selectedSymbol,
+    ];
+    return Array.from(new Set(symbols.filter(Boolean)));
+  }, [predictions, selectedSymbol, status]);
   const backtest = backtestQuery.data;
   const pipeline = pipelineQuery.data;
   const report = reportQuery.data;
@@ -543,6 +779,11 @@ function App() {
     predictionsQuery.isLoading ||
     backtestQuery.isLoading ||
     reportQuery.isLoading;
+  const isStockLoading =
+    stockSummaryQuery.isLoading ||
+    stockPricesQuery.isLoading ||
+    stockFeaturesQuery.isLoading ||
+    stockPredictionsQuery.isLoading;
 
   const hasError =
     statusQuery.isError ||
@@ -571,6 +812,18 @@ function App() {
     ),
     predictions: <PredictionsPage predictions={predictions} />,
     backtests: <BacktestsPage backtest={backtest} />,
+    stocks: (
+      <StocksPage
+        symbol={selectedSymbol}
+        symbols={stockSymbols}
+        onSymbolChange={setSelectedSymbol}
+        summary={stockSummaryQuery.data}
+        prices={stockPricesQuery.data}
+        features={stockFeaturesQuery.data?.features ?? []}
+        stockPredictions={stockPredictionsQuery.data?.predictions ?? []}
+        isLoading={isStockLoading}
+      />
+    ),
     reports: <ReportsPage report={report} status={status} qualityIssues={quality?.issues ?? []} />,
   } satisfies Record<PageKey, ReactNode>;
 
@@ -591,6 +844,7 @@ function App() {
             { key: "tasks", icon: <SyncOutlined />, label: "任务" },
             { key: "predictions", icon: <LineChartOutlined />, label: "预测" },
             { key: "backtests", icon: <DatabaseOutlined />, label: "回测" },
+            { key: "stocks", icon: <StockOutlined />, label: "单股" },
             { key: "reports", icon: <FileTextOutlined />, label: "报告" },
           ]}
         />

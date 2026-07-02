@@ -4,6 +4,10 @@ import type {
   LatestPredictions,
   PipelineRun,
   ResearchStatus,
+  StockFeatures,
+  StockPredictions,
+  StockPrices,
+  StockSummary,
 } from "../types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -37,6 +41,12 @@ export const api = {
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),
   getReport: () => requestText("/api/report"),
+  getStockSummary: (symbol: string) => requestJson<StockSummary>(`/api/stocks/${symbol}`),
+  getStockPrices: (symbol: string) => requestJson<StockPrices>(`/api/stocks/${symbol}/prices`),
+  getStockFeatures: (symbol: string) =>
+    requestJson<StockFeatures>(`/api/stocks/${symbol}/features`),
+  getStockPredictions: (symbol: string) =>
+    requestJson<StockPredictions>(`/api/stocks/${symbol}/predictions`),
   runPipeline: async () => {
     // 这里只触发后端离线链路；前端不直接计算因子、标签、训练或回测，避免两套口径分叉。
     const response = await fetch(`${API_BASE_URL}/api/pipeline/run`, {
