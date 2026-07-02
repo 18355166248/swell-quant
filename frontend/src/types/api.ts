@@ -234,6 +234,7 @@ export interface LabelSummary {
   end_date: string | null;
   label_names: string[];
   labeled_row_count: number;
+  unlabeled_row_count: number;
   positive_count: number;
   negative_count: number;
   horizon_days: number;

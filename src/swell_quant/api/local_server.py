@@ -452,6 +452,7 @@ def load_labels_artifact(path: Path) -> dict[str, Any]:
             "outperform_benchmark_5d",
         ],
         "labeled_row_count": len(labeled_rows),
+        "unlabeled_row_count": len(rows) - len(labeled_rows),
         "positive_count": sum(1 for row in labeled_rows if row.outperform_benchmark_5d == 1),
         "negative_count": sum(1 for row in labeled_rows if row.outperform_benchmark_5d == 0),
         "horizon_days": 5,

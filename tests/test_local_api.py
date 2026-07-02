@@ -180,6 +180,7 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert features_payload["latest_samples"][0]["date"] == "2024-01-21"
     assert labels_payload["row_count"] == 60
     assert labels_payload["labeled_row_count"] == 45
+    assert labels_payload["unlabeled_row_count"] == 15
     assert labels_payload["horizon_days"] == 5
     assert labels_payload["positive_count"] + labels_payload["negative_count"] == 45
     assert labels_payload["latest_samples"][0]["date"] == "2024-01-21"

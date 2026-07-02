@@ -687,6 +687,7 @@ function DataPage({
             <Descriptions column={1} size="small">
               <Descriptions.Item label="行数">{labels?.row_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="可训练标签">{labels?.labeled_row_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="未成熟标签">{labels?.unlabeled_row_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="跑赢样本">{labels?.positive_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="未跑赢样本">{labels?.negative_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="跑赢占比">{formatPercent(labelRate)}</Descriptions.Item>
