@@ -590,6 +590,19 @@ export interface LocalSettings {
     deepseek_configured: boolean;
     openai_configured: boolean;
   };
+  preflight: {
+    status: "passed" | "warning" | "failed";
+    passed: boolean;
+    check_count: number;
+    failed_count: number;
+    warning_count: number;
+    checks: Array<{
+      key: string;
+      name: string;
+      status: "passed" | "warning" | "failed";
+      message: string;
+    }>;
+  };
   artifacts: SettingsArtifact[];
 }
 

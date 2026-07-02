@@ -128,6 +128,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 
 `GET /api/artifacts` 返回本地研究产物清单、缺失项、文件大小和更新时间，适合无页面排查 pipeline 是否生成了完整可用的结果。
 
+`GET /api/settings` 会返回本地路径、运行模式、非敏感数据源配置、API key 是否配置，以及运行前预检结果；预检只暴露阻塞项和风险提示，不返回任何 secret 明文。
+
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
 
 `POST /api/data/update`、`POST /api/models/train`、`POST /api/predictions/run`、`POST /api/backtests/run` 和 `POST /api/reports/generate` 是任务中心的细分触发入口。当前 MVP 为了保证样例数据、因子、标签、模型、预测、回测和报告口径一致，这些入口都会串行执行完整离线 pipeline，并在响应中返回 `requested_task` 与 `execution_mode=full_pipeline_refresh`。

@@ -160,6 +160,19 @@ function storageStatusColor(status?: string): string {
   return "default";
 }
 
+function preflightStatusColor(status?: string): string {
+  if (status === "passed") {
+    return "green";
+  }
+  if (status === "warning") {
+    return "orange";
+  }
+  if (status === "failed") {
+    return "red";
+  }
+  return "default";
+}
+
 function buildEquityOption(points: BacktestPoint[]) {
   return {
     tooltip: { trigger: "axis" },
@@ -2041,6 +2054,42 @@ function SettingsPage({
                 {settings?.llm.deepseek_base_url ?? "-"}
               </Descriptions.Item>
             </Descriptions>
+            <Alert
+              className="settings-runtime"
+              type={
+                settings?.preflight.status === "failed"
+                  ? "error"
+                  : settings?.preflight.status === "warning"
+                    ? "warning"
+                    : "success"
+              }
+              showIcon
+              message="运行前预检"
+              description={
+                settings
+                  ? `状态 ${settings.preflight.status}，${settings.preflight.failed_count} 个失败，${settings.preflight.warning_count} 个警告。`
+                  : "暂无预检结果"
+              }
+            />
+            <Table
+              rowKey="key"
+              size="small"
+              className="settings-runtime"
+              dataSource={settings?.preflight.checks ?? []}
+              pagination={false}
+              columns={[
+                { title: "检查项", dataIndex: "name", width: 160 },
+                {
+                  title: "状态",
+                  dataIndex: "status",
+                  width: 110,
+                  render: (status: string) => (
+                    <Tag color={preflightStatusColor(status)}>{status}</Tag>
+                  ),
+                },
+                { title: "说明", dataIndex: "message" },
+              ]}
+            />
             <Row gutter={[16, 16]} className="settings-key-row">
               <Col xs={24} md={12}>
                 <Card size="small">

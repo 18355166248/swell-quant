@@ -134,6 +134,7 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
         openai_api_key=None,
         model_type="lightgbm",
         llm_provider="deepseek",
+        data_source="akshare",
         akshare_universe_mode="manual",
         akshare_symbols=("000001.SZ", "600000.SH"),
     )
@@ -145,12 +146,17 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
     )
 
     serialized = str(payload)
-    assert payload["runtime"]["data_source"] == "sample"
+    assert payload["runtime"]["data_source"] == "akshare"
     assert payload["runtime"]["model_type"] == "lightgbm"
     assert payload["runtime"]["llm_provider"] == "deepseek"
     assert payload["akshare"]["universe_mode"] == "manual"
     assert payload["akshare"]["symbols"] == ["000001.SZ", "600000.SH"]
     assert payload["llm"]["deepseek_model"] == "deepseek-chat"
+    assert payload["preflight"]["status"] == "warning"
+    assert payload["preflight"]["failed_count"] == 0
+    assert payload["preflight"]["warning_count"] == 1
+    assert any(check["key"] == "akshare_symbols" for check in payload["preflight"]["checks"])
+    assert any(check["key"] == "akshare_symbol_count" for check in payload["preflight"]["checks"])
     assert payload["api_keys"]["deepseek_configured"] is True
     assert payload["api_keys"]["openai_configured"] is False
     assert "deepseek-secret" not in serialized
@@ -158,6 +164,21 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
     assert any(
         item["name"] == "status" and item["updated_at"] is not None for item in payload["artifacts"]
     )
+
+
+def test_local_api_settings_preflight_warns_when_deepseek_key_missing(tmp_path: Path) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
+        llm_provider="deepseek",
+    )
+    settings.ensure_directories()
+
+    payload = load_settings_artifact(settings)
+
+    assert payload["preflight"]["status"] == "warning"
+    assert any(check["key"] == "deepseek_api_key" for check in payload["preflight"]["checks"])
+    assert "DEEPSEEK_API_KEY" in str(payload["preflight"]["checks"])
 
 
 def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path) -> None:
