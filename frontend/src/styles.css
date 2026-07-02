@@ -89,6 +89,10 @@ body,
   background: #eaf2ff !important;
 }
 
+.model-summary {
+  margin-top: 14px;
+}
+
 .report-preview {
   min-height: 176px;
   margin: 0;

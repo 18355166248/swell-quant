@@ -10,6 +10,9 @@ from swell_quant.api.local_server import (
     load_json_artifact,
     load_latest_model_artifact,
     load_latest_predictions_artifact,
+    load_model_artifact,
+    load_model_route,
+    load_models_artifact,
     load_prediction_route,
     load_predictions_artifact,
     load_report_artifact,
@@ -189,6 +192,48 @@ def test_local_api_latest_model_artifact(tmp_path: Path) -> None:
     assert model["model_version"] == "baseline-rule-v1"
     assert model["feature_count"] == 2
     assert model["row_count"] == 60
+
+
+def test_local_api_model_route_dispatches_list_and_detail(tmp_path: Path) -> None:
+    models_dir = tmp_path / "models"
+    model_path = models_dir / "baseline-rule-v1.json"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text(
+        """
+        {
+          "model_version": "baseline-rule-v1",
+          "model_type": "rule_baseline",
+          "feature_names": ["momentum_5d", "return_1d", "volume_change_1d"],
+          "train_start": "2024-01-02",
+          "train_end": "2024-01-16",
+          "prediction_date": "2024-01-21",
+          "row_count": 60,
+          "disclaimer": "仅用于研究，不构成投资建议"
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    models = load_models_artifact(models_dir)
+    detail = load_model_artifact(model_path)
+    list_status, list_payload = load_model_route("/api/models", tmp_path)
+    detail_status, detail_payload = load_model_route("/api/models/baseline-rule-v1", tmp_path)
+    missing_status, missing_payload = load_model_route("/api/models/nope", tmp_path)
+    ignored = load_model_route("/api/status", tmp_path)
+
+    assert models["count"] == 1
+    assert "feature_names" not in models["models"][0]
+    assert models["models"][0]["feature_count"] == 3
+    assert detail["model_version"] == "baseline-rule-v1"
+    assert detail["feature_names"] == ["momentum_5d", "return_1d", "volume_change_1d"]
+    assert detail["path"].endswith("baseline-rule-v1.json")
+    assert list_status.value == 200
+    assert list_payload["models"][0]["model_version"] == "baseline-rule-v1"
+    assert detail_status.value == 200
+    assert detail_payload["feature_count"] == 3
+    assert missing_status.value == 404
+    assert missing_payload["error"] == "model_not_found"
+    assert ignored is None
 
 
 def test_local_api_predictions_route_filters_historical_predictions(tmp_path: Path) -> None:

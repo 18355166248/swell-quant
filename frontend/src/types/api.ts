@@ -197,6 +197,25 @@ export interface LatestModel {
   disclaimer: string;
 }
 
+export interface ModelSummary {
+  model_version: string;
+  model_type: string;
+  feature_count: number;
+  train_start: string;
+  train_end: string;
+  prediction_date: string;
+  row_count: number;
+  path: string;
+  updated_at: string;
+  disclaimer: string;
+}
+
+export interface ModelList {
+  count: number;
+  models: ModelSummary[];
+  disclaimer: string;
+}
+
 export interface StockSummary {
   symbol: string;
   price_row_count: number;

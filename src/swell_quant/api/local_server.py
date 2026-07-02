@@ -60,6 +60,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 load_latest_model_artifact,
             )
             return
+        model_response = load_model_route(route, self.data_dir)
+        if model_response is not None:
+            status, payload = model_response
+            self._send_json(payload, status=status)
+            return
         task_response = load_task_route(route, self.data_dir)
         if task_response is not None:
             status, payload = task_response
@@ -399,6 +404,60 @@ def load_latest_model_artifact(path: Path) -> dict[str, Any]:
         "row_count": payload["row_count"],
         "disclaimer": payload.get("disclaimer", "仅用于研究，不构成投资建议"),
     }
+
+
+def load_model_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route == "/api/models":
+        models_dir = data_dir / "models"
+        if not models_dir.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(models_dir)
+        return HTTPStatus.OK, load_models_artifact(models_dir)
+    if route.startswith("/api/models/"):
+        model_version = route[len("/api/models/") :]
+        path = data_dir / "models" / f"{model_version}.json"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, {"error": "model_not_found", "model_version": model_version}
+        return HTTPStatus.OK, load_model_artifact(path)
+    return None
+
+
+def load_models_artifact(models_dir: Path) -> dict[str, Any]:
+    model_paths = sorted(
+        models_dir.glob("*.json"),
+        key=lambda path: (path.stat().st_mtime, path.name),
+        reverse=True,
+    )
+    models = [model_summary_payload(path) for path in model_paths]
+    return {
+        "count": len(models),
+        "models": models,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_model_artifact(path: Path) -> dict[str, Any]:
+    payload = load_latest_model_artifact(path)
+    payload["path"] = str(path)
+    payload["updated_at"] = _format_file_timestamp(path)
+    return payload
+
+
+def model_summary_payload(path: Path) -> dict[str, Any]:
+    detail = load_model_artifact(path)
+    summary_keys = (
+        "model_version",
+        "model_type",
+        "feature_count",
+        "train_start",
+        "train_end",
+        "prediction_date",
+        "row_count",
+        "path",
+        "updated_at",
+        "disclaimer",
+    )
+    # 列表只返回摘要字段，详情接口再给出完整 feature_names，避免模型多时列表负载过大。
+    return {key: detail[key] for key in summary_keys}
 
 
 def load_latest_predictions_artifact(path: Path) -> dict[str, Any]:

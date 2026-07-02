@@ -44,6 +44,7 @@ import type {
   LatestBacktest,
   LatestModel,
   LocalSettings,
+  ModelSummary,
   PipelineRun,
   Prediction,
   ReportDetail,
@@ -294,6 +295,7 @@ function DashboardPage({
   status,
   dataStatus,
   model,
+  models,
   quality,
   predictions,
   backtest,
@@ -303,6 +305,7 @@ function DashboardPage({
   status?: ResearchStatus;
   dataStatus?: DataStatus;
   model?: LatestModel;
+  models: ModelSummary[];
   quality?: ResearchStatus["data_quality"];
   predictions: Prediction[];
   backtest?: LatestBacktest;
@@ -396,6 +399,38 @@ function DashboardPage({
           </Card>
         </Col>
         <Col xs={24} xl={12}>
+          <Card title="模型状态">
+            {models.length > 0 ? (
+              <Table<ModelSummary>
+                rowKey="model_version"
+                size="small"
+                pagination={false}
+                dataSource={models}
+                columns={[
+                  { title: "版本", dataIndex: "model_version" },
+                  { title: "类型", dataIndex: "model_type", width: 130 },
+                  { title: "特征", dataIndex: "feature_count", width: 80, align: "right" },
+                  { title: "预测日", dataIndex: "prediction_date", width: 120 },
+                ]}
+              />
+            ) : (
+              <Empty description="暂无模型产物" />
+            )}
+            <Descriptions className="model-summary" column={1} size="small">
+              <Descriptions.Item label="训练区间">
+                {model?.train_start ?? "-"} 至 {model?.train_end ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="样本行数">{model?.row_count ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="特征列表">
+                {model?.feature_names?.join(", ") ?? "-"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24}>
           <Card title="研究报告预览">
             {report ? (
               <Paragraph className="report-preview">{report.split("\n").slice(0, 10).join("\n")}</Paragraph>
@@ -913,6 +948,7 @@ function App() {
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const latestModelQuery = useQuery({ queryKey: ["model", "latest"], queryFn: api.getLatestModel });
+  const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
   const predictionsQuery = useQuery({
     queryKey: ["predictions", "latest"],
     queryFn: api.getLatestPredictions,
@@ -1004,6 +1040,7 @@ function App() {
     dataStatusQuery.isLoading ||
     predictionsQuery.isLoading ||
     latestModelQuery.isLoading ||
+    modelsQuery.isLoading ||
     backtestsQuery.isLoading ||
     backtestDetailQuery.isLoading ||
     backtestQuery.isLoading ||
@@ -1027,6 +1064,7 @@ function App() {
     dataStatusQuery.isError ||
     predictionsQuery.isError ||
     latestModelQuery.isError ||
+    modelsQuery.isError ||
     backtestsQuery.isError ||
     backtestDetailQuery.isError ||
     backtestQuery.isError ||
@@ -1043,6 +1081,7 @@ function App() {
         status={status}
         dataStatus={dataStatusQuery.data}
         model={latestModelQuery.data}
+        models={modelsQuery.data?.models ?? []}
         quality={quality}
         predictions={predictions}
         backtest={backtest}
