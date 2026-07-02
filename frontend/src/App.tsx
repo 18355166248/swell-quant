@@ -68,6 +68,7 @@ type PageKey =
   | "dashboard"
   | "data"
   | "tasks"
+  | "models"
   | "predictions"
   | "backtests"
   | "stocks"
@@ -623,6 +624,95 @@ function DataPage({
   );
 }
 
+function ModelsPage({
+  models,
+  model,
+  selectedModelVersion,
+  onSelectModel,
+}: {
+  models: ModelSummary[];
+  model?: LatestModel;
+  selectedModelVersion: string;
+  onSelectModel: (modelVersion: string) => void;
+}) {
+  const featureRows = model?.feature_names.map((featureName, index) => ({
+    featureName,
+    index: index + 1,
+  })) ?? [];
+  return (
+    <>
+      <PageTitle
+        title="模型"
+        description="查看模型版本、训练区间、特征列表和本地产物路径。"
+      />
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={10}>
+          <Card title="模型列表">
+            <Table<ModelSummary>
+              rowKey="model_version"
+              size="middle"
+              dataSource={models}
+              pagination={false}
+              onRow={(record) => ({
+                onClick: () => onSelectModel(record.model_version),
+              })}
+              rowClassName={(record) =>
+                record.model_version === selectedModelVersion ? "selected-table-row" : ""
+              }
+              columns={[
+                { title: "版本", dataIndex: "model_version" },
+                { title: "类型", dataIndex: "model_type", width: 130 },
+                { title: "特征", dataIndex: "feature_count", width: 80, align: "right" },
+                { title: "预测日", dataIndex: "prediction_date", width: 120 },
+              ]}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} xl={14}>
+          <Card title="模型详情">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="模型版本">{model?.model_version ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="模型类型">{model?.model_type ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="训练区间">
+                {model?.train_start ?? "-"} 至 {model?.train_end ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="预测日期">{model?.prediction_date ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="训练样本行数">{model?.row_count ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="特征数量">{model?.feature_count ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="声明">
+                {model?.disclaimer ?? "仅用于研究，不构成投资建议"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+      </Row>
+      <Card title="特征列表">
+        {featureRows.length > 0 ? (
+          <Table
+            rowKey="featureName"
+            size="middle"
+            dataSource={featureRows}
+            pagination={false}
+            columns={[
+              { title: "#", dataIndex: "index", width: 80, align: "right" },
+              { title: "特征名", dataIndex: "featureName" },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无特征列表" />
+        )}
+      </Card>
+      <Alert
+        className="page-alert"
+        type="info"
+        showIcon
+        message="模型说明"
+        description="当前 baseline 是可复现规则模型，用于验证离线链路；后续接入 LightGBM 后沿用相同模型版本和特征追踪口径。"
+      />
+    </>
+  );
+}
+
 function PredictionsPage({
   predictions,
   filters,
@@ -1123,6 +1213,7 @@ function App() {
   const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
   const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
   const [selectedReportId, setSelectedReportId] = useState("sample-research-summary");
+  const [selectedModelVersion, setSelectedModelVersion] = useState("baseline-rule-v1");
   const [predictionFilters, setPredictionFilters] = useState<PredictionFilters>({
     date: "",
     modelVersion: "",
@@ -1141,6 +1232,11 @@ function App() {
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const latestModelQuery = useQuery({ queryKey: ["model", "latest"], queryFn: api.getLatestModel });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
+  const modelDetailQuery = useQuery({
+    queryKey: ["models", selectedModelVersion],
+    queryFn: () => api.getModel(selectedModelVersion),
+    enabled: selectedModelVersion.length > 0,
+  });
   const predictionsQuery = useQuery({
     queryKey: ["predictions", "latest"],
     queryFn: api.getLatestPredictions,
@@ -1254,6 +1350,7 @@ function App() {
     predictionsQuery.isLoading ||
     latestModelQuery.isLoading ||
     modelsQuery.isLoading ||
+    modelDetailQuery.isLoading ||
     backtestsQuery.isLoading ||
     backtestDetailQuery.isLoading ||
     backtestQuery.isLoading ||
@@ -1278,6 +1375,7 @@ function App() {
     predictionsQuery.isError ||
     latestModelQuery.isError ||
     modelsQuery.isError ||
+    modelDetailQuery.isError ||
     backtestsQuery.isError ||
     backtestDetailQuery.isError ||
     backtestQuery.isError ||
@@ -1309,6 +1407,14 @@ function App() {
         taskDetail={taskDetailQuery.data}
         isRunning={runPipelineMutation.isPending}
         onRunPipeline={() => runPipelineMutation.mutate()}
+      />
+    ),
+    models: (
+      <ModelsPage
+        models={modelsQuery.data?.models ?? []}
+        model={modelDetailQuery.data ?? latestModelQuery.data}
+        selectedModelVersion={selectedModelVersion}
+        onSelectModel={setSelectedModelVersion}
       />
     ),
     predictions: (
@@ -1370,8 +1476,9 @@ function App() {
             { key: "dashboard", icon: <BarChartOutlined />, label: "工作台" },
             { key: "data", icon: <DatabaseOutlined />, label: "数据" },
             { key: "tasks", icon: <SyncOutlined />, label: "任务" },
+            { key: "models", icon: <ExperimentOutlined />, label: "模型" },
             { key: "predictions", icon: <LineChartOutlined />, label: "预测" },
-            { key: "backtests", icon: <ExperimentOutlined />, label: "回测" },
+            { key: "backtests", icon: <DatabaseOutlined />, label: "回测" },
             { key: "stocks", icon: <StockOutlined />, label: "单股" },
             { key: "reports", icon: <FileTextOutlined />, label: "报告" },
             { key: "settings", icon: <SettingOutlined />, label: "设置" },
