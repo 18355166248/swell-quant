@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from swell_quant.data.quality import DataQualityReport
 from swell_quant.research.backtest import BacktestResult
 from swell_quant.research.modeling import ModelMetadata, PredictionRow
 
@@ -13,12 +14,17 @@ def build_research_summary(
     metadata: ModelMetadata,
     predictions: list[PredictionRow],
     backtest: BacktestResult,
+    quality: DataQualityReport | None = None,
 ) -> str:
     sorted_predictions = sorted(predictions, key=lambda row: row.rank)
     lines = [
         "# Swell Quant 离线研究摘要",
         "",
         f"> {RESEARCH_DISCLAIMER}；历史回测不代表未来表现。",
+        "",
+        "## 数据质量",
+        "",
+        *_build_quality_lines(quality),
         "",
         "## 模型",
         "",
@@ -80,3 +86,20 @@ def _format_percent(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value * 100:.2f}%"
+
+
+def _build_quality_lines(quality: DataQualityReport | None) -> list[str]:
+    if quality is None:
+        return ["- 数据质量报告：未提供"]
+
+    lines = [
+        f"- 行数：{quality.row_count}",
+        f"- 股票数：{quality.symbol_count}",
+        f"- 日期范围：{quality.start_date} 至 {quality.end_date}",
+        f"- 问题数：{quality.issue_count}",
+    ]
+    if quality.issues:
+        lines.extend(f"- `{issue.code}` {issue.symbol or '-'} {issue.date or '-'}：{issue.message}" for issue in quality.issues[:5])
+    else:
+        lines.append("- 数据质量检查：通过")
+    return lines

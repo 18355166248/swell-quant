@@ -33,6 +33,7 @@ python3 -m pytest
 `scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
 
 - `data/raw/sample_prices.csv`
+- `data/processed/data_quality.json`
 - `data/processed/sample_features.csv`
 - `data/processed/sample_labels.csv`
 - `data/models/baseline-rule-v1.json`

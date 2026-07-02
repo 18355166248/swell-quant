@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps
+from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
 from swell_quant.research.backtest import (
     read_backtest_result,
@@ -57,6 +58,17 @@ def run_feature_pipeline(settings: Settings) -> str:
     features = compute_features(bars)
     write_features_csv(feature_path, features)
     return f"wrote {len(features)} feature rows to {feature_path}"
+
+
+def run_data_quality_pipeline(settings: Settings) -> str:
+    price_path = settings.data_dir / "raw" / "sample_prices.csv"
+    quality_path = settings.data_dir / "processed" / "data_quality.json"
+    bars = read_price_bars_csv(price_path)
+    report = validate_price_bars(bars)
+    write_quality_report(quality_path, report)
+    if not report.passed:
+        raise RuntimeError(f"data quality failed with {report.issue_count} issues")
+    return f"wrote data quality report to {quality_path} (issues={report.issue_count})"
 
 
 def run_label_pipeline(settings: Settings) -> str:
@@ -111,13 +123,15 @@ def run_backtest_pipeline(settings: Settings) -> str:
 def run_report_pipeline(settings: Settings) -> str:
     model_path = settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json"
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
+    quality_path = settings.data_dir / "processed" / "data_quality.json"
     backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
     summary_path = settings.data_dir / "reports" / "sample_research_summary.md"
 
     metadata = read_model_metadata(model_path)
     predictions = read_predictions_csv(latest_prediction_path)
+    quality_report = read_quality_report(quality_path)
     backtest = read_backtest_result(backtest_path)
-    summary = build_research_summary(metadata, predictions, backtest)
+    summary = build_research_summary(metadata, predictions, backtest, quality_report)
     write_research_summary(summary_path, summary)
     return f"wrote research summary to {summary_path}"
 
@@ -126,6 +140,7 @@ def build_steps(settings: Settings) -> list[PipelineStep]:
     return [
         PipelineStep("prepare_directories", lambda: prepare_directories(settings)),
         PipelineStep("data_update", lambda: run_data_update(settings)),
+        PipelineStep("data_quality", lambda: run_data_quality_pipeline(settings)),
         PipelineStep("features", lambda: run_feature_pipeline(settings)),
         PipelineStep("labels", lambda: run_label_pipeline(settings)),
         PipelineStep("train", lambda: run_training_pipeline(settings)),

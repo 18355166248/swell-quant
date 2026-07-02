@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from swell_quant.data.quality import validate_price_bars
 from swell_quant.data.sample_data import generate_sample_bars
 from swell_quant.research.backtest import (
     read_backtest_result,
@@ -24,13 +25,16 @@ def test_research_summary_contains_required_sections() -> None:
     bars = generate_sample_bars(days=20)
     features = compute_features(bars)
     labels = compute_labels(bars)
+    quality = validate_price_bars(bars)
     metadata = train_baseline_model(features, labels)
     latest_predictions = generate_predictions(features)
     backtest = run_top_n_backtest(bars, generate_historical_predictions(features))
 
-    summary = build_research_summary(metadata, latest_predictions, backtest)
+    summary = build_research_summary(metadata, latest_predictions, backtest, quality)
 
     assert "# Swell Quant 离线研究摘要" in summary
+    assert "## 数据质量" in summary
+    assert "数据质量检查：通过" in summary
     assert "仅用于研究，不构成投资建议" in summary
     assert "baseline-rule-v1" in summary
     assert "## 最新预测 Top N" in summary
