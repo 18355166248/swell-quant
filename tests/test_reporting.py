@@ -43,6 +43,7 @@ def test_research_summary_contains_required_sections() -> None:
     assert "## 最新预测 Top N" in summary
     assert "## 回测摘要" in summary
     assert "滑点率" in summary
+    assert "无法成交记录" in summary
     assert "最大回撤" in summary
     assert "夏普比率" in summary
     assert "平均换手率" in summary

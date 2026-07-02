@@ -732,6 +732,7 @@ def load_backtest_artifact(path: Path) -> dict[str, Any]:
         "holding_period": result.holding_period,
         "rebalance_rule": result.rebalance_rule,
         "trade_count": result.trade_count,
+        "rejected_trade_count": len(result.rejected_trades),
         "start_date": result.start_date,
         "end_date": result.end_date,
         "cumulative_return": result.cumulative_return,
@@ -743,6 +744,7 @@ def load_backtest_artifact(path: Path) -> dict[str, Any]:
         "win_rate": result.win_rate,
         "turnover_rate": result.turnover_rate,
         "equity_curve": normalize_equity_curve(result.equity_curve),
+        "rejected_trades": result.rejected_trades,
         "disclaimer": result.disclaimer,
     }
 
@@ -847,6 +849,7 @@ def load_backtests_artifact(path: Path) -> dict[str, Any]:
         "holding_period",
         "rebalance_rule",
         "trade_count",
+        "rejected_trade_count",
         "start_date",
         "end_date",
         "cumulative_return",

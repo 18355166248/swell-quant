@@ -55,6 +55,7 @@ import type {
   ModelSummary,
   PipelineRun,
   Prediction,
+  RejectedTrade,
   ReportDetail,
   ReportSummary,
   ResearchStatus,
@@ -1314,6 +1315,9 @@ function BacktestsPage({
         <Col xs={24} md={12} xl={6}>
           <Card><Statistic title="胜率" value={formatPercent(backtest?.win_rate)} /></Card>
         </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="无法成交" value={backtest?.rejected_trade_count ?? 0} /></Card>
+        </Col>
       </Row>
       <Card title="逐期回测明细">
         <Table<BacktestPoint>
@@ -1358,6 +1362,25 @@ function BacktestsPage({
             },
           ]}
         />
+      </Card>
+      <Card title="无法成交明细">
+        {(backtest?.rejected_trades ?? []).length > 0 ? (
+          <Table<RejectedTrade>
+            rowKey={(row) => `${row.signal_date}-${row.trade_date}-${row.symbol}-${row.rank}`}
+            size="middle"
+            dataSource={backtest?.rejected_trades ?? []}
+            pagination={{ pageSize: 8, hideOnSinglePage: true }}
+            columns={[
+              { title: "信号日", dataIndex: "signal_date", width: 120 },
+              { title: "成交日", dataIndex: "trade_date", width: 120 },
+              { title: "代码", dataIndex: "symbol", width: 120 },
+              { title: "排名", dataIndex: "rank", width: 80, align: "right" },
+              { title: "原因", dataIndex: "reason" },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无无法成交记录" />
+        )}
       </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={8}>

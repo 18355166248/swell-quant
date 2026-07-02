@@ -68,6 +68,7 @@ def build_research_summary(
             f"- 手续费率：{_format_percent(backtest.fee_rate)}",
             f"- 滑点率：{_format_percent(backtest.slippage_rate)}",
             f"- 调仓次数：{backtest.trade_count}",
+            f"- 无法成交记录：{len(backtest.rejected_trades)}",
             f"- 累计收益：{_format_percent(backtest.cumulative_return)}",
             f"- 年化收益：{_format_percent(backtest.annualized_return)}",
             f"- 基准收益：{_format_percent(backtest.benchmark_return)}",

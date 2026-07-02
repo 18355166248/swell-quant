@@ -33,6 +33,7 @@ class BacktestResult:
     win_rate: float
     turnover_rate: float
     equity_curve: list[dict[str, str | float]]
+    rejected_trades: list[dict[str, str | int]]
     disclaimer: str
 
 
@@ -61,12 +62,17 @@ def run_top_n_backtest(
     equity = 1.0
     benchmark_equity = 1.0
     curve: list[dict[str, str | float]] = []
+    rejected_trades: list[dict[str, str | int]] = []
     portfolio_returns: list[float] = []
     selected_symbol_sets: list[set[str]] = []
 
     for signal_date in sorted(predictions_by_date):
         trade_date = next_date_by_date.get(signal_date)
         if trade_date is None:
+            for prediction in predictions_by_date[signal_date]:
+                rejected_trades.append(
+                    _rejected_trade(prediction, signal_date, None, "missing_next_trade_date")
+                )
             continue
 
         ranked = sorted(predictions_by_date[signal_date], key=lambda row: (row.rank, row.symbol))[
@@ -79,7 +85,15 @@ def run_top_n_backtest(
         for prediction in ranked:
             signal_bar = bars_by_symbol_date.get((prediction.symbol, signal_date))
             trade_bar = bars_by_symbol_date.get((prediction.symbol, trade_date))
-            if signal_bar is None or trade_bar is None:
+            if signal_bar is None:
+                rejected_trades.append(
+                    _rejected_trade(prediction, signal_date, trade_date, "missing_signal_bar")
+                )
+                continue
+            if trade_bar is None:
+                rejected_trades.append(
+                    _rejected_trade(prediction, signal_date, trade_date, "missing_trade_bar")
+                )
                 continue
 
             # 回测严格使用 T 日信号、T+1 开盘成交到 T+1 收盘的收益；买入滑点只抬高入场价，
@@ -142,6 +156,7 @@ def run_top_n_backtest(
         win_rate=win_rate,
         turnover_rate=turnover_rate,
         equity_curve=curve,
+        rejected_trades=rejected_trades,
         disclaimer="仅用于研究，不构成投资建议；历史回测不代表未来表现",
     )
 
@@ -179,8 +194,21 @@ def read_backtest_result(path: Path) -> BacktestResult:
         win_rate=float(payload.get("win_rate", 0.0)),
         turnover_rate=float(payload.get("turnover_rate", 0.0)),
         equity_curve=list(payload["equity_curve"]),
+        rejected_trades=list(payload.get("rejected_trades", [])),
         disclaimer=payload["disclaimer"],
     )
+
+
+def _rejected_trade(
+    prediction: PredictionRow, signal_date: date, trade_date: date | None, reason: str
+) -> dict[str, str | int]:
+    return {
+        "symbol": prediction.symbol,
+        "rank": prediction.rank,
+        "signal_date": signal_date.isoformat(),
+        "trade_date": "-" if trade_date is None else trade_date.isoformat(),
+        "reason": reason,
+    }
 
 
 def _annualized_return(final_equity: float, periods: int, periods_per_year: int = 252) -> float:

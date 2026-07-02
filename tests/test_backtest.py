@@ -32,6 +32,8 @@ def test_top_n_backtest_uses_next_day_open_execution() -> None:
     assert result.sharpe_ratio > 0
     assert result.win_rate == 1.0
     assert result.turnover_rate == 0.0
+    assert result.rejected_trades
+    assert result.rejected_trades[-1]["reason"] == "missing_next_trade_date"
 
 
 def test_top_n_backtest_validates_parameters() -> None:
@@ -60,3 +62,25 @@ def test_top_n_backtest_slippage_reduces_returns() -> None:
     )
 
     assert with_slippage.cumulative_return < without_slippage.cumulative_return
+
+
+def test_top_n_backtest_records_missing_trade_bar_rejections() -> None:
+    bars = generate_sample_bars(days=8)
+    predictions = generate_historical_predictions(compute_features(bars))
+    first_signal = predictions[0].trade_date
+    first_trade_date = sorted({bar.trade_date for bar in bars if bar.trade_date > first_signal})[0]
+    missing_symbol = predictions[0].symbol
+    filtered_bars = [
+        bar
+        for bar in bars
+        if not (bar.symbol == missing_symbol and bar.trade_date == first_trade_date)
+    ]
+
+    result = run_top_n_backtest(filtered_bars, predictions, top_n=2)
+
+    assert any(
+        row["symbol"] == missing_symbol
+        and row["trade_date"] == first_trade_date.isoformat()
+        and row["reason"] == "missing_trade_bar"
+        for row in result.rejected_trades
+    )

@@ -178,6 +178,14 @@ export interface BacktestPoint {
   excess_value: number;
 }
 
+export interface RejectedTrade {
+  symbol: string;
+  rank: number;
+  signal_date: string;
+  trade_date: string;
+  reason: string;
+}
+
 export interface LatestBacktest {
   backtest_id: string;
   model_version: string;
@@ -188,6 +196,7 @@ export interface LatestBacktest {
   holding_period: string;
   rebalance_rule: string;
   trade_count: number;
+  rejected_trade_count: number;
   start_date: string;
   end_date: string;
   cumulative_return: number;
@@ -199,6 +208,7 @@ export interface LatestBacktest {
   win_rate: number;
   turnover_rate: number;
   equity_curve: BacktestPoint[];
+  rejected_trades: RejectedTrade[];
   disclaimer: string;
 }
 
@@ -212,6 +222,7 @@ export interface BacktestSummary {
   holding_period: string;
   rebalance_rule: string;
   trade_count: number;
+  rejected_trade_count: number;
   start_date: string;
   end_date: string;
   cumulative_return: number;

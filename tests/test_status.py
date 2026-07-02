@@ -66,6 +66,7 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["predictions"]["count"] == 3
     assert status["predictions"]["top"][0]["rank"] == 1
     assert status["backtest"]["trade_count"] == 14
+    assert status["backtest"]["rejected_trade_count"] > 0
     assert status["backtest"]["fee_rate"] == 0.001
     assert status["backtest"]["slippage_rate"] == 0.0005
     assert status["backtest"]["annualized_return"] > status["backtest"]["cumulative_return"]
