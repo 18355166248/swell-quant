@@ -118,6 +118,9 @@ export interface LatestPredictions {
 
 export interface BacktestPoint {
   date: string;
+  signal_date: string;
+  portfolio_return: number;
+  benchmark_return: number;
   portfolio_value: number;
   benchmark_value: number;
   excess_value: number;

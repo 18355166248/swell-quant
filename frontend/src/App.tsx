@@ -642,6 +642,50 @@ function BacktestsPage({
           <Card><Statistic title="交易次数" value={backtest?.trade_count ?? 0} /></Card>
         </Col>
       </Row>
+      <Card title="逐期回测明细">
+        <Table<BacktestPoint>
+          rowKey={(row) => `${row.signal_date}-${row.date}`}
+          size="middle"
+          dataSource={backtest?.equity_curve ?? []}
+          pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          columns={[
+            { title: "信号日", dataIndex: "signal_date", width: 120 },
+            { title: "成交日", dataIndex: "date", width: 120 },
+            {
+              title: "组合收益",
+              dataIndex: "portfolio_return",
+              align: "right",
+              render: formatPercent,
+              sorter: (a, b) => a.portfolio_return - b.portfolio_return,
+            },
+            {
+              title: "基准收益",
+              dataIndex: "benchmark_return",
+              align: "right",
+              render: formatPercent,
+              sorter: (a, b) => a.benchmark_return - b.benchmark_return,
+            },
+            {
+              title: "组合净值",
+              dataIndex: "portfolio_value",
+              align: "right",
+              render: (value: number) => value.toFixed(4),
+            },
+            {
+              title: "基准净值",
+              dataIndex: "benchmark_value",
+              align: "right",
+              render: (value: number) => value.toFixed(4),
+            },
+            {
+              title: "超额净值",
+              dataIndex: "excess_value",
+              align: "right",
+              render: (value: number) => value.toFixed(4),
+            },
+          ]}
+        />
+      </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={8}>
           <Card title="回测列表">

@@ -68,6 +68,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 
 `GET /api/predictions` 支持 `date`、`model_version` 和 `top_n` 查询参数，用于复现指定交易日和模型版本下的 Top N 预测排名。
 
+`GET /api/backtests/{backtest_id}` 会返回标准化 `equity_curve`，包含信号日、成交日、组合收益、基准收益、组合净值、基准净值和超额净值，便于核对回测口径。
+
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
 
 最小研究看板位于 `frontend/`，默认通过 Vite 代理访问 `127.0.0.1:8765` 的 API：
