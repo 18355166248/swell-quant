@@ -381,6 +381,7 @@ def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
         "duckdb": duckdb_path,
         "backtest": data_dir / "reports" / "sample_backtest.json",
         "report": data_dir / "reports" / "sample_research_summary.md",
+        "report_payload": data_dir / "reports" / "sample_research_summary.json",
         "pipeline": data_dir / "reports" / "pipeline_run.json",
         "status": data_dir / "reports" / "research_status.json",
     }
@@ -912,19 +913,32 @@ def load_reports_artifact(path: Path) -> dict[str, Any]:
 
 def load_report_artifact(path: Path) -> dict[str, Any]:
     body = load_text_artifact(path)
+    payload_path = path.with_suffix(".json")
+    structured_payload = load_json_artifact(payload_path) if payload_path.exists() else None
     lines = [line.strip() for line in body.splitlines() if line.strip()]
     title = lines[0].lstrip("# ").strip() if lines else "Research Report"
     return {
         "report_id": "sample-research-summary",
         "title": title,
         "path": str(path),
+        "payload_path": str(payload_path) if payload_path.exists() else None,
         "generated_at": _format_file_timestamp(path),
-        "model_version": _extract_markdown_value(body, "模型版本"),
-        "backtest_id": _extract_markdown_value(body, "回测 ID"),
+        "model_version": _nested_value(structured_payload, "model", "model_version")
+        or _extract_markdown_value(body, "模型版本"),
+        "backtest_id": _nested_value(structured_payload, "backtest", "backtest_id")
+        or _extract_markdown_value(body, "回测 ID"),
         "summary": _first_markdown_paragraph(body),
+        "structured": structured_payload,
         "body": body,
         "disclaimer": "仅用于研究，不构成投资建议",
     }
+
+
+def _nested_value(payload: dict[str, Any] | None, section: str, key: str) -> Any:
+    if not payload:
+        return None
+    value = payload.get(section)
+    return value.get(key) if isinstance(value, dict) else None
 
 
 def _format_file_timestamp(path: Path) -> str:

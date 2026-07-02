@@ -622,6 +622,19 @@ def test_local_api_report_route_dispatches(tmp_path: Path) -> None:
         "- 回测 ID：`sample-topn-baseline`\n",
         encoding="utf-8",
     )
+    report_path.with_suffix(".json").write_text(
+        """
+        {
+          "report_id": "sample-research-summary",
+          "title": "Swell Quant 离线研究摘要",
+          "model": {"model_version": "baseline-rule-v1"},
+          "backtest": {"backtest_id": "sample-topn-baseline"},
+          "predictions": [{"rank": 1, "symbol": "000300.SH"}],
+          "risk_notes": ["仅用于研究，不构成投资建议"]
+        }
+        """,
+        encoding="utf-8",
+    )
 
     list_payload = load_reports_artifact(report_path)
     detail_payload = load_report_artifact(report_path)
@@ -637,6 +650,8 @@ def test_local_api_report_route_dispatches(tmp_path: Path) -> None:
     assert "body" not in list_payload["reports"][0]
     assert detail_payload["model_version"] == "baseline-rule-v1"
     assert detail_payload["backtest_id"] == "sample-topn-baseline"
+    assert detail_payload["payload_path"].endswith("sample_research_summary.json")
+    assert detail_payload["structured"]["predictions"][0]["symbol"] == "000300.SH"
     assert "不构成投资建议" in detail_payload["body"]
     assert list_status.value == 200
     assert route_list_payload["reports"][0]["report_id"] == "sample-research-summary"

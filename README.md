@@ -147,6 +147,7 @@ npm run build
 - `data/duckdb/swell_quant.duckdb`
 - `data/reports/sample_backtest.json`
 - `data/reports/sample_research_summary.md`
+- `data/reports/sample_research_summary.json`
 - `data/reports/pipeline_run.json`
 - `data/reports/research_status.json`
 

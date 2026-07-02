@@ -44,7 +44,12 @@ from swell_quant.research.modeling import (
     write_predictions_csv,
     write_training_samples_csv,
 )
-from swell_quant.research.reporting import build_research_summary, write_research_summary
+from swell_quant.research.reporting import (
+    build_research_report_payload,
+    render_research_summary,
+    write_research_report_payload,
+    write_research_summary,
+)
 from swell_quant.research.status import (
     build_research_status,
     default_artifact_paths,
@@ -220,14 +225,17 @@ def run_report_pipeline(settings: Settings) -> str:
     quality_path = settings.data_dir / "processed" / "data_quality.json"
     backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
     summary_path = settings.data_dir / "reports" / "sample_research_summary.md"
+    payload_path = settings.data_dir / "reports" / "sample_research_summary.json"
 
     metadata = read_model_metadata(model_path)
     predictions = read_predictions_csv(latest_prediction_path)
     quality_report = read_quality_report(quality_path)
     backtest = read_backtest_result(backtest_path)
-    summary = build_research_summary(metadata, predictions, backtest, quality_report)
+    payload = build_research_report_payload(metadata, predictions, backtest, quality_report)
+    summary = render_research_summary(payload)
+    write_research_report_payload(payload_path, payload)
     write_research_summary(summary_path, summary)
-    return f"wrote research summary to {summary_path}"
+    return f"wrote research summary to {summary_path} and payload to {payload_path}"
 
 
 def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:

@@ -129,6 +129,7 @@ def default_artifact_paths(data_dir: Path) -> dict[str, Path]:
         "duckdb": data_dir / "duckdb" / "swell_quant.duckdb",
         "backtest": data_dir / "reports" / "sample_backtest.json",
         "summary": data_dir / "reports" / "sample_research_summary.md",
+        "summary_payload": data_dir / "reports" / "sample_research_summary.json",
         "pipeline_run": data_dir / "reports" / "pipeline_run.json",
     }
 

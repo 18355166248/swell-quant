@@ -1896,11 +1896,17 @@ function ReportsPage({
   qualityIssues: DataQualityIssue[];
 }) {
   const riskItems = [
-    `当前模型版本：${status?.model.model_version ?? "-"}`,
-    `数据覆盖：${status?.data_quality.start_date ?? "-"} 至 ${status?.data_quality.end_date ?? "-"}`,
-    `数据质量问题：${status?.data_quality.issue_count ?? 0} 个`,
-    "历史回测不代表未来表现，预测结果不能作为交易依据。",
+    ...(report?.structured?.risk_notes ?? []),
+    ...(report?.structured?.risk_notes?.length
+      ? []
+      : [
+          `当前模型版本：${status?.model.model_version ?? "-"}`,
+          `数据覆盖：${status?.data_quality.start_date ?? "-"} 至 ${status?.data_quality.end_date ?? "-"}`,
+          `数据质量问题：${status?.data_quality.issue_count ?? 0} 个`,
+          "历史回测不代表未来表现，预测结果不能作为交易依据。",
+        ]),
   ];
+  const reportBacktest = report?.structured?.backtest;
 
   return (
     <>
@@ -1946,6 +1952,11 @@ function ReportsPage({
               <Text>报告 ID：{report?.report_id ?? "-"}</Text>
               <Text>模型版本：{report?.model_version ?? status?.model.model_version ?? "-"}</Text>
               <Text>回测 ID：{report?.backtest_id ?? status?.backtest.backtest_id ?? "-"}</Text>
+              <Text>结构化 JSON：{report?.payload_path ?? "-"}</Text>
+              <Text>预测条数：{report?.structured?.predictions?.length ?? "-"}</Text>
+              <Text>累计收益：{formatPercent(reportBacktest?.cumulative_return)}</Text>
+              <Text>超额收益：{formatPercent(reportBacktest?.excess_return)}</Text>
+              <Text>最大回撤：{formatPercent(reportBacktest?.max_drawdown)}</Text>
               {riskItems.map((item) => (
                 <Text key={item}>{item}</Text>
               ))}

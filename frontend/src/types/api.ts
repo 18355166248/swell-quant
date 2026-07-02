@@ -592,5 +592,15 @@ export interface ReportList {
 }
 
 export interface ReportDetail extends ReportSummary {
+  payload_path: string | null;
+  structured: {
+    predictions?: unknown[];
+    risk_notes?: string[];
+    backtest?: {
+      cumulative_return?: number;
+      excess_return?: number;
+      max_drawdown?: number;
+    };
+  } | null;
   body: string;
 }
