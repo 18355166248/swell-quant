@@ -1,3 +1,5 @@
+import pytest
+
 from swell_quant.data.sample_data import generate_sample_bars
 from swell_quant.research.features import compute_features
 
@@ -16,9 +18,9 @@ def test_features_use_only_current_and_past_rows() -> None:
     expected_ma_5 = sum(bar.close for bar in bars[:5]) / 5
     expected_momentum_5d = bars[5].close / bars[0].close - 1.0
 
-    assert features[1].return_1d == expected_return_1d
-    assert features[4].ma_5 == expected_ma_5
-    assert features[5].momentum_5d == expected_momentum_5d
+    assert features[1].return_1d == pytest.approx(expected_return_1d)
+    assert features[4].ma_5 == pytest.approx(expected_ma_5)
+    assert features[5].momentum_5d == pytest.approx(expected_momentum_5d)
     assert features[5].volatility_5d is not None
     assert features[6].rsi_6 == 100.0
     assert features[0].macd_dif == 0.0

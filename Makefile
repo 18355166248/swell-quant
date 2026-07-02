@@ -1,4 +1,4 @@
-.PHONY: help config pipeline storage acceptance smoke lint format-check test frontend-build ci-local
+.PHONY: help config pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
 
 PYTHON ?= python3
 NPM ?= npm
@@ -13,6 +13,7 @@ help:
 	@printf "  make lint            Run Python lint with ruff\n"
 	@printf "  make format-check    Check Python formatting with ruff\n"
 	@printf "  make test            Run Python tests\n"
+	@printf "  make frontend-test   Run frontend unit tests\n"
 	@printf "  make frontend-build  Run TypeScript and Vite build\n"
 	@printf "  make ci-local        Run the full local quality gate\n"
 
@@ -34,6 +35,9 @@ smoke:
 test:
 	$(PYTHON) -m pytest
 
+frontend-test:
+	cd frontend && $(NPM) test
+
 lint:
 	$(PYTHON) -m ruff check .
 
@@ -43,4 +47,4 @@ format-check:
 frontend-build:
 	cd frontend && $(NPM) run build
 
-ci-local: lint format-check test config smoke frontend-build
+ci-local: lint format-check test config smoke frontend-test frontend-build
