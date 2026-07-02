@@ -529,6 +529,9 @@ def load_labels_artifact(path: Path) -> dict[str, Any]:
         "positive_count": sum(1 for row in labeled_rows if row.outperform_benchmark_5d == 1),
         "negative_count": sum(1 for row in labeled_rows if row.outperform_benchmark_5d == 0),
         "horizon_days": 5,
+        "label_window": "T+1 open to T+5 close",
+        "entry_price": "next_day_open",
+        "exit_price": "horizon_day_close",
         # 标签包含未来收益，只能用于监督训练和离线评估，不能进入同日特征或排序。
         "latest_samples": [
             {

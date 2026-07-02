@@ -998,6 +998,9 @@ function DataPage({
               <Descriptions.Item label="未跑赢样本">{labels?.negative_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="跑赢占比">{formatPercent(labelRate)}</Descriptions.Item>
               <Descriptions.Item label="预测 horizon">{labels?.horizon_days ?? "-"} 日</Descriptions.Item>
+              <Descriptions.Item label="标签窗口">{labels?.label_window ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="入场价">{labels?.entry_price ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="出场价">{labels?.exit_price ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="日期范围">
                 {labels?.start_date ?? "-"} 至 {labels?.end_date ?? "-"}
               </Descriptions.Item>
@@ -1032,7 +1035,7 @@ function DataPage({
         type="info"
         showIcon
         message="数据说明"
-        description="标签包含未来收益，只能作为监督训练和离线评估目标，不允许进入同日特征或预测排序。"
+        description="标签使用 T+1 开盘到 T+5 收盘的未来持有期收益，只能作为监督训练和离线评估目标，不允许进入同日特征或预测排序。"
       />
     </>
   );

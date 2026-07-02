@@ -248,6 +248,9 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert labels_payload["horizon_days"] == 5
     assert labels_payload["positive_count"] + labels_payload["negative_count"] == 45
     assert labels_payload["latest_samples"][0]["date"] == "2024-01-21"
+    assert labels_payload["label_window"] == "T+1 open to T+5 close"
+    assert labels_payload["entry_price"] == "next_day_open"
+    assert labels_payload["exit_price"] == "horizon_day_close"
     assert predictions["count"] == 3
     assert predictions["predictions"][0]["rank"] == 1
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"

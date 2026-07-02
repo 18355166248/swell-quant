@@ -331,6 +331,9 @@ export interface LabelSummary {
   positive_count: number;
   negative_count: number;
   horizon_days: number;
+  label_window: string;
+  entry_price: string;
+  exit_price: string;
   latest_samples: LabelSample[];
   disclaimer: string;
 }

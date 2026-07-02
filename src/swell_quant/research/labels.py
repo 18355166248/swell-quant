@@ -32,16 +32,18 @@ def compute_labels(bars: list[PriceBar], horizon: int = 5) -> list[LabelRow]:
 
         for index, bar in enumerate(ordered):
             target_index = index + horizon
-            if target_index >= len(ordered):
+            entry_index = index + 1
+            if target_index >= len(ordered) or entry_index >= len(ordered):
                 future_return = None
                 benchmark_return = None
                 outperform = None
             else:
+                entry = ordered[entry_index]
                 target = ordered[target_index]
-                # 标签刻意使用 T+1 到 T+horizon 的未来持有期结果；它只能作为监督目标，
-                # 不允许在同一日期的特征生成、填充或排序中被读取。
-                future_return = target.close / bar.close - 1.0
-                benchmark_return = target.benchmark_close / bar.benchmark_close - 1.0
+                # 标签刻意使用 T+1 开盘到 T+horizon 收盘的未来持有期结果；它只能作为监督目标，
+                # 不允许在同一日期的特征生成、填充或排序中被读取，避免和 T 日特征发生泄漏。
+                future_return = target.close / entry.open - 1.0
+                benchmark_return = target.benchmark_close / entry.benchmark_close - 1.0
                 outperform = 1 if future_return > benchmark_return else 0
 
             rows.append(
