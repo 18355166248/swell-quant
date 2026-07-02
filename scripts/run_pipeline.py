@@ -14,8 +14,17 @@ if str(SRC_DIR) not in sys.path:
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps
 from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
-from swell_quant.research.features import compute_features, write_features_csv
-from swell_quant.research.labels import compute_labels, write_labels_csv
+from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
+from swell_quant.research.features import compute_features, read_features_csv, write_features_csv
+from swell_quant.research.labels import compute_labels, read_labels_csv, write_labels_csv
+from swell_quant.research.modeling import (
+    BASELINE_MODEL_VERSION,
+    generate_historical_predictions,
+    generate_predictions,
+    train_baseline_model,
+    write_model_metadata,
+    write_predictions_csv,
+)
 from swell_quant.storage.duckdb_backup import backup_duckdb
 
 
@@ -52,14 +61,54 @@ def run_label_pipeline(settings: Settings) -> str:
     return f"wrote {len(labels)} label rows to {label_path}"
 
 
+def run_training_pipeline(settings: Settings) -> str:
+    feature_path = settings.data_dir / "processed" / "sample_features.csv"
+    label_path = settings.data_dir / "processed" / "sample_labels.csv"
+    model_path = settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json"
+    latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
+    historical_prediction_path = settings.data_dir / "processed" / "historical_predictions.csv"
+
+    features = read_features_csv(feature_path)
+    labels = read_labels_csv(label_path)
+    metadata = train_baseline_model(features, labels)
+    latest_predictions = generate_predictions(features, metadata.model_version)
+    historical_predictions = generate_historical_predictions(features, metadata.model_version)
+
+    write_model_metadata(model_path, metadata)
+    write_predictions_csv(latest_prediction_path, latest_predictions)
+    write_predictions_csv(historical_prediction_path, historical_predictions)
+    return (
+        f"wrote model metadata to {model_path}, "
+        f"{len(latest_predictions)} latest predictions and "
+        f"{len(historical_predictions)} historical predictions"
+    )
+
+
+def run_backtest_pipeline(settings: Settings) -> str:
+    price_path = settings.data_dir / "raw" / "sample_prices.csv"
+    feature_path = settings.data_dir / "processed" / "sample_features.csv"
+    report_path = settings.data_dir / "reports" / "sample_backtest.json"
+
+    bars = read_price_bars_csv(price_path)
+    features = read_features_csv(feature_path)
+    historical_predictions = generate_historical_predictions(features, BASELINE_MODEL_VERSION)
+    result = run_top_n_backtest(bars, historical_predictions, top_n=2)
+    write_backtest_result(report_path, result)
+    return (
+        f"wrote backtest report to {report_path} "
+        f"(cumulative_return={result.cumulative_return:.4f}, "
+        f"benchmark_return={result.benchmark_return:.4f})"
+    )
+
+
 def build_steps(settings: Settings) -> list[PipelineStep]:
     return [
         PipelineStep("prepare_directories", lambda: prepare_directories(settings)),
         PipelineStep("data_update", lambda: run_data_update(settings)),
         PipelineStep("features", lambda: run_feature_pipeline(settings)),
         PipelineStep("labels", lambda: run_label_pipeline(settings)),
-        PipelineStep("train", lambda: "training pipeline not implemented", enabled=False),
-        PipelineStep("backtest", lambda: "backtest pipeline not implemented", enabled=False),
+        PipelineStep("train", lambda: run_training_pipeline(settings)),
+        PipelineStep("backtest", lambda: run_backtest_pipeline(settings)),
     ]
 
 

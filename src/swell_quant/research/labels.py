@@ -86,5 +86,28 @@ def write_labels_csv(path: Path, rows: list[LabelRow]) -> Path:
     return path
 
 
+def read_labels_csv(path: Path) -> list[LabelRow]:
+    with path.open("r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        return [
+            LabelRow(
+                symbol=row["symbol"],
+                trade_date=date.fromisoformat(row["date"]),
+                future_5d_return=_parse_optional(row["future_5d_return"]),
+                benchmark_5d_return=_parse_optional(row["benchmark_5d_return"]),
+                outperform_benchmark_5d=_parse_optional_int(row["outperform_benchmark_5d"]),
+            )
+            for row in reader
+        ]
+
+
 def _format_optional(value: float | None) -> str:
     return "" if value is None else f"{value:.8f}"
+
+
+def _parse_optional(value: str) -> float | None:
+    return None if value == "" else float(value)
+
+
+def _parse_optional_int(value: str) -> int | None:
+    return None if value == "" else int(value)
