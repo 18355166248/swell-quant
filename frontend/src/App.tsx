@@ -40,6 +40,7 @@ import { api, type PredictionQuery } from "./api/client";
 import type {
   BacktestPoint,
   BacktestSummary,
+  DataQuality,
   DataQualityIssue,
   DataStatus,
   LatestBacktest,
@@ -65,6 +66,7 @@ const { Title, Text, Paragraph } = Typography;
 
 type PageKey =
   | "dashboard"
+  | "data"
   | "tasks"
   | "predictions"
   | "backtests"
@@ -529,6 +531,94 @@ function TasksPage({
           </Card>
         </Col>
       </Row>
+    </>
+  );
+}
+
+function DataPage({
+  dataStatus,
+  quality,
+}: {
+  dataStatus?: DataStatus;
+  quality?: DataQuality;
+}) {
+  const issues = quality?.issues ?? [];
+  return (
+    <>
+      <PageTitle
+        title="数据"
+        description="查看 A 股日频样例数据的覆盖范围、质量门禁和异常明细。"
+      />
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="数据行数" value={dataStatus?.row_count ?? quality?.row_count ?? 0} /></Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="标的数量" value={dataStatus?.symbol_count ?? quality?.symbol_count ?? 0} /></Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card><Statistic title="质量问题" value={dataStatus?.issue_count ?? quality?.issue_count ?? 0} /></Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card>
+            <Statistic title="质量状态" value={(dataStatus?.quality_passed ?? quality?.passed) ? "通过" : "需检查"} />
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={8}>
+          <Card title="数据口径">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="市场">{dataStatus?.market ?? "A_SHARE_DAILY"}</Descriptions.Item>
+              <Descriptions.Item label="股票池">{dataStatus?.universe ?? "sample_a_share"}</Descriptions.Item>
+              <Descriptions.Item label="开始日期">
+                {dataStatus?.start_date ?? quality?.start_date ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="结束日期">
+                {dataStatus?.end_date ?? quality?.end_date ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="声明">
+                {dataStatus?.disclaimer ?? "仅用于研究，不构成投资建议"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+        <Col xs={24} xl={16}>
+          <Card title="质量问题明细">
+            {issues.length > 0 ? (
+              <Table<DataQualityIssue>
+                rowKey={(row, index) => `${row.code}-${row.symbol ?? "all"}-${row.date ?? index}`}
+                size="middle"
+                dataSource={issues}
+                pagination={{ pageSize: 8, hideOnSinglePage: true }}
+                columns={[
+                  { title: "代码", dataIndex: "code", width: 150 },
+                  {
+                    title: "级别",
+                    dataIndex: "severity",
+                    width: 100,
+                    render: (severity: string) => (
+                      <Tag color={severity === "error" ? "red" : "orange"}>{severity}</Tag>
+                    ),
+                  },
+                  { title: "标的", dataIndex: "symbol", width: 120, render: (value) => value ?? "-" },
+                  { title: "日期", dataIndex: "date", width: 120, render: (value) => value ?? "-" },
+                  { title: "说明", dataIndex: "message" },
+                ]}
+              />
+            ) : (
+              <Empty description="暂无质量问题" />
+            )}
+          </Card>
+        </Col>
+      </Row>
+      <Alert
+        className="page-alert"
+        type="info"
+        showIcon
+        message="数据说明"
+        description="当前为本地样例 A 股日频数据，用于验证采集、因子、标签、训练、预测和回测链路。"
+      />
     </>
   );
 }
@@ -1212,6 +1302,7 @@ function App() {
         report={report}
       />
     ),
+    data: <DataPage dataStatus={dataStatusQuery.data} quality={qualityQuery.data} />,
     tasks: (
       <TasksPage
         tasks={tasksQuery.data?.tasks ?? []}
@@ -1277,9 +1368,10 @@ function App() {
           onClick={(item) => setActivePage(item.key as PageKey)}
           items={[
             { key: "dashboard", icon: <BarChartOutlined />, label: "工作台" },
+            { key: "data", icon: <DatabaseOutlined />, label: "数据" },
             { key: "tasks", icon: <SyncOutlined />, label: "任务" },
             { key: "predictions", icon: <LineChartOutlined />, label: "预测" },
-            { key: "backtests", icon: <DatabaseOutlined />, label: "回测" },
+            { key: "backtests", icon: <ExperimentOutlined />, label: "回测" },
             { key: "stocks", icon: <StockOutlined />, label: "单股" },
             { key: "reports", icon: <FileTextOutlined />, label: "报告" },
             { key: "settings", icon: <SettingOutlined />, label: "设置" },
