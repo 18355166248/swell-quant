@@ -22,6 +22,12 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
+export interface PredictionQuery {
+  date?: string | null;
+  modelVersion?: string | null;
+  topN?: number | null;
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
   const contentType = response.headers.get("content-type") ?? "";
@@ -56,7 +62,20 @@ export const api = {
   getModel: (modelVersion: string) => requestJson<LatestModel>(`/api/models/${modelVersion}`),
   getLatestModel: () => requestJson<LatestModel>("/api/models/latest"),
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
-  getPredictions: (topN = 10) => requestJson<LatestPredictions>(`/api/predictions?top_n=${topN}`),
+  getPredictions: (query: PredictionQuery = {}) => {
+    const params = new URLSearchParams();
+    if (query.date) {
+      params.set("date", query.date);
+    }
+    if (query.modelVersion) {
+      params.set("model_version", query.modelVersion);
+    }
+    if (query.topN !== null && query.topN !== undefined) {
+      params.set("top_n", String(query.topN));
+    }
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return requestJson<LatestPredictions>(`/api/predictions${suffix}`);
+  },
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),
   getBacktests: () => requestJson<BacktestList>("/api/backtests"),
   getBacktest: (backtestId: string) => requestJson<LatestBacktest>(`/api/backtests/${backtestId}`),

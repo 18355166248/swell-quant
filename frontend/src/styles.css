@@ -81,6 +81,19 @@ body,
   width: 180px;
 }
 
+.date-filter,
+.model-filter {
+  width: 190px;
+}
+
+.topn-filter {
+  width: 110px;
+}
+
+.filter-card {
+  margin-bottom: 16px;
+}
+
 .settings-key-row {
   margin-bottom: 16px;
 }

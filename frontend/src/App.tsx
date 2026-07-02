@@ -7,6 +7,8 @@ import {
   Descriptions,
   Divider,
   Empty,
+  Input,
+  InputNumber,
   Layout,
   Menu,
   Row,
@@ -35,7 +37,7 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
-import { api } from "./api/client";
+import { api, type PredictionQuery } from "./api/client";
 import type {
   BacktestPoint,
   BacktestSummary,
@@ -43,6 +45,7 @@ import type {
   DataStatus,
   LatestBacktest,
   LatestModel,
+  LatestPredictions,
   LocalSettings,
   ModelSummary,
   PipelineRun,
@@ -69,6 +72,12 @@ type PageKey =
   | "stocks"
   | "reports"
   | "settings";
+
+interface PredictionFilters {
+  date: string;
+  modelVersion: string;
+  topN: number;
+}
 
 function formatPercent(value?: number): string {
   if (value === undefined || Number.isNaN(value)) {
@@ -525,13 +534,53 @@ function TasksPage({
   );
 }
 
-function PredictionsPage({ predictions }: { predictions: Prediction[] }) {
+function PredictionsPage({
+  predictions,
+  filters,
+  appliedFilters,
+  modelOptions,
+  onFiltersChange,
+}: {
+  predictions: Prediction[];
+  filters: PredictionFilters;
+  appliedFilters?: LatestPredictions["filters"];
+  modelOptions: string[];
+  onFiltersChange: (filters: PredictionFilters) => void;
+}) {
   return (
     <>
       <PageTitle
         title="预测"
-        description="查看最近交易日 Top N 排名、预测分数和基础因子。预测分数仅用于研究，不构成投资建议。"
+        description="按交易日、模型版本和 Top N 查询预测排名。预测分数仅用于研究，不构成投资建议。"
       />
+      <Card className="filter-card" title="筛选条件">
+        <Space wrap>
+          <Input
+            className="date-filter"
+            placeholder="交易日 YYYY-MM-DD"
+            value={filters.date}
+            onChange={(event) => onFiltersChange({ ...filters, date: event.target.value.trim() })}
+          />
+          <Select
+            className="model-filter"
+            allowClear
+            placeholder="模型版本"
+            value={filters.modelVersion || undefined}
+            options={modelOptions.map((modelVersion) => ({ label: modelVersion, value: modelVersion }))}
+            onChange={(value) => onFiltersChange({ ...filters, modelVersion: value ?? "" })}
+          />
+          <InputNumber
+            className="topn-filter"
+            min={0}
+            max={100}
+            value={filters.topN}
+            onChange={(value) => onFiltersChange({ ...filters, topN: value ?? 10 })}
+          />
+          <Tag color="blue">生效日期：{appliedFilters?.date ?? "latest"}</Tag>
+          <Tag color="blue">生效模型：{appliedFilters?.model_version ?? "all"}</Tag>
+          <Tag color="blue">Top N：{appliedFilters?.top_n ?? filters.topN}</Tag>
+        </Space>
+      </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={9}>
           <Card title="预测分数分布">
@@ -936,6 +985,11 @@ function App() {
   const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
   const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
   const [selectedReportId, setSelectedReportId] = useState("sample-research-summary");
+  const [predictionFilters, setPredictionFilters] = useState<PredictionFilters>({
+    date: "",
+    modelVersion: "",
+    topN: 10,
+  });
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
@@ -953,9 +1007,14 @@ function App() {
     queryKey: ["predictions", "latest"],
     queryFn: api.getLatestPredictions,
   });
+  const predictionQueryParams: PredictionQuery = {
+    date: predictionFilters.date || null,
+    modelVersion: predictionFilters.modelVersion || null,
+    topN: predictionFilters.topN,
+  };
   const predictionsListQuery = useQuery({
-    queryKey: ["predictions", "list", 10],
-    queryFn: () => api.getPredictions(10),
+    queryKey: ["predictions", "list", predictionQueryParams],
+    queryFn: () => api.getPredictions(predictionQueryParams),
   });
   const backtestQuery = useQuery({
     queryKey: ["backtest", "latest"],
@@ -1018,6 +1077,14 @@ function App() {
     () => predictionsListQuery.data?.predictions ?? predictions,
     [predictions, predictionsListQuery.data],
   );
+  const modelVersionOptions = useMemo(() => {
+    const versions = [
+      ...(modelsQuery.data?.models.map((model) => model.model_version) ?? []),
+      latestModelQuery.data?.model_version,
+      ...predictionRows.map((row) => row.model_version),
+    ];
+    return Array.from(new Set(versions.filter((version): version is string => Boolean(version))));
+  }, [latestModelQuery.data, modelsQuery.data, predictionRows]);
   const stockSymbols = useMemo(() => {
     const listedSymbols = stocksQuery.data?.stocks.map((row) => row.symbol) ?? [];
     // 以股票列表 API 为主，预测和状态只作为旧产物缺字段时的兼容兜底。
@@ -1097,7 +1164,15 @@ function App() {
         onRunPipeline={() => runPipelineMutation.mutate()}
       />
     ),
-    predictions: <PredictionsPage predictions={predictionRows} />,
+    predictions: (
+      <PredictionsPage
+        predictions={predictionRows}
+        filters={predictionFilters}
+        appliedFilters={predictionsListQuery.data?.filters}
+        modelOptions={modelVersionOptions}
+        onFiltersChange={setPredictionFilters}
+      />
+    ),
     backtests: (
       <BacktestsPage
         backtests={backtestsQuery.data?.backtests ?? []}
