@@ -72,6 +72,11 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/reports/latest`
 - `GET /api/reports/{report_id}`
 - `POST /api/pipeline/run`
+- `POST /api/data/update`
+- `POST /api/models/train`
+- `POST /api/predictions/run`
+- `POST /api/backtests/run`
+- `POST /api/reports/generate`
 
 `GET /api/predictions` 支持 `date`、`model_version` 和 `top_n` 查询参数，用于复现指定交易日和模型版本下的 Top N 预测排名；响应中会返回 `available_dates` 和 `model_versions` 供页面筛选。
 
@@ -84,6 +89,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 `GET /api/artifacts` 返回本地研究产物清单、缺失项、文件大小和更新时间，适合无页面排查 pipeline 是否生成了完整可用的结果。
 
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
+
+`POST /api/data/update`、`POST /api/models/train`、`POST /api/predictions/run`、`POST /api/backtests/run` 和 `POST /api/reports/generate` 是任务中心的细分触发入口。当前 MVP 为了保证样例数据、因子、标签、模型、预测、回测和报告口径一致，这些入口都会串行执行完整离线 pipeline，并在响应中返回 `requested_task` 与 `execution_mode=full_pipeline_refresh`。
 
 最小研究看板位于 `frontend/`，默认通过 Vite 代理访问 `127.0.0.1:8765` 的 API：
 

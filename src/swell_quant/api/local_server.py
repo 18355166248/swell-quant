@@ -21,6 +21,14 @@ from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror
 
 
 _PIPELINE_RUN_LOCK = threading.Lock()
+TASK_TRIGGER_ROUTES = {
+    "/api/pipeline/run": "pipeline",
+    "/api/data/update": "data_update",
+    "/api/models/train": "model_train",
+    "/api/predictions/run": "prediction_run",
+    "/api/backtests/run": "backtest_run",
+    "/api/reports/generate": "report_generate",
+}
 
 
 class ResearchApiHandler(BaseHTTPRequestHandler):
@@ -147,8 +155,8 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         route = urlparse(self.path).path
-        if route == "/api/pipeline/run":
-            payload = run_pipeline_for_api(self.data_dir)
+        if route in TASK_TRIGGER_ROUTES:
+            payload = run_pipeline_for_api(self.data_dir, requested_task=TASK_TRIGGER_ROUTES[route])
             status = pipeline_status_to_http_status(payload["status"])
             self._send_json(payload, status=status)
             return
@@ -225,23 +233,25 @@ def pipeline_status_to_http_status(status: str) -> HTTPStatus:
 def run_pipeline_for_api(
     data_dir: Path,
     lock: threading.Lock | None = None,
+    requested_task: str = "pipeline",
 ) -> dict[str, Any]:
     run_lock = _PIPELINE_RUN_LOCK if lock is None else lock
     # pipeline 会连续写 raw/processed/models/reports，进程内先串行化，避免并发触发覆盖同一批产物。
     if not run_lock.acquire(blocking=False):
         return {
             "status": "busy",
+            "requested_task": requested_task,
             "error": "pipeline_already_running",
             "message": "pipeline is already running; retry after the current run finishes",
         }
 
     try:
-        return _run_pipeline_for_api_unlocked(data_dir)
+        return _run_pipeline_for_api_unlocked(data_dir, requested_task)
     finally:
         run_lock.release()
 
 
-def _run_pipeline_for_api_unlocked(data_dir: Path) -> dict[str, Any]:
+def _run_pipeline_for_api_unlocked(data_dir: Path, requested_task: str) -> dict[str, Any]:
     runner = _load_pipeline_runner()
     settings = Settings(
         data_dir=data_dir,
@@ -251,6 +261,12 @@ def _run_pipeline_for_api_unlocked(data_dir: Path) -> dict[str, Any]:
     status = "failed" if any(result.status.value == "failed" for result in results) else "success"
     return {
         "status": status,
+        "requested_task": requested_task,
+        "execution_mode": "full_pipeline_refresh",
+        "message": (
+            "requested task is executed through the full offline pipeline so dependent "
+            "artifacts stay consistent"
+        ),
         "manifest_path": str(manifest_path),
         "status_path": None if status_path is None else str(status_path),
         "steps": [

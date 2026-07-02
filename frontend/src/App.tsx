@@ -36,7 +36,7 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
-import { api, type PredictionQuery } from "./api/client";
+import { api, type PredictionQuery, type TaskTrigger } from "./api/client";
 import type {
   AcceptanceStatus,
   ArtifactStatus,
@@ -674,15 +674,23 @@ function AcceptancePage({
 function TasksPage({
   tasks,
   taskDetail,
-  onRunPipeline,
+  onRunTask,
   isRunning,
 }: {
   tasks: TaskSummary[];
   taskDetail?: TaskDetail;
-  onRunPipeline: () => void;
+  onRunTask: (task: TaskTrigger) => void;
   isRunning: boolean;
 }) {
   const steps = taskDetail?.steps ?? [];
+  const taskTriggers: Array<{ key: TaskTrigger; label: string }> = [
+    { key: "pipeline", label: "完整 pipeline" },
+    { key: "data_update", label: "更新数据" },
+    { key: "model_train", label: "训练模型" },
+    { key: "prediction_run", label: "生成预测" },
+    { key: "backtest_run", label: "运行回测" },
+    { key: "report_generate", label: "生成报告" },
+  ];
   const timelineItems = steps.map((step) => ({
     color: step.status === "success" ? "green" : step.status === "failed" ? "red" : "gray",
     dot: step.status === "success" ? <CheckCircleOutlined /> : step.status === "failed" ? <CloseCircleOutlined /> : undefined,
@@ -704,9 +712,18 @@ function TasksPage({
         title="任务中心"
         description="查看离线 pipeline 的最近运行步骤、耗时、产物路径和失败位置。"
         extra={
-          <Button icon={<ReloadOutlined />} loading={isRunning} onClick={onRunPipeline}>
-            运行 pipeline
-          </Button>
+          <Space wrap>
+            {taskTriggers.map((trigger) => (
+              <Button
+                key={trigger.key}
+                icon={<ReloadOutlined />}
+                loading={isRunning}
+                onClick={() => onRunTask(trigger.key)}
+              >
+                {trigger.label}
+              </Button>
+            ))}
+          </Space>
         }
       />
       <Row gutter={[16, 16]}>
@@ -1752,13 +1769,13 @@ function App() {
   });
 
   const runPipelineMutation = useMutation({
-    mutationFn: api.runPipeline,
+    mutationFn: api.runTask,
     onSuccess: async (payload) => {
       if (payload.status === "busy") {
-        messageApi.warning("pipeline 正在运行，请稍后刷新。");
+        messageApi.warning(`${payload.requested_task ?? "pipeline"} 正在运行，请稍后刷新。`);
         return;
       }
-      messageApi.success("pipeline 已完成，本地研究产物已刷新。");
+      messageApi.success(`${payload.requested_task ?? "pipeline"} 已完成，本地研究产物已刷新。`);
       await queryClient.invalidateQueries();
     },
     onError: (error) => {
@@ -1879,7 +1896,7 @@ function App() {
         artifactStatus={status?.artifact_status}
         pipeline={pipeline}
         isRunning={runPipelineMutation.isPending}
-        onRunPipeline={() => runPipelineMutation.mutate()}
+        onRunPipeline={() => runPipelineMutation.mutate("pipeline")}
       />
     ),
     data: (
@@ -1896,7 +1913,7 @@ function App() {
         tasks={tasksQuery.data?.tasks ?? []}
         taskDetail={taskDetailQuery.data}
         isRunning={runPipelineMutation.isPending}
-        onRunPipeline={() => runPipelineMutation.mutate()}
+        onRunTask={(task) => runPipelineMutation.mutate(task)}
       />
     ),
     models: (
@@ -1988,7 +2005,7 @@ function App() {
           <Button
             icon={<ReloadOutlined />}
             loading={runPipelineMutation.isPending}
-            onClick={() => runPipelineMutation.mutate()}
+            onClick={() => runPipelineMutation.mutate("pipeline")}
           >
             运行 pipeline
           </Button>

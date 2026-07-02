@@ -632,6 +632,8 @@ def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
     payload = run_pipeline_for_api(tmp_path / "data")
 
     assert payload["status"] == "success"
+    assert payload["requested_task"] == "pipeline"
+    assert payload["execution_mode"] == "full_pipeline_refresh"
     assert payload["manifest_path"].endswith("pipeline_run.json")
     assert payload["status_path"].endswith("research_status.json")
     assert [step["name"] for step in payload["steps"]] == [
@@ -648,14 +650,27 @@ def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
     assert (tmp_path / "data" / "reports" / "research_status.json").exists()
 
 
+def test_local_api_can_trigger_named_task_through_full_pipeline(tmp_path: Path) -> None:
+    payload = run_pipeline_for_api(tmp_path / "data", requested_task="model_train")
+
+    assert payload["status"] == "success"
+    assert payload["requested_task"] == "model_train"
+    assert payload["execution_mode"] == "full_pipeline_refresh"
+    assert "dependent artifacts stay consistent" in payload["message"]
+    assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists()
+
+
 def test_local_api_pipeline_trigger_returns_busy_when_locked(tmp_path: Path) -> None:
     lock = threading.Lock()
     lock.acquire()
     try:
-        payload = run_pipeline_for_api(tmp_path / "data", lock=lock)
+        payload = run_pipeline_for_api(
+            tmp_path / "data", lock=lock, requested_task="report_generate"
+        )
     finally:
         lock.release()
 
     assert payload["status"] == "busy"
+    assert payload["requested_task"] == "report_generate"
     assert payload["error"] == "pipeline_already_running"
     assert pipeline_status_to_http_status(payload["status"]).value == 409

@@ -11,6 +11,8 @@ export interface PipelineStep {
 
 export interface PipelineRun {
   status: "success" | "failed" | "busy";
+  requested_task?: string;
+  execution_mode?: string;
   manifest_path?: string;
   status_path?: string | null;
   started_at?: string;

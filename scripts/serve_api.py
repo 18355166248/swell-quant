@@ -28,7 +28,8 @@ def main() -> int:
         "available endpoints: /api/health /api/status /api/acceptance /api/artifacts /api/settings "
         "/api/data/status /api/storage/duckdb /api/features /api/labels /api/models "
         "/api/models/latest /api/tasks /api/predictions /api/backtests /api/stocks "
-        "/api/reports /api/pipeline"
+        "/api/reports /api/pipeline POST:/api/data/update POST:/api/models/train "
+        "POST:/api/predictions/run POST:/api/backtests/run POST:/api/reports/generate"
     )
     try:
         server.serve_forever()

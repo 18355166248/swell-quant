@@ -33,6 +33,23 @@ export interface PredictionQuery {
   topN?: number | null;
 }
 
+export type TaskTrigger =
+  | "pipeline"
+  | "data_update"
+  | "model_train"
+  | "prediction_run"
+  | "backtest_run"
+  | "report_generate";
+
+const TASK_TRIGGER_PATHS: Record<TaskTrigger, string> = {
+  pipeline: "/api/pipeline/run",
+  data_update: "/api/data/update",
+  model_train: "/api/models/train",
+  prediction_run: "/api/predictions/run",
+  backtest_run: "/api/backtests/run",
+  report_generate: "/api/reports/generate",
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
   const contentType = response.headers.get("content-type") ?? "";
@@ -99,9 +116,9 @@ export const api = {
     requestJson<StockFeatures>(`/api/stocks/${symbol}/features`),
   getStockPredictions: (symbol: string) =>
     requestJson<StockPredictions>(`/api/stocks/${symbol}/predictions`),
-  runPipeline: async () => {
-    // 这里只触发后端离线链路；前端不直接计算因子、标签、训练或回测，避免两套口径分叉。
-    const response = await fetch(`${API_BASE_URL}/api/pipeline/run`, {
+  runTask: async (task: TaskTrigger = "pipeline") => {
+    // 这里只触发后端任务端点；当前 MVP 由后端统一串完整 pipeline，避免派生产物口径分叉。
+    const response = await fetch(`${API_BASE_URL}${TASK_TRIGGER_PATHS[task]}`, {
       method: "POST",
     });
     const payload = (await response.json()) as PipelineRun;
@@ -110,4 +127,5 @@ export const api = {
     }
     return payload;
   },
+  runPipeline: () => api.runTask("pipeline"),
 };
