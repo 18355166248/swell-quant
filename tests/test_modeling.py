@@ -25,6 +25,17 @@ def test_baseline_model_metadata_uses_labeled_rows() -> None:
     assert metadata.train_start == "2024-01-02"
     assert metadata.train_end == "2024-01-16"
     assert metadata.prediction_date == "2024-01-21"
+    assert metadata.label_gap_days == 5
+    assert metadata.evaluation_status == "ready"
+    assert metadata.evaluation_train_start == "2024-01-02"
+    assert metadata.evaluation_train_end == "2024-01-04"
+    assert metadata.validation_start == "2024-01-10"
+    assert metadata.validation_end == "2024-01-10"
+    assert metadata.test_start == "2024-01-16"
+    assert metadata.test_end == "2024-01-16"
+    assert metadata.metrics is not None
+    assert metadata.metrics["labeled_row_count"] == 45
+    assert metadata.metrics["test_prediction_dates"] == 1
     assert metadata.disclaimer == "仅用于研究，不构成投资建议"
 
 

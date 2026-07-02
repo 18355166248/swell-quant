@@ -384,6 +384,9 @@ def test_local_api_latest_model_artifact(tmp_path: Path) -> None:
     assert model["model_version"] == "baseline-rule-v1"
     assert model["feature_count"] == 2
     assert model["row_count"] == 60
+    assert model["label_gap_days"] == 5
+    assert model["evaluation_status"] == "not_available"
+    assert model["metrics"] == {}
 
 
 def test_local_api_model_route_dispatches_list_and_detail(tmp_path: Path) -> None:
@@ -400,6 +403,15 @@ def test_local_api_model_route_dispatches_list_and_detail(tmp_path: Path) -> Non
           "train_end": "2024-01-16",
           "prediction_date": "2024-01-21",
           "row_count": 60,
+          "label_gap_days": 5,
+          "evaluation_status": "ready",
+          "evaluation_train_start": "2024-01-02",
+          "evaluation_train_end": "2024-01-04",
+          "validation_start": "2024-01-10",
+          "validation_end": "2024-01-10",
+          "test_start": "2024-01-16",
+          "test_end": "2024-01-16",
+          "metrics": {"labeled_row_count": 45, "top1_outperform_rate": 1.0},
           "disclaimer": "仅用于研究，不构成投资建议"
         }
         """,
@@ -416,8 +428,10 @@ def test_local_api_model_route_dispatches_list_and_detail(tmp_path: Path) -> Non
     assert models["count"] == 1
     assert "feature_names" not in models["models"][0]
     assert models["models"][0]["feature_count"] == 3
+    assert models["models"][0]["evaluation_status"] == "ready"
     assert detail["model_version"] == "baseline-rule-v1"
     assert detail["feature_names"] == ["momentum_5d", "return_1d", "volume_change_1d"]
+    assert detail["metrics"]["top1_outperform_rate"] == 1.0
     assert detail["path"].endswith("baseline-rule-v1.json")
     assert list_status.value == 200
     assert list_payload["models"][0]["model_version"] == "baseline-rule-v1"

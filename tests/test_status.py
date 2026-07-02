@@ -60,6 +60,9 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["pipeline"]["status"] == "success"
     assert status["data_quality"]["passed"] is True
     assert status["model"]["model_version"] == "baseline-rule-v1"
+    assert status["model"]["evaluation_status"] == "ready"
+    assert status["model"]["label_gap_days"] == 5
+    assert status["model"]["metrics"]["test_prediction_dates"] == 1
     assert status["predictions"]["count"] == 3
     assert status["predictions"]["top"][0]["rank"] == 1
     assert status["backtest"]["trade_count"] == 14

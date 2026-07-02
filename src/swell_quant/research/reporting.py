@@ -33,6 +33,12 @@ def build_research_summary(
         f"- 训练区间：{metadata.train_start} 至 {metadata.train_end}",
         f"- 预测日期：{metadata.prediction_date}",
         f"- 特征：{', '.join(metadata.feature_names)}",
+        f"- 时间序列评估状态：{metadata.evaluation_status}",
+        f"- 标签 Gap：{metadata.label_gap_days} 个交易日",
+        f"- 评估训练窗：{metadata.evaluation_train_start or '-'} 至 {metadata.evaluation_train_end or '-'}",
+        f"- 验证窗：{metadata.validation_start or '-'} 至 {metadata.validation_end or '-'}",
+        f"- 测试窗：{metadata.test_start or '-'} 至 {metadata.test_end or '-'}",
+        f"- Top1 测试跑赢率：{_format_percent(_metric_float(metadata.metrics, 'top1_outperform_rate'))}",
         "",
         "## 最新预测 Top N",
         "",
@@ -86,6 +92,13 @@ def _format_percent(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value * 100:.2f}%"
+
+
+def _metric_float(metrics: dict[str, float | int | str | None] | None, key: str) -> float | None:
+    if metrics is None:
+        return None
+    value = metrics.get(key)
+    return float(value) if isinstance(value, (int, float)) else None
 
 
 def _build_quality_lines(quality: DataQualityReport | None) -> list[str]:

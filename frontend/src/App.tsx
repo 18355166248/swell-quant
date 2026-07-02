@@ -1053,6 +1053,10 @@ function ModelsPage({
     featureName,
     index: index + 1,
   })) ?? [];
+  const metricRows = Object.entries(model?.metrics ?? {}).map(([name, value]) => ({
+    name,
+    value: typeof value === "number" ? formatNumber(value) : (value ?? "-"),
+  }));
   return (
     <>
       <PageTitle
@@ -1078,6 +1082,14 @@ function ModelsPage({
                 { title: "类型", dataIndex: "model_type", width: 130 },
                 { title: "特征", dataIndex: "feature_count", width: 80, align: "right" },
                 { title: "预测日", dataIndex: "prediction_date", width: 120 },
+                {
+                  title: "评估",
+                  dataIndex: "evaluation_status",
+                  width: 120,
+                  render: (value: string) => (
+                    <Tag color={value === "ready" ? "green" : "orange"}>{value}</Tag>
+                  ),
+                },
               ]}
             />
           </Card>
@@ -1093,6 +1105,17 @@ function ModelsPage({
               <Descriptions.Item label="预测日期">{model?.prediction_date ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="训练样本行数">{model?.row_count ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="特征数量">{model?.feature_count ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="标签 Gap">{model?.label_gap_days ?? "-"} 个交易日</Descriptions.Item>
+              <Descriptions.Item label="评估状态">{model?.evaluation_status ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="评估训练窗">
+                {model?.evaluation_train_start ?? "-"} 至 {model?.evaluation_train_end ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="验证窗">
+                {model?.validation_start ?? "-"} 至 {model?.validation_end ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="测试窗">
+                {model?.test_start ?? "-"} 至 {model?.test_end ?? "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="产物路径">{model?.path ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="更新时间">{model?.updated_at ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="声明">
@@ -1116,6 +1139,22 @@ function ModelsPage({
           />
         ) : (
           <Empty description="暂无特征列表" />
+        )}
+      </Card>
+      <Card title="评估指标">
+        {metricRows.length > 0 ? (
+          <Table
+            rowKey="name"
+            size="middle"
+            dataSource={metricRows}
+            pagination={false}
+            columns={[
+              { title: "指标", dataIndex: "name" },
+              { title: "值", dataIndex: "value", width: 180, align: "right" },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无评估指标" />
         )}
       </Card>
       <Alert

@@ -24,6 +24,15 @@ class ModelMetadata:
     prediction_date: str
     row_count: int
     disclaimer: str
+    label_gap_days: int = 5
+    evaluation_status: str = "not_available"
+    evaluation_train_start: str | None = None
+    evaluation_train_end: str | None = None
+    validation_start: str | None = None
+    validation_end: str | None = None
+    test_start: str | None = None
+    test_end: str | None = None
+    metrics: dict[str, float | int | str | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -39,16 +48,17 @@ class PredictionRow:
 
 
 def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> ModelMetadata:
-    usable_dates = sorted(
-        {
-            label.trade_date
-            for label in labels
-            if label.future_5d_return is not None and label.outperform_benchmark_5d is not None
-        }
-    )
+    usable_labels = [
+        label
+        for label in labels
+        if label.future_5d_return is not None and label.outperform_benchmark_5d is not None
+    ]
+    usable_dates = sorted({label.trade_date for label in usable_labels})
     if not usable_dates:
         raise ValueError("no labeled rows available for baseline model metadata")
 
+    split = build_time_series_evaluation_split(usable_dates)
+    metrics = build_baseline_evaluation_metrics(features, usable_labels, split)
     # baseline 只记录可复现元数据，不拟合参数；后续接 LightGBM 时沿用同一模型产物接口。
     return ModelMetadata(
         model_version=BASELINE_MODEL_VERSION,
@@ -59,7 +69,116 @@ def train_baseline_model(features: list[FeatureRow], labels: list[LabelRow]) -> 
         prediction_date=max(row.trade_date for row in features).isoformat(),
         row_count=len(features),
         disclaimer="仅用于研究，不构成投资建议",
+        label_gap_days=split["label_gap_days"],
+        evaluation_status=str(split["status"]),
+        evaluation_train_start=_format_date(split["train_start"]),
+        evaluation_train_end=_format_date(split["train_end"]),
+        validation_start=_format_date(split["validation_start"]),
+        validation_end=_format_date(split["validation_end"]),
+        test_start=_format_date(split["test_start"]),
+        test_end=_format_date(split["test_end"]),
+        metrics=metrics,
     )
+
+
+def build_time_series_evaluation_split(
+    usable_dates: list[date], label_gap_days: int = 5
+) -> dict[str, date | int | str | None]:
+    min_train_dates = 3
+    min_eval_dates = 1
+    required = min_train_dates + label_gap_days + min_eval_dates + label_gap_days + min_eval_dates
+    if len(usable_dates) < required:
+        return {
+            "status": "skipped_insufficient_history",
+            "label_gap_days": label_gap_days,
+            "train_start": usable_dates[0],
+            "train_end": usable_dates[-1],
+            "validation_start": None,
+            "validation_end": None,
+            "test_start": None,
+            "test_end": None,
+        }
+
+    train_start_index = 0
+    train_end_index = min_train_dates - 1
+    validation_start_index = train_end_index + label_gap_days + 1
+    validation_end_index = validation_start_index + min_eval_dates - 1
+    test_start_index = validation_end_index + label_gap_days + 1
+    # 时间序列评估切分必须保留标签窗口 gap，避免 T+5 标签跨 train/valid/test 边界泄漏。
+    return {
+        "status": "ready",
+        "label_gap_days": label_gap_days,
+        "train_start": usable_dates[train_start_index],
+        "train_end": usable_dates[train_end_index],
+        "validation_start": usable_dates[validation_start_index],
+        "validation_end": usable_dates[validation_end_index],
+        "test_start": usable_dates[test_start_index],
+        "test_end": usable_dates[-1],
+    }
+
+
+def build_baseline_evaluation_metrics(
+    features: list[FeatureRow],
+    labels: list[LabelRow],
+    split: dict[str, date | int | str | None],
+) -> dict[str, float | int | str | None]:
+    positive_count = sum(1 for label in labels if label.outperform_benchmark_5d)
+    metrics: dict[str, float | int | str | None] = {
+        "labeled_row_count": len(labels),
+        "positive_rate": round(positive_count / len(labels), 6) if labels else None,
+        "evaluation_status": str(split["status"]),
+    }
+    if split["status"] != "ready":
+        metrics.update(
+            {
+                "test_prediction_dates": 0,
+                "top1_outperform_rate": None,
+                "top3_outperform_rate": None,
+            }
+        )
+        return metrics
+
+    test_start = split["test_start"]
+    test_end = split["test_end"]
+    if not isinstance(test_start, date) or not isinstance(test_end, date):
+        raise ValueError("ready evaluation split must include test window")
+
+    label_by_key = {(label.symbol, label.trade_date): label for label in labels}
+    features_by_date: dict[date, list[FeatureRow]] = defaultdict(list)
+    for row in features:
+        if test_start <= row.trade_date <= test_end:
+            features_by_date[row.trade_date].append(row)
+
+    top1_hits = 0
+    top1_total = 0
+    top3_hits = 0
+    top3_total = 0
+    for trade_date, rows in sorted(features_by_date.items()):
+        scored = [
+            (row, _score_feature_row(row))
+            for row in rows
+            if row.momentum_5d is not None
+            and row.return_1d is not None
+            and (row.symbol, row.trade_date) in label_by_key
+        ]
+        if not scored:
+            continue
+        scored.sort(key=lambda item: (-item[1], item[0].symbol))
+        top1_total += 1
+        top1_label = label_by_key[(scored[0][0].symbol, trade_date)]
+        top1_hits += int(bool(top1_label.outperform_benchmark_5d))
+        for row, _score in scored[:3]:
+            top3_total += 1
+            top3_hits += int(bool(label_by_key[(row.symbol, trade_date)].outperform_benchmark_5d))
+
+    metrics.update(
+        {
+            "test_prediction_dates": top1_total,
+            "top1_outperform_rate": round(top1_hits / top1_total, 6) if top1_total else None,
+            "top3_outperform_rate": round(top3_hits / top3_total, 6) if top3_total else None,
+        }
+    )
+    return metrics
 
 
 def generate_predictions(
@@ -144,6 +263,15 @@ def read_model_metadata(path: Path) -> ModelMetadata:
         prediction_date=payload["prediction_date"],
         row_count=int(payload["row_count"]),
         disclaimer=payload["disclaimer"],
+        label_gap_days=int(payload.get("label_gap_days", 5)),
+        evaluation_status=payload.get("evaluation_status", "not_available"),
+        evaluation_train_start=payload.get("evaluation_train_start"),
+        evaluation_train_end=payload.get("evaluation_train_end"),
+        validation_start=payload.get("validation_start"),
+        validation_end=payload.get("validation_end"),
+        test_start=payload.get("test_start"),
+        test_end=payload.get("test_end"),
+        metrics=payload.get("metrics"),
     )
 
 
@@ -213,3 +341,7 @@ def _format_optional(value: float | None) -> str:
 
 def _parse_optional(value: str) -> float | None:
     return None if value == "" else float(value)
+
+
+def _format_date(value: date | int | str | None) -> str | None:
+    return value.isoformat() if isinstance(value, date) else None

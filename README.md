@@ -124,7 +124,7 @@ npm run build
 - `data/reports/pipeline_run.json`
 - `data/reports/research_status.json`
 
-当前模型是可复现的规则 baseline，用于验证链路，不是最终 LightGBM 模型。
+当前模型是可复现的规则 baseline，用于验证链路，不是最终 LightGBM 模型。模型产物已经记录时间序列评估口径，包括 5 个交易日标签 gap、train/valid/test 评估窗口和 baseline 测试指标，后续接入 LightGBM 时沿用同一元数据结构。
 
 DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/predictions CSV 产物整表镜像到
 `data/duckdb/swell_quant.duckdb`。v1 只支持单写入者本地研究场景，镜像步骤使用覆盖写入，避免样例

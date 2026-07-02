@@ -99,6 +99,15 @@ export interface ResearchStatus {
     train_end: string;
     prediction_date: string;
     feature_names: string[];
+    label_gap_days: number;
+    evaluation_status: string;
+    evaluation_train_start: string | null;
+    evaluation_train_end: string | null;
+    validation_start: string | null;
+    validation_end: string | null;
+    test_start: string | null;
+    test_end: string | null;
+    metrics: Record<string, number | string | null>;
   };
   predictions: {
     count: number;
@@ -320,6 +329,15 @@ export interface LatestModel {
   train_end: string;
   prediction_date: string;
   row_count: number;
+  label_gap_days: number;
+  evaluation_status: string;
+  evaluation_train_start: string | null;
+  evaluation_train_end: string | null;
+  validation_start: string | null;
+  validation_end: string | null;
+  test_start: string | null;
+  test_end: string | null;
+  metrics: Record<string, number | string | null>;
   path?: string;
   updated_at?: string;
   disclaimer: string;
@@ -333,6 +351,9 @@ export interface ModelSummary {
   train_end: string;
   prediction_date: string;
   row_count: number;
+  evaluation_status: string;
+  test_start: string | null;
+  test_end: string | null;
   path: string;
   updated_at: string;
   disclaimer: string;
