@@ -59,8 +59,19 @@ export interface AcceptanceStatus {
   disclaimer?: string;
 }
 
+export interface ArtifactStatus {
+  status: "complete" | "missing";
+  missing: string[];
+  artifacts: Array<{
+    name: string;
+    path: string;
+    exists: boolean;
+  }>;
+}
+
 export interface ResearchStatus {
   acceptance: AcceptanceStatus;
+  artifact_status: ArtifactStatus;
   pipeline: {
     status: string;
     started_at: string;

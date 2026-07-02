@@ -33,7 +33,12 @@ from swell_quant.research.modeling import (
     write_predictions_csv,
 )
 from swell_quant.research.reporting import build_research_summary, write_research_summary
-from swell_quant.research.status import build_research_status, read_json, write_research_status
+from swell_quant.research.status import (
+    build_research_status,
+    default_artifact_paths,
+    read_json,
+    write_research_status,
+)
 from swell_quant.storage.duckdb_backup import backup_duckdb
 from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror, mirror_pipeline_csvs_to_duckdb
 
@@ -158,7 +163,13 @@ def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
     manifest = read_json(manifest_path)
     storage_status = inspect_duckdb_mirror(settings.duckdb_path, settings.data_dir)
     status = build_research_status(
-        quality, metadata, predictions, backtest, manifest, storage_status
+        quality,
+        metadata,
+        predictions,
+        backtest,
+        manifest,
+        storage_status,
+        default_artifact_paths(settings.data_dir),
     )
     return write_research_status(settings.data_dir / "reports" / "research_status.json", status)
 

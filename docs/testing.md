@@ -26,7 +26,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | --- | --- |
 | `make pipeline` | 生成样例行情、质量报告、因子、标签、模型、预测、回测、DuckDB 镜像和研究报告。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
-| `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、预测和回测门禁。 |
+| `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、预测、回测和关键产物完整性门禁。 |
 | `make smoke` | 串联 pipeline、storage 和 acceptance，作为无页面端到端验收入口。 |
 | `make frontend-build` | 校验前端类型和生产构建。 |
 
@@ -38,6 +38,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 - 模型 baseline：固定规则可复现，模型元数据写入特征列表、训练区间和研究声明。
 - 回测：Top N 调仓、次日开盘价成交、手续费和确定性净值曲线。
 - DuckDB 存储：CSV 镜像到本地单文件 DuckDB，检查表行数和 schema。
+- 产物完整性：模型、预测、回测、报告、pipeline 运行记录和 DuckDB 文件都必须存在。
 - API：本地只读 API 路由、pipeline 触发锁、列表和详情接口。
 - 前端：构建检查覆盖页面类型、API 类型和生产 bundle。
 

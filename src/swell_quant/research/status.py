@@ -16,14 +16,18 @@ def build_research_status(
     backtest: BacktestResult,
     pipeline_manifest: dict[str, Any],
     storage_status: dict[str, Any] | None = None,
+    artifact_paths: dict[str, Path] | None = None,
 ) -> dict[str, Any]:
     top_predictions = sorted(predictions, key=lambda row: row.rank)
+    resolved_artifact_paths = artifact_paths or default_artifact_paths(Path("data"))
+    artifact_status = build_artifact_status(resolved_artifact_paths)
     gates = build_acceptance_gates(
         quality=quality,
         predictions=top_predictions,
         backtest=backtest,
         pipeline_manifest=pipeline_manifest,
         storage_status=storage_status,
+        artifact_status=artifact_status,
     )
 
     # 状态快照面向 CLI/API/页面复用，只聚合结构化产物，不重新计算研究结果。
@@ -78,16 +82,38 @@ def build_research_status(
             "excess_return": backtest.excess_return,
             "disclaimer": backtest.disclaimer,
         },
-        "artifacts": {
-            "data_quality": "data/processed/data_quality.json",
-            "model": "data/models/baseline-rule-v1.json",
-            "latest_predictions": "data/processed/latest_predictions.csv",
-            "historical_predictions": "data/processed/historical_predictions.csv",
-            "duckdb": "data/duckdb/swell_quant.duckdb",
-            "backtest": "data/reports/sample_backtest.json",
-            "summary": "data/reports/sample_research_summary.md",
-            "pipeline_run": "data/reports/pipeline_run.json",
-        },
+        "artifacts": {key: str(path) for key, path in resolved_artifact_paths.items()},
+        "artifact_status": artifact_status,
+    }
+
+
+def default_artifact_paths(data_dir: Path) -> dict[str, Path]:
+    return {
+        "data_quality": data_dir / "processed" / "data_quality.json",
+        "model": data_dir / "models" / "baseline-rule-v1.json",
+        "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
+        "historical_predictions": data_dir / "processed" / "historical_predictions.csv",
+        "duckdb": data_dir / "duckdb" / "swell_quant.duckdb",
+        "backtest": data_dir / "reports" / "sample_backtest.json",
+        "summary": data_dir / "reports" / "sample_research_summary.md",
+        "pipeline_run": data_dir / "reports" / "pipeline_run.json",
+    }
+
+
+def build_artifact_status(artifact_paths: dict[str, Path]) -> dict[str, Any]:
+    artifacts = [
+        {
+            "name": name,
+            "path": str(path),
+            "exists": path.exists(),
+        }
+        for name, path in artifact_paths.items()
+    ]
+    missing = [artifact["name"] for artifact in artifacts if not artifact["exists"]]
+    return {
+        "status": "complete" if not missing else "missing",
+        "missing": missing,
+        "artifacts": artifacts,
     }
 
 
@@ -97,6 +123,7 @@ def build_acceptance_gates(
     backtest: BacktestResult,
     pipeline_manifest: dict[str, Any],
     storage_status: dict[str, Any] | None,
+    artifact_status: dict[str, Any] | None,
 ) -> dict[str, Any]:
     checks = [
         _gate_check(
@@ -130,6 +157,14 @@ def build_acceptance_gates(
             "回测存在交易",
             backtest.trade_count > 0,
             f"trade_count={backtest.trade_count}",
+        ),
+        _gate_check(
+            "artifacts_complete",
+            "关键产物完整",
+            artifact_status is not None and artifact_status.get("status") == "complete",
+            "status=missing"
+            if artifact_status is None
+            else f"missing={','.join(artifact_status.get('missing', [])) or '-'}",
         ),
     ]
     failed_checks = [check for check in checks if check["status"] != "passed"]
