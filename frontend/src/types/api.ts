@@ -62,6 +62,7 @@ export interface AcceptanceStatus {
 export interface ArtifactStatus {
   status: "complete" | "missing";
   missing: string[];
+  disclaimer?: string;
   artifacts: Array<{
     name: string;
     path: string;
@@ -408,6 +409,8 @@ export interface SettingsArtifact {
   name: string;
   path: string;
   exists: boolean;
+  size_bytes: number | null;
+  updated_at: string | null;
 }
 
 export interface LocalSettings {

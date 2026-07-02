@@ -3,6 +3,7 @@ from pathlib import Path
 
 from swell_quant.api.local_server import (
     load_acceptance_artifact,
+    load_artifacts_artifact,
     load_backtest_artifact,
     load_backtest_route,
     load_backtests_artifact,
@@ -130,6 +131,27 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
     assert payload["api_keys"]["openai_configured"] is False
     assert "deepseek-secret" not in serialized
     assert any(item["name"] == "status" and item["exists"] is True for item in payload["artifacts"])
+    assert any(
+        item["name"] == "status" and item["updated_at"] is not None for item in payload["artifacts"]
+    )
+
+
+def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    duckdb_path = data_dir / "duckdb" / "swell_quant.duckdb"
+    data_dir.joinpath("reports").mkdir(parents=True)
+    data_dir.joinpath("raw").mkdir(parents=True)
+    data_dir.joinpath("raw", "sample_prices.csv").write_text("symbol,date\n", encoding="utf-8")
+
+    payload = load_artifacts_artifact(data_dir, duckdb_path)
+
+    raw_prices = next(item for item in payload["artifacts"] if item["name"] == "raw_prices")
+    assert payload["status"] == "missing"
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+    assert raw_prices["exists"] is True
+    assert raw_prices["size_bytes"] > 0
+    assert raw_prices["updated_at"] is not None
+    assert "duckdb" in payload["missing"]
 
 
 def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:

@@ -1573,7 +1573,14 @@ function ReportsPage({
   );
 }
 
-function SettingsPage({ settings }: { settings?: LocalSettings }) {
+function SettingsPage({
+  settings,
+  artifactStatus,
+}: {
+  settings?: LocalSettings;
+  artifactStatus?: ArtifactStatus;
+}) {
+  const artifacts = artifactStatus?.artifacts ?? settings?.artifacts ?? [];
   return (
     <>
       <PageTitle title="设置" description="查看本地研究环境、数据目录、API key 配置状态和关键产物是否存在。" />
@@ -1614,11 +1621,24 @@ function SettingsPage({ settings }: { settings?: LocalSettings }) {
             <Table
               rowKey="name"
               size="middle"
-              dataSource={settings?.artifacts ?? []}
+              dataSource={artifacts}
               pagination={false}
               columns={[
                 { title: "产物", dataIndex: "name", width: 180 },
                 { title: "路径", dataIndex: "path" },
+                {
+                  title: "大小",
+                  dataIndex: "size_bytes",
+                  align: "right",
+                  width: 120,
+                  render: formatFileSize,
+                },
+                {
+                  title: "更新时间",
+                  dataIndex: "updated_at",
+                  width: 180,
+                  render: formatDateTime,
+                },
                 {
                   title: "状态",
                   dataIndex: "exists",
@@ -1659,6 +1679,7 @@ function App() {
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const acceptanceQuery = useQuery({ queryKey: ["acceptance"], queryFn: api.getAcceptance });
+  const artifactsQuery = useQuery({ queryKey: ["artifacts"], queryFn: api.getArtifacts });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const pipelineQuery = useQuery({ queryKey: ["pipeline"], queryFn: api.getPipeline });
   const tasksQuery = useQuery({ queryKey: ["tasks"], queryFn: api.getTasks });
@@ -1785,6 +1806,7 @@ function App() {
   const isLoading =
     statusQuery.isLoading ||
     acceptanceQuery.isLoading ||
+    artifactsQuery.isLoading ||
     qualityQuery.isLoading ||
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
@@ -1814,6 +1836,7 @@ function App() {
   const hasError =
     statusQuery.isError ||
     acceptanceQuery.isError ||
+    artifactsQuery.isError ||
     qualityQuery.isError ||
     tasksQuery.isError ||
     taskDetailQuery.isError ||
@@ -1925,7 +1948,7 @@ function App() {
         qualityIssues={quality?.issues ?? []}
       />
     ),
-    settings: <SettingsPage settings={settingsQuery.data} />,
+    settings: <SettingsPage settings={settingsQuery.data} artifactStatus={artifactsQuery.data} />,
   } satisfies Record<PageKey, ReactNode>;
 
   return (

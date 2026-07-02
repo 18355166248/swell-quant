@@ -16,6 +16,7 @@ from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.labels import read_labels_csv
 from swell_quant.research.modeling import read_predictions_csv
+from swell_quant.research.status import build_artifact_status
 from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror
 
 
@@ -44,6 +45,9 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                     self.openai_api_key_configured,
                 )
             )
+            return
+        if route == "/api/artifacts":
+            self._send_json(load_artifacts_artifact(self.data_dir, self.duckdb_path))
             return
         if route == "/api/status":
             self._send_artifact_json(self.data_dir / "reports" / "research_status.json")
@@ -309,19 +313,7 @@ def load_settings_artifact(
     deepseek_api_key_configured: bool,
     openai_api_key_configured: bool,
 ) -> dict[str, Any]:
-    artifacts = {
-        "raw_prices": data_dir / "raw" / "sample_prices.csv",
-        "data_quality": data_dir / "processed" / "data_quality.json",
-        "features": data_dir / "processed" / "sample_features.csv",
-        "labels": data_dir / "processed" / "sample_labels.csv",
-        "model": data_dir / "models" / "baseline-rule-v1.json",
-        "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
-        "historical_predictions": data_dir / "processed" / "historical_predictions.csv",
-        "backtest": data_dir / "reports" / "sample_backtest.json",
-        "report": data_dir / "reports" / "sample_research_summary.md",
-        "pipeline": data_dir / "reports" / "pipeline_run.json",
-        "status": data_dir / "reports" / "research_status.json",
-    }
+    artifact_status = load_artifacts_artifact(data_dir, duckdb_path)
     return {
         "service": {
             "name": "swell-quant-local-api",
@@ -337,14 +329,31 @@ def load_settings_artifact(
             "deepseek_configured": deepseek_api_key_configured,
             "openai_configured": openai_api_key_configured,
         },
-        "artifacts": [
-            {
-                "name": name,
-                "path": str(path),
-                "exists": path.exists(),
-            }
-            for name, path in artifacts.items()
-        ],
+        "artifacts": artifact_status["artifacts"],
+    }
+
+
+def load_artifacts_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]:
+    # API/设置页/脚本共享同一份产物清单，避免新增产物时只更新其中一个入口造成排查误导。
+    artifact_status = build_artifact_status(local_artifact_paths(data_dir, duckdb_path))
+    artifact_status["disclaimer"] = "仅用于研究，不构成投资建议"
+    return artifact_status
+
+
+def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
+    return {
+        "raw_prices": data_dir / "raw" / "sample_prices.csv",
+        "data_quality": data_dir / "processed" / "data_quality.json",
+        "features": data_dir / "processed" / "sample_features.csv",
+        "labels": data_dir / "processed" / "sample_labels.csv",
+        "model": data_dir / "models" / "baseline-rule-v1.json",
+        "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
+        "historical_predictions": data_dir / "processed" / "historical_predictions.csv",
+        "duckdb": duckdb_path,
+        "backtest": data_dir / "reports" / "sample_backtest.json",
+        "report": data_dir / "reports" / "sample_research_summary.md",
+        "pipeline": data_dir / "reports" / "pipeline_run.json",
+        "status": data_dir / "reports" / "research_status.json",
     }
 
 
