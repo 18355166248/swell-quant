@@ -24,6 +24,7 @@ from swell_quant.research.features import compute_features, read_features_csv, w
 from swell_quant.research.labels import compute_labels, read_labels_csv, write_labels_csv
 from swell_quant.research.modeling import (
     BASELINE_MODEL_VERSION,
+    build_training_samples,
     generate_historical_predictions,
     generate_predictions,
     read_model_metadata,
@@ -31,6 +32,7 @@ from swell_quant.research.modeling import (
     train_model,
     write_model_metadata,
     write_predictions_csv,
+    write_training_samples_csv,
 )
 from swell_quant.research.reporting import build_research_summary, write_research_summary
 from swell_quant.research.status import (
@@ -92,21 +94,25 @@ def run_label_pipeline(settings: Settings) -> str:
 def run_training_pipeline(settings: Settings) -> str:
     feature_path = settings.data_dir / "processed" / "sample_features.csv"
     label_path = settings.data_dir / "processed" / "sample_labels.csv"
+    training_sample_path = settings.data_dir / "processed" / "training_samples.csv"
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
     historical_prediction_path = settings.data_dir / "processed" / "historical_predictions.csv"
 
     features = read_features_csv(feature_path)
     labels = read_labels_csv(label_path)
+    training_samples = build_training_samples(features, labels)
     metadata = train_model(features, labels, requested_model_type=settings.model_type)
     model_path = settings.data_dir / "models" / f"{metadata.model_version}.json"
     latest_predictions = generate_predictions(features, metadata.model_version)
     historical_predictions = generate_historical_predictions(features, metadata.model_version)
 
     write_model_metadata(model_path, metadata)
+    write_training_samples_csv(training_sample_path, training_samples)
     write_predictions_csv(latest_prediction_path, latest_predictions)
     write_predictions_csv(historical_prediction_path, historical_predictions)
     return (
         f"wrote model metadata to {model_path}, "
+        f"{len(training_samples)} training samples, "
         f"{len(latest_predictions)} latest predictions and "
         f"{len(historical_predictions)} historical predictions"
     )

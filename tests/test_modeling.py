@@ -7,10 +7,13 @@ from swell_quant.research.features import compute_features, read_features_csv, w
 from swell_quant.research.labels import compute_labels
 from swell_quant.research.modeling import (
     BASELINE_MODEL_VERSION,
+    build_training_samples,
     generate_historical_predictions,
     generate_predictions,
+    read_training_samples_csv,
     train_baseline_model,
     train_model,
+    write_training_samples_csv,
 )
 
 
@@ -85,6 +88,24 @@ def test_train_model_rejects_unsupported_backend() -> None:
 
     with pytest.raises(ValueError, match="unsupported model type"):
         train_model(features, labels, requested_model_type="deep_model")
+
+
+def test_build_training_samples_preserves_time_split_and_missing_features(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=20)
+    rows = build_training_samples(compute_features(bars), compute_labels(bars))
+    path = write_training_samples_csv(tmp_path / "training_samples.csv", rows)
+    loaded = read_training_samples_csv(path)
+
+    assert len(rows) == 45
+    assert {row.split for row in rows} == {"train", "validation", "test", "gap"}
+    assert sum(1 for row in rows if row.split == "train") == 9
+    assert sum(1 for row in rows if row.split == "validation") == 3
+    assert sum(1 for row in rows if row.split == "test") == 3
+    assert rows[0].return_1d is None
+    assert rows[0].macd_hist == 0.0
+    assert len(loaded) == len(rows)
+    assert loaded[0].split == "train"
+    assert loaded[0].return_1d is None
 
 
 def test_generate_historical_predictions_skips_rows_without_lookback() -> None:

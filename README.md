@@ -126,6 +126,7 @@ npm run build
 - `data/processed/data_quality.json`
 - `data/processed/sample_features.csv`
 - `data/processed/sample_labels.csv`
+- `data/processed/training_samples.csv`
 - `data/models/baseline-rule-v1.json`
 - `data/processed/latest_predictions.csv`
 - `data/processed/historical_predictions.csv`

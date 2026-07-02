@@ -46,11 +46,20 @@ from swell_quant.research.backtest import run_top_n_backtest, write_backtest_res
 from swell_quant.research.features import compute_features, write_features_csv
 from swell_quant.research.labels import compute_labels, write_labels_csv
 from swell_quant.research.modeling import (
+    build_training_samples,
     generate_historical_predictions,
     generate_predictions,
     write_predictions_csv,
+    write_training_samples_csv,
 )
 from swell_quant.storage.duckdb_mirror import mirror_pipeline_csvs_to_duckdb
+
+
+def write_training_samples_artifact(data_dir: Path, features, labels) -> None:
+    write_training_samples_csv(
+        data_dir / "processed" / "training_samples.csv",
+        build_training_samples(features, labels),
+    )
 
 
 def test_local_api_artifact_loaders_read_status_pipeline_and_report(tmp_path: Path) -> None:
@@ -324,6 +333,7 @@ def test_local_api_duckdb_storage_artifact_reports_table_counts(tmp_path: Path) 
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
+    write_training_samples_artifact(data_dir, features, labels)
     write_predictions_csv(
         data_dir / "processed" / "latest_predictions.csv", generate_predictions(features)
     )
@@ -359,6 +369,7 @@ def test_local_api_duckdb_storage_artifact_detects_stale_mirror(tmp_path: Path) 
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
+    write_training_samples_artifact(data_dir, features, labels)
     write_predictions_csv(
         data_dir / "processed" / "latest_predictions.csv", generate_predictions(features)
     )
@@ -389,6 +400,7 @@ def test_local_api_duckdb_storage_artifact_detects_schema_mismatch(tmp_path: Pat
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
+    write_training_samples_artifact(data_dir, features, labels)
     write_predictions_csv(
         data_dir / "processed" / "latest_predictions.csv", generate_predictions(features)
     )

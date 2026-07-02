@@ -17,6 +17,7 @@ def write_complete_artifacts(tmp_path: Path) -> dict[str, Path]:
     artifact_paths = {
         "data_quality": tmp_path / "data_quality.json",
         "model": tmp_path / "model.json",
+        "training_samples": tmp_path / "training_samples.csv",
         "latest_predictions": tmp_path / "latest_predictions.csv",
         "historical_predictions": tmp_path / "historical_predictions.csv",
         "duckdb": tmp_path / "swell_quant.duckdb",

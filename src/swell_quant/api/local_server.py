@@ -362,6 +362,7 @@ def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
         "data_quality": data_dir / "processed" / "data_quality.json",
         "features": data_dir / "processed" / "sample_features.csv",
         "labels": data_dir / "processed" / "sample_labels.csv",
+        "training_samples": data_dir / "processed" / "training_samples.csv",
         "model": data_dir / "models" / "baseline-rule-v1.json",
         "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
         "historical_predictions": data_dir / "processed" / "historical_predictions.csv",

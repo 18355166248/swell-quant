@@ -112,6 +112,7 @@ def default_artifact_paths(data_dir: Path) -> dict[str, Path]:
     return {
         "data_quality": data_dir / "processed" / "data_quality.json",
         "model": data_dir / "models" / "baseline-rule-v1.json",
+        "training_samples": data_dir / "processed" / "training_samples.csv",
         "latest_predictions": data_dir / "processed" / "latest_predictions.csv",
         "historical_predictions": data_dir / "processed" / "historical_predictions.csv",
         "duckdb": data_dir / "duckdb" / "swell_quant.duckdb",

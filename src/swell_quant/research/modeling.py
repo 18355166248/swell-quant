@@ -69,6 +69,22 @@ class PredictionRow:
     volume_change_1d: float | None
 
 
+@dataclass(frozen=True)
+class TrainingSampleRow:
+    symbol: str
+    trade_date: date
+    split: str
+    future_5d_return: float
+    benchmark_5d_return: float
+    outperform_benchmark_5d: int
+    momentum_5d: float | None
+    return_1d: float | None
+    volatility_5d: float | None
+    rsi_6: float | None
+    macd_hist: float | None
+    volume_change_1d: float | None
+
+
 def train_model(
     features: list[FeatureRow],
     labels: list[LabelRow],
@@ -236,6 +252,76 @@ def build_baseline_evaluation_metrics(
     return metrics
 
 
+def build_training_samples(
+    features: list[FeatureRow], labels: list[LabelRow]
+) -> list[TrainingSampleRow]:
+    usable_labels = [
+        label
+        for label in labels
+        if label.future_5d_return is not None
+        and label.benchmark_5d_return is not None
+        and label.outperform_benchmark_5d is not None
+    ]
+    usable_dates = sorted({label.trade_date for label in usable_labels})
+    if not usable_dates:
+        return []
+
+    split = build_time_series_evaluation_split(usable_dates)
+    feature_by_key = {(row.symbol, row.trade_date): row for row in features}
+    rows: list[TrainingSampleRow] = []
+    for label in sorted(usable_labels, key=lambda item: (item.trade_date, item.symbol)):
+        feature = feature_by_key.get((label.symbol, label.trade_date))
+        if feature is None:
+            continue
+        rows.append(
+            TrainingSampleRow(
+                symbol=label.symbol,
+                trade_date=label.trade_date,
+                split=_training_split_for_date(label.trade_date, split),
+                future_5d_return=float(label.future_5d_return),
+                benchmark_5d_return=float(label.benchmark_5d_return),
+                outperform_benchmark_5d=int(label.outperform_benchmark_5d),
+                momentum_5d=feature.momentum_5d,
+                return_1d=feature.return_1d,
+                volatility_5d=feature.volatility_5d,
+                rsi_6=feature.rsi_6,
+                macd_hist=feature.macd_hist,
+                volume_change_1d=feature.volume_change_1d,
+            )
+        )
+    return rows
+
+
+def _training_split_for_date(trade_date: date, split: dict[str, date | int | str | None]) -> str:
+    if split["status"] != "ready":
+        return "train"
+    train_start = split["train_start"]
+    train_end = split["train_end"]
+    validation_start = split["validation_start"]
+    validation_end = split["validation_end"]
+    test_start = split["test_start"]
+    test_end = split["test_end"]
+    if (
+        isinstance(train_start, date)
+        and isinstance(train_end, date)
+        and train_start <= trade_date <= train_end
+    ):
+        return "train"
+    if (
+        isinstance(validation_start, date)
+        and isinstance(validation_end, date)
+        and validation_start <= trade_date <= validation_end
+    ):
+        return "validation"
+    if (
+        isinstance(test_start, date)
+        and isinstance(test_end, date)
+        and test_start <= trade_date <= test_end
+    ):
+        return "test"
+    return "gap"
+
+
 def generate_predictions(
     features: list[FeatureRow], model_version: str = BASELINE_MODEL_VERSION
 ) -> list[PredictionRow]:
@@ -334,6 +420,64 @@ def read_model_metadata(path: Path) -> ModelMetadata:
         dependency_status=payload.get("dependency_status", "legacy_not_recorded"),
         training_params=payload.get("training_params"),
     )
+
+
+def write_training_samples_csv(path: Path, rows: list[TrainingSampleRow]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=[
+                "symbol",
+                "date",
+                "split",
+                "future_5d_return",
+                "benchmark_5d_return",
+                "outperform_benchmark_5d",
+                *BASELINE_FEATURE_NAMES,
+            ],
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    "symbol": row.symbol,
+                    "date": row.trade_date.isoformat(),
+                    "split": row.split,
+                    "future_5d_return": _format_optional(row.future_5d_return),
+                    "benchmark_5d_return": _format_optional(row.benchmark_5d_return),
+                    "outperform_benchmark_5d": str(row.outperform_benchmark_5d),
+                    "momentum_5d": _format_optional(row.momentum_5d),
+                    "return_1d": _format_optional(row.return_1d),
+                    "volatility_5d": _format_optional(row.volatility_5d),
+                    "rsi_6": _format_optional(row.rsi_6),
+                    "macd_hist": _format_optional(row.macd_hist),
+                    "volume_change_1d": _format_optional(row.volume_change_1d),
+                }
+            )
+    return path
+
+
+def read_training_samples_csv(path: Path) -> list[TrainingSampleRow]:
+    with path.open("r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        return [
+            TrainingSampleRow(
+                symbol=row["symbol"],
+                trade_date=date.fromisoformat(row["date"]),
+                split=row["split"],
+                future_5d_return=float(row["future_5d_return"]),
+                benchmark_5d_return=float(row["benchmark_5d_return"]),
+                outperform_benchmark_5d=int(row["outperform_benchmark_5d"]),
+                momentum_5d=_parse_optional(row["momentum_5d"]),
+                return_1d=_parse_optional(row["return_1d"]),
+                volatility_5d=_parse_optional(row["volatility_5d"]),
+                rsi_6=_parse_optional(row["rsi_6"]),
+                macd_hist=_parse_optional(row["macd_hist"]),
+                volume_change_1d=_parse_optional(row["volume_change_1d"]),
+            )
+            for row in reader
+        ]
 
 
 def write_predictions_csv(path: Path, rows: list[PredictionRow]) -> Path:

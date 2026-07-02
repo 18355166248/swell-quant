@@ -9,6 +9,7 @@ PIPELINE_DUCKDB_TABLES = (
     "raw_prices",
     "feature_rows",
     "label_rows",
+    "training_samples",
     "latest_predictions",
     "historical_predictions",
 )
@@ -17,6 +18,7 @@ PIPELINE_CSV_ARTIFACTS = {
     "raw_prices": ("raw", "sample_prices.csv"),
     "feature_rows": ("processed", "sample_features.csv"),
     "label_rows": ("processed", "sample_labels.csv"),
+    "training_samples": ("processed", "training_samples.csv"),
     "latest_predictions": ("processed", "latest_predictions.csv"),
     "historical_predictions": ("processed", "historical_predictions.csv"),
 }
@@ -52,6 +54,20 @@ PIPELINE_DUCKDB_SCHEMAS = {
         "future_5d_return",
         "benchmark_5d_return",
         "outperform_benchmark_5d",
+    ),
+    "training_samples": (
+        "symbol",
+        "date",
+        "split",
+        "future_5d_return",
+        "benchmark_5d_return",
+        "outperform_benchmark_5d",
+        "momentum_5d",
+        "return_1d",
+        "volatility_5d",
+        "rsi_6",
+        "macd_hist",
+        "volume_change_1d",
     ),
     "latest_predictions": (
         "symbol",

@@ -6,9 +6,11 @@ from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_
 from swell_quant.research.features import compute_features, write_features_csv
 from swell_quant.research.labels import compute_labels, write_labels_csv
 from swell_quant.research.modeling import (
+    build_training_samples,
     generate_historical_predictions,
     generate_predictions,
     write_predictions_csv,
+    write_training_samples_csv,
 )
 from swell_quant.storage.duckdb_mirror import mirror_pipeline_csvs_to_duckdb
 
@@ -18,12 +20,14 @@ def test_mirror_pipeline_csvs_to_duckdb_replaces_tables(tmp_path: Path) -> None:
     bars = generate_sample_bars(days=8)
     features = compute_features(bars)
     labels = compute_labels(bars)
+    training_samples = build_training_samples(features, labels)
     predictions = generate_predictions(features)
     historical_predictions = generate_historical_predictions(features)
 
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
+    write_training_samples_csv(data_dir / "processed" / "training_samples.csv", training_samples)
     write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", predictions)
     write_predictions_csv(
         data_dir / "processed" / "historical_predictions.csv", historical_predictions
@@ -31,13 +35,19 @@ def test_mirror_pipeline_csvs_to_duckdb_replaces_tables(tmp_path: Path) -> None:
 
     result = mirror_pipeline_csvs_to_duckdb(data_dir, data_dir / "duckdb" / "swell_quant.duckdb")
 
-    assert result.total_rows == len(bars) + len(features) + len(labels) + len(predictions) + len(
-        historical_predictions
+    assert result.total_rows == (
+        len(bars)
+        + len(features)
+        + len(labels)
+        + len(training_samples)
+        + len(predictions)
+        + len(historical_predictions)
     )
     assert {table.table_name for table in result.tables} == {
         "raw_prices",
         "feature_rows",
         "label_rows",
+        "training_samples",
         "latest_predictions",
         "historical_predictions",
     }
