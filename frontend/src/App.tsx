@@ -2022,6 +2022,9 @@ function SettingsPage({
         <Col xs={24} xl={14}>
           <Card title="配置与产物">
             <Descriptions column={2} size="small" className="settings-runtime">
+              <Descriptions.Item label="AKShare 股票池模式">
+                {settings?.akshare.universe_mode ?? "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="AKShare 股票池">
                 {settings?.akshare.symbols.join(", ") ?? "-"}
               </Descriptions.Item>

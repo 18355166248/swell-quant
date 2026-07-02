@@ -105,10 +105,12 @@ def run_data_update(settings: Settings) -> str:
                 start_date=settings.akshare_start_date,
                 end_date=settings.akshare_end_date,
                 benchmark=settings.akshare_benchmark_symbol,
+                universe_mode=settings.akshare_universe_mode,
             ),
         )
         source_message = (
             "source=akshare, "
+            f"universe_mode={settings.akshare_universe_mode}, "
             f"symbols={len(settings.akshare_symbols)}, "
             f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
             f"benchmark={settings.akshare_benchmark_symbol}"

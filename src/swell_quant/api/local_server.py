@@ -360,6 +360,7 @@ def load_settings_artifact(
             "llm_provider": settings.llm_provider,
         },
         "akshare": {
+            "universe_mode": settings.akshare_universe_mode,
             "symbols": list(settings.akshare_symbols),
             "start_date": settings.akshare_start_date,
             "end_date": settings.akshare_end_date,
@@ -493,6 +494,7 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
         "data_source": metadata["data_source"],
         "market": metadata["market"],
         "universe": metadata["universe"],
+        "universe_mode": metadata["universe_mode"],
         "universe_name": metadata["universe_name"],
         "symbols": metadata["symbols"],
         "target_universe": metadata["target_universe"],
@@ -522,6 +524,7 @@ def _default_data_metadata() -> dict[str, Any]:
         "data_source": "sample",
         "market": "A_SHARE_DAILY",
         "universe": "sample_a_share",
+        "universe_mode": "sample",
         "universe_name": "本地样例 A 股股票池",
         "symbols": [],
         "target_universe": "沪深 300 + 中证 500",

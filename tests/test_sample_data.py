@@ -41,7 +41,8 @@ def test_price_data_metadata_round_trip(tmp_path: Path) -> None:
     assert loaded["data_source"] == "akshare"
     assert loaded["symbols"] == ["000001.SZ", "600000.SH"]
     assert loaded["benchmark"] == "sh000906"
-    assert loaded["universe"] == "akshare_custom"
+    assert loaded["universe"] == "akshare_manual"
+    assert loaded["universe_mode"] == "manual"
     assert loaded["benchmark_same_source"] is False
     assert "自定义股票池" in loaded["benchmark_note"]
     assert loaded["updated_at"]

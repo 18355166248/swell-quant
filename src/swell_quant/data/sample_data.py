@@ -117,19 +117,22 @@ def build_price_data_metadata(
     start_date: str,
     end_date: str,
     benchmark: str,
+    universe_mode: str | None = None,
     benchmark_name: str = "中证 800",
     benchmark_fallback: str = "CSI300",
     adjustment: str = "forward_adjusted_daily",
     update_mode: str = "manual_trigger",
 ) -> dict[str, Any]:
     is_same_source_benchmark = data_source == "sample"
+    resolved_universe_mode = universe_mode or ("sample" if data_source == "sample" else "manual")
+    universe = "sample_a_share" if data_source == "sample" else f"akshare_{resolved_universe_mode}"
+    universe_name = "本地样例 A 股股票池" if data_source == "sample" else "AKShare 手工股票池"
     return {
         "data_source": data_source,
         "market": "A_SHARE_DAILY",
-        "universe": "sample_a_share" if data_source == "sample" else "akshare_custom",
-        "universe_name": "本地样例 A 股股票池"
-        if data_source == "sample"
-        else "AKShare 自定义股票池",
+        "universe": universe,
+        "universe_mode": resolved_universe_mode,
+        "universe_name": universe_name,
         "symbols": list(symbols),
         "target_universe": "沪深 300 + 中证 500",
         "target_universe_size": 800,

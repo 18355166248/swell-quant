@@ -47,11 +47,14 @@ python3 -m pip install -e ".[modeling]"
 ```bash
 python3 -m pip install -e ".[data]"
 DATA_SOURCE=akshare \
+AKSHARE_UNIVERSE_MODE=manual \
 AKSHARE_SYMBOLS=000001.SZ,600000.SH \
 AKSHARE_START_DATE=20240102 \
 AKSHARE_END_DATE=20240229 \
 python3 scripts/run_pipeline.py
 ```
+
+当前 `AKSHARE_UNIVERSE_MODE=manual` 表示使用 `AKSHARE_SYMBOLS` 手工股票池。v1 目标股票池仍是“沪深 300 + 中证 500”，自动拉取成分股会在后续真实数据源阶段接入；在此之前，非法股票代码、非法日期区间或未支持的股票池模式会在配置加载阶段直接报错。
 
 训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
 `rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。

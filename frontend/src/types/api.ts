@@ -284,6 +284,7 @@ export interface DataStatus {
   data_source: string;
   market: string;
   universe: string;
+  universe_mode: string;
   universe_name: string;
   symbols: string[];
   target_universe: string;
@@ -574,6 +575,7 @@ export interface LocalSettings {
     llm_provider: string;
   };
   akshare: {
+    universe_mode: string;
     symbols: string[];
     start_date: string;
     end_date: string;

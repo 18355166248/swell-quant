@@ -134,6 +134,7 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
         openai_api_key=None,
         model_type="lightgbm",
         llm_provider="deepseek",
+        akshare_universe_mode="manual",
         akshare_symbols=("000001.SZ", "600000.SH"),
     )
     settings.ensure_directories()
@@ -147,6 +148,7 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
     assert payload["runtime"]["data_source"] == "sample"
     assert payload["runtime"]["model_type"] == "lightgbm"
     assert payload["runtime"]["llm_provider"] == "deepseek"
+    assert payload["akshare"]["universe_mode"] == "manual"
     assert payload["akshare"]["symbols"] == ["000001.SZ", "600000.SH"]
     assert payload["llm"]["deepseek_model"] == "deepseek-chat"
     assert payload["api_keys"]["deepseek_configured"] is True
@@ -270,6 +272,7 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert quality["row_count"] == 60
     assert data_status["market"] == "A_SHARE_DAILY"
     assert data_status["data_source"] == "akshare"
+    assert data_status["universe_mode"] == "manual"
     assert data_status["symbols"] == ["000001.SZ", "600000.SH"]
     assert data_status["target_universe"] == "沪深 300 + 中证 500"
     assert data_status["target_universe_size"] == 800
