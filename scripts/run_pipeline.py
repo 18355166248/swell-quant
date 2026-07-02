@@ -14,17 +14,24 @@ if str(SRC_DIR) not in sys.path:
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps
 from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
-from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
+from swell_quant.research.backtest import (
+    read_backtest_result,
+    run_top_n_backtest,
+    write_backtest_result,
+)
 from swell_quant.research.features import compute_features, read_features_csv, write_features_csv
 from swell_quant.research.labels import compute_labels, read_labels_csv, write_labels_csv
 from swell_quant.research.modeling import (
     BASELINE_MODEL_VERSION,
     generate_historical_predictions,
     generate_predictions,
+    read_model_metadata,
+    read_predictions_csv,
     train_baseline_model,
     write_model_metadata,
     write_predictions_csv,
 )
+from swell_quant.research.reporting import build_research_summary, write_research_summary
 from swell_quant.storage.duckdb_backup import backup_duckdb
 
 
@@ -101,6 +108,20 @@ def run_backtest_pipeline(settings: Settings) -> str:
     )
 
 
+def run_report_pipeline(settings: Settings) -> str:
+    model_path = settings.data_dir / "models" / f"{BASELINE_MODEL_VERSION}.json"
+    latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
+    backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
+    summary_path = settings.data_dir / "reports" / "sample_research_summary.md"
+
+    metadata = read_model_metadata(model_path)
+    predictions = read_predictions_csv(latest_prediction_path)
+    backtest = read_backtest_result(backtest_path)
+    summary = build_research_summary(metadata, predictions, backtest)
+    write_research_summary(summary_path, summary)
+    return f"wrote research summary to {summary_path}"
+
+
 def build_steps(settings: Settings) -> list[PipelineStep]:
     return [
         PipelineStep("prepare_directories", lambda: prepare_directories(settings)),
@@ -109,6 +130,7 @@ def build_steps(settings: Settings) -> list[PipelineStep]:
         PipelineStep("labels", lambda: run_label_pipeline(settings)),
         PipelineStep("train", lambda: run_training_pipeline(settings)),
         PipelineStep("backtest", lambda: run_backtest_pipeline(settings)),
+        PipelineStep("report", lambda: run_report_pipeline(settings)),
     ]
 
 

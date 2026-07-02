@@ -131,6 +131,20 @@ def write_model_metadata(path: Path, metadata: ModelMetadata) -> Path:
     return path
 
 
+def read_model_metadata(path: Path) -> ModelMetadata:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return ModelMetadata(
+        model_version=payload["model_version"],
+        model_type=payload["model_type"],
+        feature_names=list(payload["feature_names"]),
+        train_start=payload["train_start"],
+        train_end=payload["train_end"],
+        prediction_date=payload["prediction_date"],
+        row_count=int(payload["row_count"]),
+        disclaimer=payload["disclaimer"],
+    )
+
+
 def write_predictions_csv(path: Path, rows: list[PredictionRow]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as file:
@@ -164,6 +178,24 @@ def write_predictions_csv(path: Path, rows: list[PredictionRow]) -> Path:
     return path
 
 
+def read_predictions_csv(path: Path) -> list[PredictionRow]:
+    with path.open("r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        return [
+            PredictionRow(
+                symbol=row["symbol"],
+                trade_date=date.fromisoformat(row["date"]),
+                model_version=row["model_version"],
+                score=float(row["score"]),
+                rank=int(row["rank"]),
+                return_1d=_parse_optional(row["return_1d"]),
+                momentum_5d=_parse_optional(row["momentum_5d"]),
+                volume_change_1d=_parse_optional(row["volume_change_1d"]),
+            )
+            for row in reader
+        ]
+
+
 def _score_feature_row(row: FeatureRow) -> float:
     # baseline 只使用当日已生成的特征，权重固定，确保离线链路可复现且不读取标签。
     return (
@@ -175,3 +207,7 @@ def _score_feature_row(row: FeatureRow) -> float:
 
 def _format_optional(value: float | None) -> str:
     return "" if value is None else f"{value:.8f}"
+
+
+def _parse_optional(value: str) -> float | None:
+    return None if value == "" else float(value)

@@ -110,3 +110,20 @@ def write_backtest_result(path: Path, result: BacktestResult) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def read_backtest_result(path: Path) -> BacktestResult:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return BacktestResult(
+        backtest_id=payload["backtest_id"],
+        model_version=payload["model_version"],
+        top_n=int(payload["top_n"]),
+        trade_count=int(payload["trade_count"]),
+        start_date=payload["start_date"],
+        end_date=payload["end_date"],
+        cumulative_return=float(payload["cumulative_return"]),
+        benchmark_return=float(payload["benchmark_return"]),
+        excess_return=float(payload["excess_return"]),
+        equity_curve=list(payload["equity_curve"]),
+        disclaimer=payload["disclaimer"],
+    )
