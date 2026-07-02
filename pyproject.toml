@@ -9,6 +9,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+data = [
+  "akshare>=1.14",
+]
 modeling = [
   "lightgbm>=4.0",
 ]

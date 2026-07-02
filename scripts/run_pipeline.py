@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps, write_run_manifest
+from swell_quant.data.akshare_data import write_akshare_prices_csv
 from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
 from swell_quant.research.backtest import (
@@ -55,13 +56,32 @@ def prepare_directories(settings: Settings) -> str:
 def run_data_update(settings: Settings) -> str:
     settings.ensure_directories()
     sample_path = settings.data_dir / "raw" / "sample_prices.csv"
-    ensure_sample_prices(sample_path)
+    data_source = settings.data_source.strip().lower()
+    if data_source == "sample":
+        ensure_sample_prices(sample_path)
+        source_message = "source=sample"
+    elif data_source == "akshare":
+        write_akshare_prices_csv(
+            sample_path,
+            symbols=settings.akshare_symbols,
+            start_date=settings.akshare_start_date,
+            end_date=settings.akshare_end_date,
+            benchmark_symbol=settings.akshare_benchmark_symbol,
+        )
+        source_message = (
+            "source=akshare, "
+            f"symbols={len(settings.akshare_symbols)}, "
+            f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
+            f"benchmark={settings.akshare_benchmark_symbol}"
+        )
+    else:
+        raise ValueError(f"unsupported DATA_SOURCE: {settings.data_source}")
     backup_path = backup_duckdb(
         settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups"
     )
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
-    # 阶段 1 先用可复现样例行情打通链路，真实 AKShare 采集接入后沿用同一产物路径。
-    return f"wrote sample prices to {sample_path} ({backup_message})"
+    # 数据更新统一落到同一 CSV 契约，后续因子、标签、训练和回测不感知样例数据或 AKShare 来源差异。
+    return f"wrote prices to {sample_path} ({source_message}; {backup_message})"
 
 
 def run_feature_pipeline(settings: Settings) -> str:
