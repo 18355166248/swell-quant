@@ -38,6 +38,7 @@ import ReactECharts from "echarts-for-react";
 import { api } from "./api/client";
 import type {
   BacktestPoint,
+  BacktestSummary,
   DataQualityIssue,
   LatestBacktest,
   LocalSettings,
@@ -517,7 +518,17 @@ function PredictionsPage({ predictions }: { predictions: Prediction[] }) {
   );
 }
 
-function BacktestsPage({ backtest }: { backtest?: LatestBacktest }) {
+function BacktestsPage({
+  backtests,
+  backtest,
+  selectedBacktestId,
+  onSelectBacktest,
+}: {
+  backtests: BacktestSummary[];
+  backtest?: LatestBacktest;
+  selectedBacktestId: string;
+  onSelectBacktest: (backtestId: string) => void;
+}) {
   return (
     <>
       <PageTitle title="回测" description="查看最近 Top N 回测指标、净值曲线和历史回测口径。" />
@@ -536,7 +547,33 @@ function BacktestsPage({ backtest }: { backtest?: LatestBacktest }) {
         </Col>
       </Row>
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={16}>
+        <Col xs={24} xl={8}>
+          <Card title="回测列表">
+            <Table<BacktestSummary>
+              rowKey="backtest_id"
+              size="small"
+              dataSource={backtests}
+              pagination={false}
+              onRow={(record) => ({
+                onClick: () => onSelectBacktest(record.backtest_id),
+              })}
+              rowClassName={(record) =>
+                record.backtest_id === selectedBacktestId ? "selected-table-row" : ""
+              }
+              columns={[
+                { title: "ID", dataIndex: "backtest_id" },
+                {
+                  title: "超额",
+                  dataIndex: "excess_return",
+                  width: 96,
+                  align: "right",
+                  render: formatPercent,
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} xl={10}>
           <Card title="净值曲线">
             {backtest?.equity_curve?.length ? (
               <ReactECharts className="large-chart" option={buildEquityOption(backtest.equity_curve)} />
@@ -545,7 +582,7 @@ function BacktestsPage({ backtest }: { backtest?: LatestBacktest }) {
             )}
           </Card>
         </Col>
-        <Col xs={24} xl={8}>
+        <Col xs={24} xl={6}>
           <Card title="回测参数">
             <Descriptions column={1} size="small">
               <Descriptions.Item label="回测 ID">{backtest?.backtest_id ?? "-"}</Descriptions.Item>
@@ -812,6 +849,7 @@ function App() {
   const [messageApi, contextHolder] = message.useMessage();
   const [activePage, setActivePage] = useState<PageKey>("dashboard");
   const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
+  const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
@@ -829,6 +867,12 @@ function App() {
   const backtestQuery = useQuery({
     queryKey: ["backtest", "latest"],
     queryFn: api.getLatestBacktest,
+  });
+  const backtestsQuery = useQuery({ queryKey: ["backtests"], queryFn: api.getBacktests });
+  const backtestDetailQuery = useQuery({
+    queryKey: ["backtests", selectedBacktestId],
+    queryFn: () => api.getBacktest(selectedBacktestId),
+    enabled: selectedBacktestId.length > 0,
   });
   const reportQuery = useQuery({ queryKey: ["report"], queryFn: api.getReport });
   const stockSummaryQuery = useQuery({
@@ -887,6 +931,8 @@ function App() {
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
     predictionsQuery.isLoading ||
+    backtestsQuery.isLoading ||
+    backtestDetailQuery.isLoading ||
     backtestQuery.isLoading ||
     reportQuery.isLoading ||
     settingsQuery.isLoading;
@@ -902,6 +948,8 @@ function App() {
     tasksQuery.isError ||
     taskDetailQuery.isError ||
     predictionsQuery.isError ||
+    backtestsQuery.isError ||
+    backtestDetailQuery.isError ||
     backtestQuery.isError ||
     reportQuery.isError ||
     settingsQuery.isError;
@@ -926,7 +974,14 @@ function App() {
       />
     ),
     predictions: <PredictionsPage predictions={predictions} />,
-    backtests: <BacktestsPage backtest={backtest} />,
+    backtests: (
+      <BacktestsPage
+        backtests={backtestsQuery.data?.backtests ?? []}
+        backtest={backtestDetailQuery.data ?? backtest}
+        selectedBacktestId={selectedBacktestId}
+        onSelectBacktest={setSelectedBacktestId}
+      />
+    ),
     stocks: (
       <StocksPage
         symbol={selectedSymbol}

@@ -85,6 +85,10 @@ body,
   margin-bottom: 16px;
 }
 
+.selected-table-row > td {
+  background: #eaf2ff !important;
+}
+
 .report-preview {
   min-height: 176px;
   margin: 0;

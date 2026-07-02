@@ -132,6 +132,24 @@ export interface LatestBacktest {
   disclaimer: string;
 }
 
+export interface BacktestSummary {
+  backtest_id: string;
+  model_version: string;
+  top_n: number;
+  trade_count: number;
+  start_date: string;
+  end_date: string;
+  cumulative_return: number;
+  benchmark_return: number;
+  excess_return: number;
+  disclaimer: string;
+}
+
+export interface BacktestList {
+  count: number;
+  backtests: BacktestSummary[];
+}
+
 export interface DataQualityIssue {
   code: string;
   severity: string;

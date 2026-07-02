@@ -69,6 +69,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 load_backtest_artifact,
             )
             return
+        backtest_response = load_backtest_route(route, self.data_dir)
+        if backtest_response is not None:
+            status, payload = backtest_response
+            self._send_json(payload, status=status)
+            return
         stock_response = load_stock_route(route, self.data_dir)
         if stock_response is not None:
             status, payload = stock_response
@@ -376,9 +381,62 @@ def load_backtest_artifact(path: Path) -> dict[str, Any]:
         "cumulative_return": result.cumulative_return,
         "benchmark_return": result.benchmark_return,
         "excess_return": result.excess_return,
-        "equity_curve": result.equity_curve,
+        "equity_curve": normalize_equity_curve(result.equity_curve),
         "disclaimer": result.disclaimer,
     }
+
+
+def load_backtest_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route == "/api/backtests":
+        path = data_dir / "reports" / "sample_backtest.json"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_backtests_artifact(path)
+    if route in {"/api/backtests/latest", "/api/backtests/sample-topn-baseline"}:
+        path = data_dir / "reports" / "sample_backtest.json"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_backtest_artifact(path)
+    if route.startswith("/api/backtests/"):
+        backtest_id = route[len("/api/backtests/") :]
+        return HTTPStatus.NOT_FOUND, {"error": "backtest_not_found", "backtest_id": backtest_id}
+    return None
+
+
+def load_backtests_artifact(path: Path) -> dict[str, Any]:
+    detail = load_backtest_artifact(path)
+    summary_keys = (
+        "backtest_id",
+        "model_version",
+        "top_n",
+        "trade_count",
+        "start_date",
+        "end_date",
+        "cumulative_return",
+        "benchmark_return",
+        "excess_return",
+        "disclaimer",
+    )
+    return {"count": 1, "backtests": [{key: detail[key] for key in summary_keys}]}
+
+
+def normalize_equity_curve(rows: list[dict[str, str | float]]) -> list[dict[str, str | float]]:
+    normalized: list[dict[str, str | float]] = []
+    for row in rows:
+        portfolio_value = float(row["equity"])
+        benchmark_value = float(row["benchmark_equity"])
+        normalized.append(
+            {
+                "date": str(row["trade_date"]),
+                "signal_date": str(row["signal_date"]),
+                "portfolio_return": float(row["portfolio_return"]),
+                "benchmark_return": float(row["benchmark_return"]),
+                "portfolio_value": portfolio_value,
+                "benchmark_value": benchmark_value,
+                "excess_value": portfolio_value - benchmark_value,
+            }
+        )
+    return normalized
 
 
 def load_stock_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:

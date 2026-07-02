@@ -47,6 +47,9 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/data-quality`
 - `GET /api/predictions/latest`
 - `GET /api/backtest/latest`
+- `GET /api/backtests`
+- `GET /api/backtests/latest`
+- `GET /api/backtests/{backtest_id}`
 - `GET /api/stocks/{symbol}`
 - `GET /api/stocks/{symbol}/prices`
 - `GET /api/stocks/{symbol}/features`

@@ -3,6 +3,8 @@ from pathlib import Path
 
 from swell_quant.api.local_server import (
     load_backtest_artifact,
+    load_backtest_route,
+    load_backtests_artifact,
     load_data_quality_artifact,
     load_json_artifact,
     load_latest_predictions_artifact,
@@ -149,6 +151,40 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"
     assert backtest["backtest_id"] == "sample-topn-baseline"
     assert backtest["trade_count"] == 14
+    assert backtest["equity_curve"][0]["date"] == "2024-01-08"
+    assert "portfolio_value" in backtest["equity_curve"][0]
+
+
+def test_local_api_backtest_route_dispatches(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    predictions = generate_historical_predictions(features)
+    reports_dir = tmp_path / "reports"
+    backtest_path = write_backtest_result(
+        reports_dir / "sample_backtest.json",
+        run_top_n_backtest(bars, predictions),
+    )
+
+    list_payload = load_backtests_artifact(backtest_path)
+    list_status, route_list_payload = load_backtest_route("/api/backtests", tmp_path)
+    detail_status, detail_payload = load_backtest_route(
+        "/api/backtests/sample-topn-baseline", tmp_path
+    )
+    latest_status, latest_payload = load_backtest_route("/api/backtests/latest", tmp_path)
+    missing_status, missing_payload = load_backtest_route("/api/backtests/nope", tmp_path)
+    ignored = load_backtest_route("/api/status", tmp_path)
+
+    assert list_payload["count"] == 1
+    assert "equity_curve" not in list_payload["backtests"][0]
+    assert list_status.value == 200
+    assert route_list_payload["backtests"][0]["backtest_id"] == "sample-topn-baseline"
+    assert detail_status.value == 200
+    assert detail_payload["equity_curve"][0]["portfolio_value"] > 1.0
+    assert latest_status.value == 200
+    assert latest_payload["backtest_id"] == "sample-topn-baseline"
+    assert missing_status.value == 404
+    assert missing_payload["error"] == "backtest_not_found"
+    assert ignored is None
 
 
 def test_local_api_stock_artifact_loaders(tmp_path: Path) -> None:

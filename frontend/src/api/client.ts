@@ -1,4 +1,5 @@
 import type {
+  BacktestList,
   DataQuality,
   LatestBacktest,
   LatestPredictions,
@@ -46,6 +47,8 @@ export const api = {
   getDataQuality: () => requestJson<DataQuality>("/api/data-quality"),
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),
+  getBacktests: () => requestJson<BacktestList>("/api/backtests"),
+  getBacktest: (backtestId: string) => requestJson<LatestBacktest>(`/api/backtests/${backtestId}`),
   getReport: () => requestText("/api/report"),
   getStockSummary: (symbol: string) => requestJson<StockSummary>(`/api/stocks/${symbol}`),
   getStockPrices: (symbol: string) => requestJson<StockPrices>(`/api/stocks/${symbol}/prices`),
