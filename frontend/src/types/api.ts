@@ -281,9 +281,11 @@ export interface DataQuality {
 }
 
 export interface DataStatus {
+  data_source: string;
   market: string;
   universe: string;
   universe_name: string;
+  symbols: string[];
   target_universe: string;
   target_universe_size: number;
   benchmark: string;
@@ -293,6 +295,9 @@ export interface DataStatus {
   benchmark_note: string;
   adjustment: string;
   update_mode: string;
+  configured_start_date: string | null;
+  configured_end_date: string | null;
+  source_updated_at: string | null;
   row_count: number;
   symbol_count: number;
   start_date: string;

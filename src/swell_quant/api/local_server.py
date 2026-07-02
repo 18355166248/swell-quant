@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 from swell_quant.core.config import Settings
 from swell_quant.data.quality import read_quality_report
+from swell_quant.data.sample_data import DATA_SOURCE_METADATA_FILENAME, read_price_data_metadata
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.labels import read_labels_csv
@@ -463,10 +464,45 @@ def load_data_quality_artifact(path: Path) -> dict[str, Any]:
 
 def load_data_status_artifact(path: Path) -> dict[str, Any]:
     quality = load_data_quality_artifact(path)
+    metadata_path = path.parent.parent / "raw" / DATA_SOURCE_METADATA_FILENAME
+    metadata = _default_data_metadata()
+    if metadata_path.exists():
+        metadata.update(read_price_data_metadata(metadata_path))
     return {
+        "data_source": metadata["data_source"],
+        "market": metadata["market"],
+        "universe": metadata["universe"],
+        "universe_name": metadata["universe_name"],
+        "symbols": metadata["symbols"],
+        "target_universe": metadata["target_universe"],
+        "target_universe_size": metadata["target_universe_size"],
+        "benchmark": metadata["benchmark"],
+        "benchmark_name": metadata["benchmark_name"],
+        "benchmark_fallback": metadata["benchmark_fallback"],
+        "benchmark_same_source": metadata["benchmark_same_source"],
+        "benchmark_note": metadata["benchmark_note"],
+        "adjustment": metadata["adjustment"],
+        "update_mode": metadata["update_mode"],
+        "configured_start_date": metadata["start_date"],
+        "configured_end_date": metadata["end_date"],
+        "source_updated_at": metadata.get("updated_at"),
+        "row_count": quality["row_count"],
+        "symbol_count": quality["symbol_count"],
+        "start_date": quality["start_date"],
+        "end_date": quality["end_date"],
+        "quality_passed": quality["passed"],
+        "issue_count": quality["issue_count"],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def _default_data_metadata() -> dict[str, Any]:
+    return {
+        "data_source": "sample",
         "market": "A_SHARE_DAILY",
         "universe": "sample_a_share",
         "universe_name": "本地样例 A 股股票池",
+        "symbols": [],
         "target_universe": "沪深 300 + 中证 500",
         "target_universe_size": 800,
         "benchmark": "CSI800",
@@ -476,13 +512,9 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
         "benchmark_note": "v1 目标股票池与中证 800 基准同源，跑赢结果不能解读为跨股票池泛化能力。",
         "adjustment": "forward_adjusted_daily",
         "update_mode": "manual_trigger",
-        "row_count": quality["row_count"],
-        "symbol_count": quality["symbol_count"],
-        "start_date": quality["start_date"],
-        "end_date": quality["end_date"],
-        "quality_passed": quality["passed"],
-        "issue_count": quality["issue_count"],
-        "disclaimer": "仅用于研究，不构成投资建议",
+        "start_date": None,
+        "end_date": None,
+        "updated_at": None,
     }
 
 

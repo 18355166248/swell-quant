@@ -32,6 +32,7 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert "success report" in result.stdout
     assert "status" in result.stdout
     assert (tmp_path / "data" / "raw" / "sample_prices.csv").exists()
+    assert (tmp_path / "data" / "raw" / "data_source.json").exists()
     assert (tmp_path / "data" / "processed" / "data_quality.json").exists()
     assert (tmp_path / "data" / "processed" / "sample_features.csv").exists()
     assert (tmp_path / "data" / "processed" / "sample_labels.csv").exists()

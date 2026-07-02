@@ -42,7 +42,13 @@ from swell_quant.api.local_server import (
 )
 from swell_quant.core.config import Settings
 from swell_quant.data.quality import validate_price_bars, write_quality_report
-from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_csv
+from swell_quant.data.sample_data import (
+    DATA_SOURCE_METADATA_FILENAME,
+    build_price_data_metadata,
+    generate_sample_bars,
+    write_price_bars_csv,
+    write_price_data_metadata,
+)
 from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
 from swell_quant.research.features import compute_features, write_features_csv
 from swell_quant.research.labels import compute_labels, write_labels_csv
@@ -221,7 +227,19 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     bars = generate_sample_bars(days=20)
     features = compute_features(bars)
     labels = compute_labels(bars)
-    quality_path = write_quality_report(tmp_path / "data_quality.json", validate_price_bars(bars))
+    quality_path = write_quality_report(
+        tmp_path / "processed" / "data_quality.json", validate_price_bars(bars)
+    )
+    write_price_data_metadata(
+        tmp_path / "raw" / DATA_SOURCE_METADATA_FILENAME,
+        build_price_data_metadata(
+            data_source="akshare",
+            symbols=("000001.SZ", "600000.SH"),
+            start_date="20240102",
+            end_date="20240229",
+            benchmark="sh000906",
+        ),
+    )
     predictions_path = write_predictions_csv(
         tmp_path / "predictions.csv", generate_predictions(features)
     )
@@ -246,11 +264,16 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert quality["passed"] is True
     assert quality["row_count"] == 60
     assert data_status["market"] == "A_SHARE_DAILY"
+    assert data_status["data_source"] == "akshare"
+    assert data_status["symbols"] == ["000001.SZ", "600000.SH"]
     assert data_status["target_universe"] == "沪深 300 + 中证 500"
     assert data_status["target_universe_size"] == 800
-    assert data_status["benchmark"] == "CSI800"
-    assert data_status["benchmark_same_source"] is True
-    assert "同源" in data_status["benchmark_note"]
+    assert data_status["benchmark"] == "sh000906"
+    assert data_status["configured_start_date"] == "20240102"
+    assert data_status["configured_end_date"] == "20240229"
+    assert data_status["source_updated_at"]
+    assert data_status["benchmark_same_source"] is False
+    assert "自定义股票池" in data_status["benchmark_note"]
     assert data_status["update_mode"] == "manual_trigger"
     assert data_status["quality_passed"] is True
     assert features_payload["row_count"] == 60

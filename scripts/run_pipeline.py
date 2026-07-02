@@ -15,7 +15,14 @@ from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps, write_run_manifest
 from swell_quant.data.akshare_data import write_akshare_prices_csv
 from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
-from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
+from swell_quant.data.sample_data import (
+    DATA_SOURCE_METADATA_FILENAME,
+    SAMPLE_SYMBOLS,
+    build_price_data_metadata,
+    ensure_sample_prices,
+    read_price_bars_csv,
+    write_price_data_metadata,
+)
 from swell_quant.research.backtest import (
     read_backtest_result,
     run_top_n_backtest,
@@ -56,9 +63,20 @@ def prepare_directories(settings: Settings) -> str:
 def run_data_update(settings: Settings) -> str:
     settings.ensure_directories()
     sample_path = settings.data_dir / "raw" / "sample_prices.csv"
+    metadata_path = settings.data_dir / "raw" / DATA_SOURCE_METADATA_FILENAME
     data_source = settings.data_source.strip().lower()
     if data_source == "sample":
         ensure_sample_prices(sample_path)
+        write_price_data_metadata(
+            metadata_path,
+            build_price_data_metadata(
+                data_source="sample",
+                symbols=SAMPLE_SYMBOLS,
+                start_date="2024-01-02",
+                end_date="2024-01-21",
+                benchmark="CSI800",
+            ),
+        )
         source_message = "source=sample"
     elif data_source == "akshare":
         write_akshare_prices_csv(
@@ -67,6 +85,16 @@ def run_data_update(settings: Settings) -> str:
             start_date=settings.akshare_start_date,
             end_date=settings.akshare_end_date,
             benchmark_symbol=settings.akshare_benchmark_symbol,
+        )
+        write_price_data_metadata(
+            metadata_path,
+            build_price_data_metadata(
+                data_source="akshare",
+                symbols=settings.akshare_symbols,
+                start_date=settings.akshare_start_date,
+                end_date=settings.akshare_end_date,
+                benchmark=settings.akshare_benchmark_symbol,
+            ),
         )
         source_message = (
             "source=akshare, "

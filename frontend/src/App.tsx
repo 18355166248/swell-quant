@@ -932,9 +932,13 @@ function DataPage({
         <Col xs={24} xl={8}>
           <Card title="数据口径">
             <Descriptions column={1} size="small">
+              <Descriptions.Item label="数据来源">{dataStatus?.data_source ?? "sample"}</Descriptions.Item>
               <Descriptions.Item label="市场">{dataStatus?.market ?? "A_SHARE_DAILY"}</Descriptions.Item>
               <Descriptions.Item label="股票池">{dataStatus?.universe ?? "sample_a_share"}</Descriptions.Item>
               <Descriptions.Item label="股票池名称">{dataStatus?.universe_name ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="配置标的">
+                {dataStatus?.symbols?.length ? dataStatus.symbols.join(", ") : "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="v1 目标股票池">
                 {dataStatus?.target_universe ?? "-"}（约 {dataStatus?.target_universe_size ?? "-"} 只）
               </Descriptions.Item>
@@ -944,12 +948,16 @@ function DataPage({
               <Descriptions.Item label="基准兜底">{dataStatus?.benchmark_fallback ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="复权口径">{dataStatus?.adjustment ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="更新方式">{dataStatus?.update_mode ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="配置日期">
+                {dataStatus?.configured_start_date ?? "-"} 至 {dataStatus?.configured_end_date ?? "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="开始日期">
                 {dataStatus?.start_date ?? quality?.start_date ?? "-"}
               </Descriptions.Item>
               <Descriptions.Item label="结束日期">
                 {dataStatus?.end_date ?? quality?.end_date ?? "-"}
               </Descriptions.Item>
+              <Descriptions.Item label="源更新时间">{dataStatus?.source_updated_at ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="声明">
                 {dataStatus?.disclaimer ?? "仅用于研究，不构成投资建议"}
               </Descriptions.Item>
