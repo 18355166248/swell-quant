@@ -25,7 +25,9 @@ def test_mirror_pipeline_csvs_to_duckdb_replaces_tables(tmp_path: Path) -> None:
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
     write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", predictions)
-    write_predictions_csv(data_dir / "processed" / "historical_predictions.csv", historical_predictions)
+    write_predictions_csv(
+        data_dir / "processed" / "historical_predictions.csv", historical_predictions
+    )
 
     result = mirror_pipeline_csvs_to_duckdb(data_dir, data_dir / "duckdb" / "swell_quant.duckdb")
 
@@ -42,7 +44,9 @@ def test_mirror_pipeline_csvs_to_duckdb_replaces_tables(tmp_path: Path) -> None:
     with duckdb.connect(str(result.duckdb_path), read_only=True) as connection:
         raw_count = connection.execute("SELECT COUNT(*) FROM raw_prices").fetchone()[0]
         feature_count = connection.execute("SELECT COUNT(*) FROM feature_rows").fetchone()[0]
-        prediction_count = connection.execute("SELECT COUNT(*) FROM latest_predictions").fetchone()[0]
+        prediction_count = connection.execute("SELECT COUNT(*) FROM latest_predictions").fetchone()[
+            0
+        ]
 
     assert raw_count == len(bars)
     assert feature_count == len(features)

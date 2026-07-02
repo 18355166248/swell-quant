@@ -127,7 +127,9 @@ def generate_historical_predictions(
 
 def write_model_metadata(path: Path, metadata: ModelMetadata) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(asdict(metadata), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(asdict(metadata), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return path
 
 

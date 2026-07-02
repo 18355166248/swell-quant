@@ -17,7 +17,9 @@ from swell_quant.core.config import Settings
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check Swell Quant research acceptance gates.")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable acceptance JSON.")
+    parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable acceptance JSON."
+    )
     args = parser.parse_args()
 
     settings = Settings.from_env()

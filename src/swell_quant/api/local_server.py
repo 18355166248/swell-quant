@@ -456,8 +456,12 @@ def load_features_artifact(path: Path) -> dict[str, Any]:
     return {
         "row_count": len(rows),
         "symbol_count": len({row.symbol for row in rows}),
-        "start_date": min((row.trade_date for row in rows), default=None).isoformat() if rows else None,
-        "end_date": max((row.trade_date for row in rows), default=None).isoformat() if rows else None,
+        "start_date": min((row.trade_date for row in rows), default=None).isoformat()
+        if rows
+        else None,
+        "end_date": max((row.trade_date for row in rows), default=None).isoformat()
+        if rows
+        else None,
         "feature_names": feature_names,
         "non_null_counts": non_null_counts,
         # 最近样本只作为页面快速核对，不替代完整 CSV；完整产物路径仍由设置页暴露。
@@ -484,8 +488,12 @@ def load_labels_artifact(path: Path) -> dict[str, Any]:
     return {
         "row_count": len(rows),
         "symbol_count": len({row.symbol for row in rows}),
-        "start_date": min((row.trade_date for row in rows), default=None).isoformat() if rows else None,
-        "end_date": max((row.trade_date for row in rows), default=None).isoformat() if rows else None,
+        "start_date": min((row.trade_date for row in rows), default=None).isoformat()
+        if rows
+        else None,
+        "end_date": max((row.trade_date for row in rows), default=None).isoformat()
+        if rows
+        else None,
         "label_names": [
             "future_5d_return",
             "benchmark_5d_return",
@@ -536,7 +544,10 @@ def load_model_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, 
         model_version = route[len("/api/models/") :]
         path = data_dir / "models" / f"{model_version}.json"
         if not path.exists():
-            return HTTPStatus.NOT_FOUND, {"error": "model_not_found", "model_version": model_version}
+            return HTTPStatus.NOT_FOUND, {
+                "error": "model_not_found",
+                "model_version": model_version,
+            }
         return HTTPStatus.OK, load_model_artifact(path)
     return None
 
@@ -830,7 +841,9 @@ def load_stock_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, 
     elif parts == [symbol, "prices"]:
         payload = load_stock_prices_artifact(data_dir / "raw" / "sample_prices.csv", symbol)
     elif parts == [symbol, "features"]:
-        payload = load_stock_features_artifact(data_dir / "processed" / "sample_features.csv", symbol)
+        payload = load_stock_features_artifact(
+            data_dir / "processed" / "sample_features.csv", symbol
+        )
     elif parts == [symbol, "predictions"]:
         payload = load_stock_predictions_artifact(
             data_dir / "processed" / "historical_predictions.csv", symbol

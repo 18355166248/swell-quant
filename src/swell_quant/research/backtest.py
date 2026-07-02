@@ -57,7 +57,9 @@ def run_top_n_backtest(
         if trade_date is None:
             continue
 
-        ranked = sorted(predictions_by_date[signal_date], key=lambda row: (row.rank, row.symbol))[:top_n]
+        ranked = sorted(predictions_by_date[signal_date], key=lambda row: (row.rank, row.symbol))[
+            :top_n
+        ]
         period_returns: list[float] = []
         benchmark_returns: list[float] = []
 
@@ -116,7 +118,9 @@ def run_top_n_backtest(
 
 def write_backtest_result(path: Path, result: BacktestResult) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return path
 
 

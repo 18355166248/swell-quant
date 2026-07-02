@@ -142,25 +142,30 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
 
     source_paths = _pipeline_csv_paths(data_dir) if data_dir is not None else {}
     with duckdb.connect(str(duckdb_path), read_only=True) as connection:
-        existing_tables = {
-            row[0] for row in connection.execute("SHOW TABLES").fetchall()
-        }
+        existing_tables = {row[0] for row in connection.execute("SHOW TABLES").fetchall()}
         tables: list[dict[str, object]] = []
         for table_name in PIPELINE_DUCKDB_TABLES:
             exists = table_name in existing_tables
             row_count = None
             source_path = source_paths.get(table_name)
             source_exists = source_path.exists() if source_path is not None else None
-            source_row_count = _count_csv_rows(source_path) if source_path is not None and source_path.exists() else None
+            source_row_count = (
+                _count_csv_rows(source_path)
+                if source_path is not None and source_path.exists()
+                else None
+            )
             expected_columns = list(PIPELINE_DUCKDB_SCHEMAS[table_name])
             actual_columns: list[str] | None = None
             missing_columns: list[str] = []
             extra_columns: list[str] = []
             if exists:
                 # 表名来自固定白名单，只做只读 COUNT/schema 查询，避免状态接口承担任何写入副作用。
-                row_count = int(connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0])
+                row_count = int(
+                    connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+                )
                 actual_columns = [
-                    row[1] for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
+                    row[1]
+                    for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
                 ]
                 missing_columns = [
                     column for column in expected_columns if column not in actual_columns
@@ -174,7 +179,9 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
                 if source_row_count is None or row_count is None
                 else source_row_count == row_count
             )
-            schema_matches = None if actual_columns is None else not missing_columns and not extra_columns
+            schema_matches = (
+                None if actual_columns is None else not missing_columns and not extra_columns
+            )
             tables.append(
                 {
                     "name": table_name,
@@ -193,12 +200,8 @@ def inspect_duckdb_mirror(duckdb_path: Path, data_dir: Path | None = None) -> di
             )
 
     missing_tables = [table["name"] for table in tables if not table["exists"]]
-    inconsistent_tables = [
-        table["name"] for table in tables if table["row_count_matches"] is False
-    ]
-    schema_mismatch_tables = [
-        table["name"] for table in tables if table["schema_matches"] is False
-    ]
+    inconsistent_tables = [table["name"] for table in tables if table["row_count_matches"] is False]
+    schema_mismatch_tables = [table["name"] for table in tables if table["schema_matches"] is False]
     total_rows = sum(int(table["row_count"] or 0) for table in tables)
     status = "healthy"
     if missing_tables:

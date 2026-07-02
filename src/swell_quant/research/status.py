@@ -115,7 +115,9 @@ def build_acceptance_gates(
             "duckdb_mirror_healthy",
             "DuckDB 镜像一致",
             storage_status is not None and storage_status.get("status") == "healthy",
-            "status=missing" if storage_status is None else f"status={storage_status.get('status')}",
+            "status=missing"
+            if storage_status is None
+            else f"status={storage_status.get('status')}",
         ),
         _gate_check(
             "predictions_available",

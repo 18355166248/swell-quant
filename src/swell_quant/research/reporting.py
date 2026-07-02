@@ -99,7 +99,10 @@ def _build_quality_lines(quality: DataQualityReport | None) -> list[str]:
         f"- 问题数：{quality.issue_count}",
     ]
     if quality.issues:
-        lines.extend(f"- `{issue.code}` {issue.symbol or '-'} {issue.date or '-'}：{issue.message}" for issue in quality.issues[:5])
+        lines.extend(
+            f"- `{issue.code}` {issue.symbol or '-'} {issue.date or '-'}：{issue.message}"
+            for issue in quality.issues[:5]
+        )
     else:
         lines.append("- 数据质量检查：通过")
     return lines

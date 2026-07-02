@@ -28,7 +28,9 @@ def test_build_research_status_aggregates_outputs() -> None:
     }
 
     storage_status = {"status": "healthy"}
-    status = build_research_status(quality, metadata, predictions, backtest, manifest, storage_status)
+    status = build_research_status(
+        quality, metadata, predictions, backtest, manifest, storage_status
+    )
 
     assert status["disclaimer"] == "仅用于研究，不构成投资建议"
     assert status["acceptance"]["status"] == "passed"

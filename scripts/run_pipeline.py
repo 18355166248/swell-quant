@@ -47,7 +47,9 @@ def run_data_update(settings: Settings) -> str:
     settings.ensure_directories()
     sample_path = settings.data_dir / "raw" / "sample_prices.csv"
     ensure_sample_prices(sample_path)
-    backup_path = backup_duckdb(settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups")
+    backup_path = backup_duckdb(
+        settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups"
+    )
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
     # 阶段 1 先用可复现样例行情打通链路，真实 AKShare 采集接入后沿用同一产物路径。
     return f"wrote sample prices to {sample_path} ({backup_message})"
@@ -124,7 +126,9 @@ def run_backtest_pipeline(settings: Settings) -> str:
 
 def run_duckdb_mirror_pipeline(settings: Settings) -> str:
     result = mirror_pipeline_csvs_to_duckdb(settings.data_dir, settings.duckdb_path)
-    backup_path = backup_duckdb(settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups")
+    backup_path = backup_duckdb(
+        settings.duckdb_path, settings.data_dir / "processed" / "duckdb_backups"
+    )
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
     table_summary = ", ".join(f"{table.table_name}={table.row_count}" for table in result.tables)
     return f"mirrored {result.total_rows} rows to {result.duckdb_path} ({table_summary}; {backup_message})"
@@ -153,7 +157,9 @@ def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
     backtest = read_backtest_result(settings.data_dir / "reports" / "sample_backtest.json")
     manifest = read_json(manifest_path)
     storage_status = inspect_duckdb_mirror(settings.duckdb_path, settings.data_dir)
-    status = build_research_status(quality, metadata, predictions, backtest, manifest, storage_status)
+    status = build_research_status(
+        quality, metadata, predictions, backtest, manifest, storage_status
+    )
     return write_research_status(settings.data_dir / "reports" / "research_status.json", status)
 
 
@@ -183,7 +189,9 @@ def run_pipeline(settings: Settings) -> tuple[list, Path, Path | None]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the Swell Quant offline research pipeline.")
-    parser.add_argument("--fail-on-skipped", action="store_true", help="Return non-zero if any step is skipped.")
+    parser.add_argument(
+        "--fail-on-skipped", action="store_true", help="Return non-zero if any step is skipped."
+    )
     args = parser.parse_args()
 
     settings = Settings.from_env()

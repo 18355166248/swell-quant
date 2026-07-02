@@ -21,7 +21,9 @@ import run_pipeline as pipeline_runner
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the local end-to-end research smoke test.")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable smoke test JSON.")
+    parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable smoke test JSON."
+    )
     args = parser.parse_args()
 
     settings = Settings.from_env()
@@ -40,7 +42,9 @@ def main() -> int:
     )
     payload = {
         "status": "passed"
-        if not pipeline_failed and storage["status"] == "healthy" and acceptance.get("passed") is True
+        if not pipeline_failed
+        and storage["status"] == "healthy"
+        and acceptance.get("passed") is True
         else "failed",
         "pipeline": {
             "manifest_path": str(manifest_path),

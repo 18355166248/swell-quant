@@ -43,7 +43,11 @@ from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_
 from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
 from swell_quant.research.features import compute_features, write_features_csv
 from swell_quant.research.labels import compute_labels, write_labels_csv
-from swell_quant.research.modeling import generate_historical_predictions, generate_predictions, write_predictions_csv
+from swell_quant.research.modeling import (
+    generate_historical_predictions,
+    generate_predictions,
+    write_predictions_csv,
+)
 from swell_quant.storage.duckdb_mirror import mirror_pipeline_csvs_to_duckdb
 
 
@@ -185,7 +189,9 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     features = compute_features(bars)
     labels = compute_labels(bars)
     quality_path = write_quality_report(tmp_path / "data_quality.json", validate_price_bars(bars))
-    predictions_path = write_predictions_csv(tmp_path / "predictions.csv", generate_predictions(features))
+    predictions_path = write_predictions_csv(
+        tmp_path / "predictions.csv", generate_predictions(features)
+    )
     backtest_path = write_backtest_result(
         tmp_path / "backtest.json",
         run_top_n_backtest(bars, generate_historical_predictions(features)),
@@ -237,7 +243,9 @@ def test_local_api_duckdb_storage_artifact_reports_table_counts(tmp_path: Path) 
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
-    write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", generate_predictions(features))
+    write_predictions_csv(
+        data_dir / "processed" / "latest_predictions.csv", generate_predictions(features)
+    )
     write_predictions_csv(
         data_dir / "processed" / "historical_predictions.csv",
         generate_historical_predictions(features),
@@ -270,7 +278,9 @@ def test_local_api_duckdb_storage_artifact_detects_stale_mirror(tmp_path: Path) 
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
-    write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", generate_predictions(features))
+    write_predictions_csv(
+        data_dir / "processed" / "latest_predictions.csv", generate_predictions(features)
+    )
     write_predictions_csv(
         data_dir / "processed" / "historical_predictions.csv",
         generate_historical_predictions(features),
@@ -298,7 +308,9 @@ def test_local_api_duckdb_storage_artifact_detects_schema_mismatch(tmp_path: Pat
     write_price_bars_csv(data_dir / "raw" / "sample_prices.csv", bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
     write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
-    write_predictions_csv(data_dir / "processed" / "latest_predictions.csv", generate_predictions(features))
+    write_predictions_csv(
+        data_dir / "processed" / "latest_predictions.csv", generate_predictions(features)
+    )
     write_predictions_csv(
         data_dir / "processed" / "historical_predictions.csv",
         generate_historical_predictions(features),
@@ -521,7 +533,9 @@ def test_local_api_stock_artifact_loaders(tmp_path: Path) -> None:
 
     summary = load_stock_summary_artifact(tmp_path, "000300.SH")
     prices = load_stock_prices_artifact(raw_dir / "sample_prices.csv", "000300.SH")
-    stock_features = load_stock_features_artifact(processed_dir / "sample_features.csv", "000300.SH")
+    stock_features = load_stock_features_artifact(
+        processed_dir / "sample_features.csv", "000300.SH"
+    )
     stock_predictions = load_stock_predictions_artifact(
         processed_dir / "historical_predictions.csv", "000300.SH"
     )

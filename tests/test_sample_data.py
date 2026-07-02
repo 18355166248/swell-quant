@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from swell_quant.data.sample_data import ensure_sample_prices, generate_sample_bars, read_price_bars_csv
+from swell_quant.data.sample_data import (
+    ensure_sample_prices,
+    generate_sample_bars,
+    read_price_bars_csv,
+)
 
 
 def test_generate_sample_bars_has_expected_shape() -> None:
