@@ -44,6 +44,7 @@ import type {
   DataQualityIssue,
   DataStatus,
   FeatureSummary,
+  LabelSummary,
   LatestBacktest,
   LatestModel,
   LatestPredictions,
@@ -541,10 +542,12 @@ function DataPage({
   dataStatus,
   quality,
   features,
+  labels,
 }: {
   dataStatus?: DataStatus;
   quality?: DataQuality;
   features?: FeatureSummary;
+  labels?: LabelSummary;
 }) {
   const issues = quality?.issues ?? [];
   const featureRows = features?.feature_names.map((featureName) => ({
@@ -552,6 +555,9 @@ function DataPage({
     nonNullCount: features.non_null_counts[featureName] ?? 0,
     coverage: features.row_count > 0 ? (features.non_null_counts[featureName] ?? 0) / features.row_count : 0,
   })) ?? [];
+  const labelRate = labels?.labeled_row_count && labels.labeled_row_count > 0
+    ? labels.positive_count / labels.labeled_row_count
+    : 0;
   return (
     <>
       <PageTitle
@@ -675,12 +681,51 @@ function DataPage({
           ]}
         />
       </Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={8}>
+          <Card title="标签覆盖">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="行数">{labels?.row_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="可训练标签">{labels?.labeled_row_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="跑赢样本">{labels?.positive_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="未跑赢样本">{labels?.negative_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="跑赢占比">{formatPercent(labelRate)}</Descriptions.Item>
+              <Descriptions.Item label="预测 horizon">{labels?.horizon_days ?? "-"} 日</Descriptions.Item>
+              <Descriptions.Item label="日期范围">
+                {labels?.start_date ?? "-"} 至 {labels?.end_date ?? "-"}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+        <Col xs={24} xl={16}>
+          <Card title="最近标签样本">
+            <Table
+              rowKey={(row: LabelSummary["latest_samples"][number]) => `${row.date}-${row.symbol}`}
+              size="middle"
+              dataSource={labels?.latest_samples ?? []}
+              pagination={{ pageSize: 8, hideOnSinglePage: true }}
+              columns={[
+                { title: "日期", dataIndex: "date", width: 120 },
+                { title: "代码", dataIndex: "symbol", width: 120 },
+                { title: "未来 5 日收益", dataIndex: "future_5d_return", align: "right", render: formatNumber },
+                { title: "基准 5 日收益", dataIndex: "benchmark_5d_return", align: "right", render: formatNumber },
+                {
+                  title: "是否跑赢",
+                  dataIndex: "outperform_benchmark_5d",
+                  width: 110,
+                  render: (value: number | null) => (value === null ? "-" : value === 1 ? "是" : "否"),
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
       <Alert
         className="page-alert"
         type="info"
         showIcon
         message="数据说明"
-        description="当前为本地样例 A 股日频数据，用于验证采集、因子、标签、训练、预测和回测链路。"
+        description="标签包含未来收益，只能作为监督训练和离线评估目标，不允许进入同日特征或预测排序。"
       />
     </>
   );
@@ -1333,6 +1378,7 @@ function App() {
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const featuresQuery = useQuery({ queryKey: ["features"], queryFn: api.getFeatures });
+  const labelsQuery = useQuery({ queryKey: ["labels"], queryFn: api.getLabels });
   const latestModelQuery = useQuery({ queryKey: ["model", "latest"], queryFn: api.getLatestModel });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
   const modelDetailQuery = useQuery({
@@ -1451,6 +1497,7 @@ function App() {
     taskDetailQuery.isLoading ||
     dataStatusQuery.isLoading ||
     featuresQuery.isLoading ||
+    labelsQuery.isLoading ||
     predictionsQuery.isLoading ||
     latestModelQuery.isLoading ||
     modelsQuery.isLoading ||
@@ -1477,6 +1524,7 @@ function App() {
     taskDetailQuery.isError ||
     dataStatusQuery.isError ||
     featuresQuery.isError ||
+    labelsQuery.isError ||
     predictionsQuery.isError ||
     latestModelQuery.isError ||
     modelsQuery.isError ||
@@ -1510,6 +1558,7 @@ function App() {
         dataStatus={dataStatusQuery.data}
         quality={qualityQuery.data}
         features={featuresQuery.data}
+        labels={labelsQuery.data}
       />
     ),
     tasks: (

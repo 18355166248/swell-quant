@@ -219,6 +219,28 @@ export interface FeatureSummary {
   disclaimer: string;
 }
 
+export interface LabelSample {
+  symbol: string;
+  date: string;
+  future_5d_return: number | null;
+  benchmark_5d_return: number | null;
+  outperform_benchmark_5d: number | null;
+}
+
+export interface LabelSummary {
+  row_count: number;
+  symbol_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  label_names: string[];
+  labeled_row_count: number;
+  positive_count: number;
+  negative_count: number;
+  horizon_days: number;
+  latest_samples: LabelSample[];
+  disclaimer: string;
+}
+
 export interface LatestModel {
   model_version: string;
   model_type: string;

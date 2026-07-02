@@ -14,6 +14,7 @@ from swell_quant.core.config import Settings
 from swell_quant.data.quality import read_quality_report
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
+from swell_quant.research.labels import read_labels_csv
 from swell_quant.research.modeling import read_predictions_csv
 
 
@@ -81,6 +82,12 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             self._send_loader_json(
                 self.data_dir / "processed" / "sample_features.csv",
                 load_features_artifact,
+            )
+            return
+        if route == "/api/labels":
+            self._send_loader_json(
+                self.data_dir / "processed" / "sample_labels.csv",
+                load_labels_artifact,
             )
             return
         if route == "/api/predictions/latest":
@@ -423,6 +430,39 @@ def load_features_artifact(path: Path) -> dict[str, Any]:
                 "momentum_5d": row.momentum_5d,
                 "ma_5": row.ma_5,
                 "volume_change_1d": row.volume_change_1d,
+            }
+            for row in latest_rows
+        ],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_labels_artifact(path: Path) -> dict[str, Any]:
+    rows = read_labels_csv(path)
+    labeled_rows = [row for row in rows if row.outperform_benchmark_5d is not None]
+    latest_rows = sorted(rows, key=lambda row: (row.trade_date, row.symbol), reverse=True)[:10]
+    return {
+        "row_count": len(rows),
+        "symbol_count": len({row.symbol for row in rows}),
+        "start_date": min((row.trade_date for row in rows), default=None).isoformat() if rows else None,
+        "end_date": max((row.trade_date for row in rows), default=None).isoformat() if rows else None,
+        "label_names": [
+            "future_5d_return",
+            "benchmark_5d_return",
+            "outperform_benchmark_5d",
+        ],
+        "labeled_row_count": len(labeled_rows),
+        "positive_count": sum(1 for row in labeled_rows if row.outperform_benchmark_5d == 1),
+        "negative_count": sum(1 for row in labeled_rows if row.outperform_benchmark_5d == 0),
+        "horizon_days": 5,
+        # 标签包含未来收益，只能用于监督训练和离线评估，不能进入同日特征或排序。
+        "latest_samples": [
+            {
+                "symbol": row.symbol,
+                "date": row.trade_date.isoformat(),
+                "future_5d_return": row.future_5d_return,
+                "benchmark_5d_return": row.benchmark_5d_return,
+                "outperform_benchmark_5d": row.outperform_benchmark_5d,
             }
             for row in latest_rows
         ],

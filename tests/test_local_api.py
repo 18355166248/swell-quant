@@ -9,6 +9,7 @@ from swell_quant.api.local_server import (
     load_data_status_artifact,
     load_features_artifact,
     load_json_artifact,
+    load_labels_artifact,
     load_latest_model_artifact,
     load_latest_predictions_artifact,
     load_model_artifact,
@@ -39,6 +40,7 @@ from swell_quant.data.quality import validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import generate_sample_bars, write_price_bars_csv
 from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
 from swell_quant.research.features import compute_features, write_features_csv
+from swell_quant.research.labels import compute_labels, write_labels_csv
 from swell_quant.research.modeling import generate_historical_predictions, generate_predictions, write_predictions_csv
 
 
@@ -145,6 +147,7 @@ def test_local_api_task_route_dispatches(tmp_path: Path) -> None:
 def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     bars = generate_sample_bars(days=20)
     features = compute_features(bars)
+    labels = compute_labels(bars)
     quality_path = write_quality_report(tmp_path / "data_quality.json", validate_price_bars(bars))
     predictions_path = write_predictions_csv(tmp_path / "predictions.csv", generate_predictions(features))
     backtest_path = write_backtest_result(
@@ -156,6 +159,8 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     data_status = load_data_status_artifact(quality_path)
     features_path = write_features_csv(tmp_path / "features.csv", features)
     features_payload = load_features_artifact(features_path)
+    labels_path = write_labels_csv(tmp_path / "labels.csv", labels)
+    labels_payload = load_labels_artifact(labels_path)
     predictions = load_latest_predictions_artifact(predictions_path)
     backtest = load_backtest_artifact(backtest_path)
 
@@ -173,6 +178,11 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     ]
     assert features_payload["non_null_counts"]["momentum_5d"] == 45
     assert features_payload["latest_samples"][0]["date"] == "2024-01-21"
+    assert labels_payload["row_count"] == 60
+    assert labels_payload["labeled_row_count"] == 45
+    assert labels_payload["horizon_days"] == 5
+    assert labels_payload["positive_count"] + labels_payload["negative_count"] == 45
+    assert labels_payload["latest_samples"][0]["date"] == "2024-01-21"
     assert predictions["count"] == 3
     assert predictions["predictions"][0]["rank"] == 1
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"
