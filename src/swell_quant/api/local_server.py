@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import csv
 import importlib.util
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,6 +14,9 @@ from swell_quant.core.config import Settings
 from swell_quant.data.quality import read_quality_report
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.modeling import read_predictions_csv
+
+
+_PIPELINE_RUN_LOCK = threading.Lock()
 
 
 class ResearchApiHandler(BaseHTTPRequestHandler):
@@ -65,7 +69,7 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path
         if route == "/api/pipeline/run":
             payload = run_pipeline_for_api(self.data_dir)
-            status = HTTPStatus.OK if payload["status"] == "success" else HTTPStatus.INTERNAL_SERVER_ERROR
+            status = pipeline_status_to_http_status(payload["status"])
             self._send_json(payload, status=status)
             return
 
@@ -116,7 +120,34 @@ def create_server(host: str, port: int, data_dir: Path) -> ThreadingHTTPServer:
     return ThreadingHTTPServer((host, port), handler_class)
 
 
-def run_pipeline_for_api(data_dir: Path) -> dict[str, Any]:
+def pipeline_status_to_http_status(status: str) -> HTTPStatus:
+    if status == "success":
+        return HTTPStatus.OK
+    if status == "busy":
+        return HTTPStatus.CONFLICT
+    return HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def run_pipeline_for_api(
+    data_dir: Path,
+    lock: threading.Lock | None = None,
+) -> dict[str, Any]:
+    run_lock = _PIPELINE_RUN_LOCK if lock is None else lock
+    # pipeline 会连续写 raw/processed/models/reports，进程内先串行化，避免并发触发覆盖同一批产物。
+    if not run_lock.acquire(blocking=False):
+        return {
+            "status": "busy",
+            "error": "pipeline_already_running",
+            "message": "pipeline is already running; retry after the current run finishes",
+        }
+
+    try:
+        return _run_pipeline_for_api_unlocked(data_dir)
+    finally:
+        run_lock.release()
+
+
+def _run_pipeline_for_api_unlocked(data_dir: Path) -> dict[str, Any]:
     runner = _load_pipeline_runner()
     settings = Settings(
         data_dir=data_dir,

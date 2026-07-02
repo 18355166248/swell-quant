@@ -1,3 +1,4 @@
+import threading
 from pathlib import Path
 
 from swell_quant.api.local_server import (
@@ -12,6 +13,7 @@ from swell_quant.api.local_server import (
     load_stock_summary_artifact,
     load_text_artifact,
     missing_artifact_payload,
+    pipeline_status_to_http_status,
     run_pipeline_for_api,
 )
 from swell_quant.data.quality import validate_price_bars, write_quality_report
@@ -134,3 +136,16 @@ def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
         "report",
     ]
     assert (tmp_path / "data" / "reports" / "research_status.json").exists()
+
+
+def test_local_api_pipeline_trigger_returns_busy_when_locked(tmp_path: Path) -> None:
+    lock = threading.Lock()
+    lock.acquire()
+    try:
+        payload = run_pipeline_for_api(tmp_path / "data", lock=lock)
+    finally:
+        lock.release()
+
+    assert payload["status"] == "busy"
+    assert payload["error"] == "pipeline_already_running"
+    assert pipeline_status_to_http_status(payload["status"]).value == 409

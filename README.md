@@ -51,6 +51,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/report`
 - `POST /api/pipeline/run`
 
+`POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
+
 `scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
 
 - `data/raw/sample_prices.csv`
