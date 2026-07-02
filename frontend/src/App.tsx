@@ -679,6 +679,8 @@ function ModelsPage({
               <Descriptions.Item label="预测日期">{model?.prediction_date ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="训练样本行数">{model?.row_count ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="特征数量">{model?.feature_count ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="产物路径">{model?.path ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="更新时间">{model?.updated_at ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="声明">
                 {model?.disclaimer ?? "仅用于研究，不构成投资建议"}
               </Descriptions.Item>

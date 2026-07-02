@@ -199,6 +199,8 @@ export interface LatestModel {
   train_end: string;
   prediction_date: string;
   row_count: number;
+  path?: string;
+  updated_at?: string;
   disclaimer: string;
 }
 
