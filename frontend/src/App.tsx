@@ -7,7 +7,6 @@ import {
   Descriptions,
   Divider,
   Empty,
-  Input,
   InputNumber,
   Layout,
   Menu,
@@ -538,12 +537,14 @@ function PredictionsPage({
   predictions,
   filters,
   appliedFilters,
+  dateOptions,
   modelOptions,
   onFiltersChange,
 }: {
   predictions: Prediction[];
   filters: PredictionFilters;
   appliedFilters?: LatestPredictions["filters"];
+  dateOptions: string[];
   modelOptions: string[];
   onFiltersChange: (filters: PredictionFilters) => void;
 }) {
@@ -555,11 +556,14 @@ function PredictionsPage({
       />
       <Card className="filter-card" title="筛选条件">
         <Space wrap>
-          <Input
+          <Select
             className="date-filter"
-            placeholder="交易日 YYYY-MM-DD"
-            value={filters.date}
-            onChange={(event) => onFiltersChange({ ...filters, date: event.target.value.trim() })}
+            allowClear
+            showSearch
+            placeholder="交易日"
+            value={filters.date || undefined}
+            options={dateOptions.map((date) => ({ label: date, value: date }))}
+            onChange={(value) => onFiltersChange({ ...filters, date: value ?? "" })}
           />
           <Select
             className="model-filter"
@@ -1123,12 +1127,20 @@ function App() {
   );
   const modelVersionOptions = useMemo(() => {
     const versions = [
+      ...(predictionsListQuery.data?.model_versions ?? []),
       ...(modelsQuery.data?.models.map((model) => model.model_version) ?? []),
       latestModelQuery.data?.model_version,
       ...predictionRows.map((row) => row.model_version),
     ];
     return Array.from(new Set(versions.filter((version): version is string => Boolean(version))));
-  }, [latestModelQuery.data, modelsQuery.data, predictionRows]);
+  }, [latestModelQuery.data, modelsQuery.data, predictionRows, predictionsListQuery.data]);
+  const predictionDateOptions = useMemo(() => {
+    const dates = [
+      ...(predictionsListQuery.data?.available_dates ?? []),
+      ...predictionRows.map((row) => row.date),
+    ];
+    return Array.from(new Set(dates.filter(Boolean)));
+  }, [predictionRows, predictionsListQuery.data]);
   const stockSymbols = useMemo(() => {
     const listedSymbols = stocksQuery.data?.stocks.map((row) => row.symbol) ?? [];
     // 以股票列表 API 为主，预测和状态只作为旧产物缺字段时的兼容兜底。
@@ -1213,6 +1225,7 @@ function App() {
         predictions={predictionRows}
         filters={predictionFilters}
         appliedFilters={predictionsListQuery.data?.filters}
+        dateOptions={predictionDateOptions}
         modelOptions={modelVersionOptions}
         onFiltersChange={setPredictionFilters}
       />

@@ -251,6 +251,8 @@ def test_local_api_predictions_route_filters_historical_predictions(tmp_path: Pa
     )
 
     assert latest["filters"]["date"] == "2024-01-09"
+    assert latest["available_dates"] == ["2024-01-09", "2024-01-08", "2024-01-07"]
+    assert latest["model_versions"] == ["baseline-rule-v1"]
     assert latest["count"] == 3
     assert top_one["count"] == 1
     assert top_one["predictions"][0]["rank"] == 1

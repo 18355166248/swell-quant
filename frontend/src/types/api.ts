@@ -109,6 +109,8 @@ export interface LatestPredictions {
   count: number;
   predictions: Prediction[];
   disclaimer: string;
+  available_dates?: string[];
+  model_versions?: string[];
   filters?: {
     date: string | null;
     model_version: string | null;

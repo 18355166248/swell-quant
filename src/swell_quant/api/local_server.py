@@ -505,6 +505,9 @@ def load_predictions_artifact(path: Path, query: dict[str, list[str]]) -> dict[s
         "model_version": selected_model,
         "top_n": None if top_n_value is None else int(top_n_value),
     }
+    # 前端筛选项来自同一份历史预测文件，避免 UI 可选日期/模型版本和实际查询口径分叉。
+    payload["available_dates"] = sorted({row.trade_date.isoformat() for row in rows}, reverse=True)
+    payload["model_versions"] = sorted({row.model_version for row in rows})
     return payload
 
 
