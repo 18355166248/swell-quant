@@ -61,3 +61,37 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
         "duckdb_mirror",
         "report",
     ]
+
+    check_result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_storage.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    storage = json.loads(check_result.stdout)
+    assert check_result.returncode == 0
+    assert storage["status"] == "healthy"
+    assert storage["inconsistent_tables"] == []
+
+
+def test_check_storage_returns_nonzero_for_missing_duckdb(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "DUCKDB_PATH": str(tmp_path / "data" / "duckdb" / "missing.duckdb"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_storage.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "duckdb_status=missing" in result.stdout
