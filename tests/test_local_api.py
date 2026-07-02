@@ -21,6 +21,7 @@ from swell_quant.api.local_server import (
     load_stock_prices_artifact,
     load_stock_route,
     load_stock_summary_artifact,
+    load_stocks_artifact,
     load_task_detail_artifact,
     load_task_route,
     load_tasks_artifact,
@@ -327,6 +328,32 @@ def test_local_api_stock_artifact_loaders(tmp_path: Path) -> None:
     assert load_stock_summary_artifact(tmp_path, "NOPE") is None
 
 
+def test_local_api_stocks_artifact_uses_prices_as_universe(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=8)
+    features = compute_features(bars)
+    raw_dir = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+    write_price_bars_csv(raw_dir / "sample_prices.csv", bars)
+    write_predictions_csv(
+        processed_dir / "historical_predictions.csv",
+        generate_historical_predictions(features),
+    )
+
+    stocks = load_stocks_artifact(tmp_path)
+
+    assert stocks["count"] == 3
+    assert [row["symbol"] for row in stocks["stocks"]] == [
+        "000001.SZ",
+        "000300.SH",
+        "000905.SH",
+    ]
+    assert stocks["stocks"][0]["price_row_count"] == 8
+    assert stocks["stocks"][0]["prediction_row_count"] == 3
+    assert stocks["stocks"][0]["start_date"] == "2024-01-02"
+    assert stocks["stocks"][0]["end_date"] == "2024-01-09"
+    assert stocks["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
 def test_local_api_stock_route_dispatches(tmp_path: Path) -> None:
     bars = generate_sample_bars(days=8)
     features = compute_features(bars)
@@ -338,15 +365,23 @@ def test_local_api_stock_route_dispatches(tmp_path: Path) -> None:
         processed_dir / "historical_predictions.csv", generate_historical_predictions(features)
     )
 
+    list_status, list_payload = load_stock_route("/api/stocks", tmp_path)
     status, payload = load_stock_route("/api/stocks/000300.SH/prices", tmp_path)
     missing_status, missing_payload = load_stock_route("/api/stocks/NOPE", tmp_path)
     ignored = load_stock_route("/api/status", tmp_path)
+    missing_list_status, missing_list_payload = load_stock_route(
+        "/api/stocks", tmp_path / "missing"
+    )
 
+    assert list_status.value == 200
+    assert list_payload["count"] == 3
     assert status.value == 200
     assert payload["count"] == 8
     assert missing_status.value == 404
     assert missing_payload["error"] == "symbol_not_found"
     assert ignored is None
+    assert missing_list_status.value == 404
+    assert missing_list_payload["error"] == "artifact_missing"
 
 
 def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:

@@ -206,6 +206,12 @@ export interface StockSummary {
   disclaimer: string;
 }
 
+export interface StockList {
+  count: number;
+  stocks: StockSummary[];
+  disclaimer: string;
+}
+
 export interface StockPrice {
   date: string;
   open: number;

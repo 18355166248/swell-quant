@@ -938,6 +938,7 @@ function App() {
     queryFn: () => api.getReportDetail(selectedReportId),
     enabled: selectedReportId.length > 0,
   });
+  const stocksQuery = useQuery({ queryKey: ["stocks"], queryFn: api.getStocks });
   const stockSummaryQuery = useQuery({
     queryKey: ["stocks", selectedSymbol, "summary"],
     queryFn: () => api.getStockSummary(selectedSymbol),
@@ -982,13 +983,16 @@ function App() {
     [predictions, predictionsListQuery.data],
   );
   const stockSymbols = useMemo(() => {
+    const listedSymbols = stocksQuery.data?.stocks.map((row) => row.symbol) ?? [];
+    // 以股票列表 API 为主，预测和状态只作为旧产物缺字段时的兼容兜底。
     const symbols = [
+      ...listedSymbols,
       ...predictions.map((row) => row.symbol),
       ...(status?.predictions.top.map((row) => row.symbol) ?? []),
       selectedSymbol,
     ];
     return Array.from(new Set(symbols.filter(Boolean)));
-  }, [predictions, selectedSymbol, status]);
+  }, [predictions, selectedSymbol, status, stocksQuery.data]);
   const backtest = backtestQuery.data;
   const pipeline = pipelineQuery.data;
   const report = reportQuery.data;
@@ -1007,6 +1011,7 @@ function App() {
     reportQuery.isLoading ||
     reportsQuery.isLoading ||
     reportDetailQuery.isLoading ||
+    stocksQuery.isLoading ||
     settingsQuery.isLoading;
   const isStockLoading =
     stockSummaryQuery.isLoading ||
@@ -1029,6 +1034,7 @@ function App() {
     reportQuery.isError ||
     reportsQuery.isError ||
     reportDetailQuery.isError ||
+    stocksQuery.isError ||
     settingsQuery.isError;
 
   const pageContent = {

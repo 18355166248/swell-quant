@@ -11,6 +11,7 @@ import type {
   ReportList,
   ResearchStatus,
   StockFeatures,
+  StockList,
   StockPredictions,
   StockPrices,
   StockSummary,
@@ -59,6 +60,7 @@ export const api = {
   getReport: () => requestText("/api/report"),
   getReports: () => requestJson<ReportList>("/api/reports"),
   getReportDetail: (reportId: string) => requestJson<ReportDetail>(`/api/reports/${reportId}`),
+  getStocks: () => requestJson<StockList>("/api/stocks"),
   getStockSummary: (symbol: string) => requestJson<StockSummary>(`/api/stocks/${symbol}`),
   getStockPrices: (symbol: string) => requestJson<StockPrices>(`/api/stocks/${symbol}/prices`),
   getStockFeatures: (symbol: string) =>

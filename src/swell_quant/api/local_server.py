@@ -619,6 +619,12 @@ def normalize_equity_curve(rows: list[dict[str, str | float]]) -> list[dict[str,
 
 
 def load_stock_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route == "/api/stocks":
+        path = data_dir / "raw" / "sample_prices.csv"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_stocks_artifact(data_dir)
+
     prefix = "/api/stocks/"
     if not route.startswith(prefix):
         return None
@@ -645,6 +651,50 @@ def load_stock_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, 
     if payload is None:
         return HTTPStatus.NOT_FOUND, {"error": "symbol_not_found", "symbol": symbol}
     return HTTPStatus.OK, payload
+
+
+def load_stocks_artifact(data_dir: Path) -> dict[str, Any]:
+    price_rows = _read_csv_rows(data_dir / "raw" / "sample_prices.csv")
+    prediction_rows = _read_csv_rows(data_dir / "processed" / "historical_predictions.csv")
+    price_stats: dict[str, dict[str, Any]] = {}
+    prediction_counts: dict[str, int] = {}
+
+    # 股票池以行情文件为准；预测文件可能尚未生成，不能因此让前端下拉缺失可研究标的。
+    for row in price_rows:
+        symbol = row["symbol"]
+        stats = price_stats.setdefault(
+            symbol,
+            {
+                "symbol": symbol,
+                "price_row_count": 0,
+                "start_date": row["date"],
+                "end_date": row["date"],
+            },
+        )
+        stats["price_row_count"] += 1
+        stats["start_date"] = min(stats["start_date"], row["date"])
+        stats["end_date"] = max(stats["end_date"], row["date"])
+
+    for row in prediction_rows:
+        symbol = row["symbol"]
+        prediction_counts[symbol] = prediction_counts.get(symbol, 0) + 1
+
+    stocks = [
+        {
+            "symbol": symbol,
+            "price_row_count": stats["price_row_count"],
+            "prediction_row_count": prediction_counts.get(symbol, 0),
+            "start_date": stats["start_date"],
+            "end_date": stats["end_date"],
+            "disclaimer": "仅用于研究，不构成投资建议",
+        }
+        for symbol, stats in sorted(price_stats.items())
+    ]
+    return {
+        "count": len(stocks),
+        "stocks": stocks,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
 
 
 def load_stock_summary_artifact(data_dir: Path, symbol: str) -> dict[str, Any] | None:
