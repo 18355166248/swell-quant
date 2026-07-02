@@ -202,6 +202,47 @@ function buildEquityOption(points: BacktestPoint[]) {
   };
 }
 
+function buildDrawdownOption(points: BacktestPoint[]) {
+  return {
+    tooltip: {
+      trigger: "axis",
+      valueFormatter: (value: number) => formatPercent(value),
+    },
+    legend: { top: 0, data: ["组合回撤", "基准回撤"] },
+    grid: { top: 44, left: 56, right: 24, bottom: 36 },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: points.map((point) => point.date),
+    },
+    yAxis: {
+      type: "value",
+      max: 0,
+      axisLabel: {
+        formatter: (value: number) => formatPercent(value),
+      },
+    },
+    series: [
+      {
+        name: "组合回撤",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        areaStyle: { opacity: 0.12 },
+        data: points.map((point) => point.portfolio_drawdown),
+      },
+      {
+        name: "基准回撤",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        areaStyle: { opacity: 0.08 },
+        data: points.map((point) => point.benchmark_drawdown),
+      },
+    ],
+  };
+}
+
 function buildScoreOption(predictions: Prediction[]) {
   return {
     tooltip: { trigger: "axis" },
@@ -1354,6 +1395,18 @@ function BacktestsPage({
               sorter: (a, b) => a.benchmark_return - b.benchmark_return,
             },
             {
+              title: "组合回撤",
+              dataIndex: "portfolio_drawdown",
+              align: "right",
+              render: formatPercent,
+            },
+            {
+              title: "基准回撤",
+              dataIndex: "benchmark_drawdown",
+              align: "right",
+              render: formatPercent,
+            },
+            {
               title: "组合净值",
               dataIndex: "portfolio_value",
               align: "right",
@@ -1394,7 +1447,27 @@ function BacktestsPage({
         )}
       </Card>
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={8}>
+        <Col xs={24} xl={12}>
+          <Card title="净值曲线">
+            {backtest?.equity_curve?.length ? (
+              <ReactECharts className="large-chart" option={buildEquityOption(backtest.equity_curve)} />
+            ) : (
+              <Empty description="暂无回测曲线" />
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} xl={12}>
+          <Card title="回撤曲线">
+            {backtest?.equity_curve?.length ? (
+              <ReactECharts className="large-chart" option={buildDrawdownOption(backtest.equity_curve)} />
+            ) : (
+              <Empty description="暂无回撤曲线" />
+            )}
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={10}>
           <Card title="回测列表">
             <Table<BacktestSummary>
               rowKey="backtest_id"
@@ -1427,16 +1500,7 @@ function BacktestsPage({
             />
           </Card>
         </Col>
-        <Col xs={24} xl={10}>
-          <Card title="净值曲线">
-            {backtest?.equity_curve?.length ? (
-              <ReactECharts className="large-chart" option={buildEquityOption(backtest.equity_curve)} />
-            ) : (
-              <Empty description="暂无回测曲线" />
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} xl={6}>
+        <Col xs={24} xl={14}>
           <Card title="回测参数">
             <Descriptions column={1} size="small">
               <Descriptions.Item label="回测 ID">{backtest?.backtest_id ?? "-"}</Descriptions.Item>

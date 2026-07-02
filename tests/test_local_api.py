@@ -35,6 +35,7 @@ from swell_quant.api.local_server import (
     load_tasks_artifact,
     load_text_artifact,
     missing_artifact_payload,
+    normalize_equity_curve,
     pipeline_status_to_http_status,
     run_pipeline_for_api,
 )
@@ -271,6 +272,36 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert backtest["turnover_rate"] >= 0
     assert backtest["equity_curve"][0]["date"] == "2024-01-08"
     assert "portfolio_value" in backtest["equity_curve"][0]
+    assert "portfolio_drawdown" in backtest["equity_curve"][0]
+    assert "benchmark_drawdown" in backtest["equity_curve"][0]
+
+
+def test_normalize_equity_curve_adds_historical_drawdown() -> None:
+    rows = [
+        {
+            "signal_date": "2024-01-01",
+            "trade_date": "2024-01-02",
+            "portfolio_return": 0.1,
+            "benchmark_return": 0.05,
+            "equity": 1.1,
+            "benchmark_equity": 1.05,
+        },
+        {
+            "signal_date": "2024-01-02",
+            "trade_date": "2024-01-03",
+            "portfolio_return": -0.1,
+            "benchmark_return": -0.02,
+            "equity": 0.99,
+            "benchmark_equity": 1.029,
+        },
+    ]
+
+    normalized = normalize_equity_curve(rows)
+
+    assert normalized[0]["portfolio_drawdown"] == 0.0
+    assert normalized[0]["benchmark_drawdown"] == 0.0
+    assert round(float(normalized[1]["portfolio_drawdown"]), 6) == -0.1
+    assert round(float(normalized[1]["benchmark_drawdown"]), 6) == -0.02
 
 
 def test_local_api_duckdb_storage_artifact_reports_table_counts(tmp_path: Path) -> None:

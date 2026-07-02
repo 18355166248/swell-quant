@@ -867,9 +867,14 @@ def load_backtests_artifact(path: Path) -> dict[str, Any]:
 
 def normalize_equity_curve(rows: list[dict[str, str | float]]) -> list[dict[str, str | float]]:
     normalized: list[dict[str, str | float]] = []
+    portfolio_peak = 1.0
+    benchmark_peak = 1.0
     for row in rows:
         portfolio_value = float(row["equity"])
         benchmark_value = float(row["benchmark_equity"])
+        # 回撤必须按时间顺序用历史峰值计算，避免页面端各自实现导致口径不一致。
+        portfolio_peak = max(portfolio_peak, portfolio_value)
+        benchmark_peak = max(benchmark_peak, benchmark_value)
         normalized.append(
             {
                 "date": str(row["trade_date"]),
@@ -879,6 +884,8 @@ def normalize_equity_curve(rows: list[dict[str, str | float]]) -> list[dict[str,
                 "portfolio_value": portfolio_value,
                 "benchmark_value": benchmark_value,
                 "excess_value": portfolio_value - benchmark_value,
+                "portfolio_drawdown": portfolio_value / portfolio_peak - 1.0,
+                "benchmark_drawdown": benchmark_value / benchmark_peak - 1.0,
             }
         )
     return normalized
