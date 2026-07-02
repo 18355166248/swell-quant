@@ -85,6 +85,8 @@ def build_research_status(
             "backtest_id": backtest.backtest_id,
             "top_n": backtest.top_n,
             "trade_count": backtest.trade_count,
+            "fee_rate": backtest.fee_rate,
+            "slippage_rate": backtest.slippage_rate,
             "start_date": backtest.start_date,
             "end_date": backtest.end_date,
             "cumulative_return": backtest.cumulative_return,

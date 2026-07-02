@@ -117,6 +117,8 @@ export interface ResearchStatus {
     backtest_id: string;
     top_n: number;
     trade_count: number;
+    fee_rate: number;
+    slippage_rate: number;
     start_date: string;
     end_date: string;
     cumulative_return: number;
@@ -181,6 +183,7 @@ export interface LatestBacktest {
   model_version: string;
   top_n: number;
   fee_rate: number;
+  slippage_rate: number;
   execution_price: string;
   holding_period: string;
   rebalance_rule: string;
@@ -204,6 +207,7 @@ export interface BacktestSummary {
   model_version: string;
   top_n: number;
   fee_rate: number;
+  slippage_rate: number;
   execution_price: string;
   holding_period: string;
   rebalance_rule: string;

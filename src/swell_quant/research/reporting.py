@@ -65,6 +65,8 @@ def build_research_summary(
             f"- 回测 ID：`{backtest.backtest_id}`",
             f"- Top N：{backtest.top_n}",
             f"- 回测区间：{backtest.start_date} 至 {backtest.end_date}",
+            f"- 手续费率：{_format_percent(backtest.fee_rate)}",
+            f"- 滑点率：{_format_percent(backtest.slippage_rate)}",
             f"- 调仓次数：{backtest.trade_count}",
             f"- 累计收益：{_format_percent(backtest.cumulative_return)}",
             f"- 年化收益：{_format_percent(backtest.annualized_return)}",

@@ -262,6 +262,7 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert predictions["disclaimer"] == "仅用于研究，不构成投资建议"
     assert backtest["backtest_id"] == "sample-topn-baseline"
     assert backtest["trade_count"] == 14
+    assert backtest["slippage_rate"] == 0.0005
     assert backtest["annualized_return"] > backtest["cumulative_return"]
     assert backtest["max_drawdown"] <= 0
     assert backtest["win_rate"] >= 0
@@ -557,6 +558,7 @@ def test_local_api_backtest_route_dispatches(tmp_path: Path) -> None:
     assert list_payload["count"] == 1
     assert "equity_curve" not in list_payload["backtests"][0]
     assert list_payload["backtests"][0]["execution_price"] == "next_day_open"
+    assert list_payload["backtests"][0]["slippage_rate"] == 0.0005
     assert "max_drawdown" in list_payload["backtests"][0]
     assert list_status.value == 200
     assert route_list_payload["backtests"][0]["backtest_id"] == "sample-topn-baseline"

@@ -17,6 +17,7 @@ class BacktestResult:
     model_version: str
     top_n: int
     fee_rate: float
+    slippage_rate: float
     execution_price: str
     holding_period: str
     rebalance_rule: str
@@ -40,11 +41,14 @@ def run_top_n_backtest(
     predictions: list[PredictionRow],
     top_n: int = 2,
     fee_rate: float = 0.001,
+    slippage_rate: float = 0.0005,
 ) -> BacktestResult:
     if top_n <= 0:
         raise ValueError("top_n must be positive")
     if fee_rate < 0:
         raise ValueError("fee_rate must not be negative")
+    if slippage_rate < 0:
+        raise ValueError("slippage_rate must not be negative")
 
     bars_by_symbol_date = {(bar.symbol, bar.trade_date): bar for bar in bars}
     dates = sorted({bar.trade_date for bar in bars})
@@ -78,8 +82,10 @@ def run_top_n_backtest(
             if signal_bar is None or trade_bar is None:
                 continue
 
-            # 回测严格使用 T 日信号、T+1 开盘成交到 T+1 收盘的收益，避免使用成交日之后的数据。
-            gross_return = trade_bar.close / trade_bar.open - 1.0
+            # 回测严格使用 T 日信号、T+1 开盘成交到 T+1 收盘的收益；买入滑点只抬高入场价，
+            # 不读取成交日之后的数据，保证和预测标签的 T+1 入场口径一致。
+            executed_open = trade_bar.open * (1.0 + slippage_rate)
+            gross_return = trade_bar.close / executed_open - 1.0
             period_returns.append(gross_return - fee_rate)
             benchmark_returns.append(trade_bar.benchmark_close / signal_bar.benchmark_close - 1.0)
             selected_symbols.add(prediction.symbol)
@@ -120,6 +126,7 @@ def run_top_n_backtest(
         model_version=predictions[0].model_version if predictions else "unknown",
         top_n=top_n,
         fee_rate=fee_rate,
+        slippage_rate=slippage_rate,
         execution_price="next_day_open",
         holding_period="next_day_open_to_close",
         rebalance_rule="daily_top_n_by_signal_date",
@@ -154,6 +161,7 @@ def read_backtest_result(path: Path) -> BacktestResult:
         model_version=payload["model_version"],
         top_n=int(payload["top_n"]),
         fee_rate=float(payload.get("fee_rate", 0.001)),
+        slippage_rate=float(payload.get("slippage_rate", 0.0)),
         execution_price=payload.get("execution_price", "next_day_open"),
         holding_period=payload.get("holding_period", "next_day_open_to_close"),
         rebalance_rule=payload.get("rebalance_rule", "daily_top_n_by_signal_date"),

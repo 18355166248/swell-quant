@@ -1409,6 +1409,7 @@ function BacktestsPage({
               <Descriptions.Item label="模型版本">{backtest?.model_version ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="Top N">{backtest?.top_n ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="手续费率">{formatPercent(backtest?.fee_rate)}</Descriptions.Item>
+              <Descriptions.Item label="滑点率">{formatPercent(backtest?.slippage_rate)}</Descriptions.Item>
               <Descriptions.Item label="成交价">{backtest?.execution_price ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="持有期">{backtest?.holding_period ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="调仓规则">{backtest?.rebalance_rule ?? "-"}</Descriptions.Item>

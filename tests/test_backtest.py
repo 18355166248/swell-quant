@@ -15,6 +15,7 @@ def test_top_n_backtest_uses_next_day_open_execution() -> None:
     assert result.backtest_id == "sample-topn-baseline"
     assert result.top_n == 2
     assert result.fee_rate == 0.001
+    assert result.slippage_rate == 0.0005
     assert result.execution_price == "next_day_open"
     assert result.holding_period == "next_day_open_to_close"
     assert result.rebalance_rule == "daily_top_n_by_signal_date"
@@ -42,3 +43,20 @@ def test_top_n_backtest_validates_parameters() -> None:
 
     with pytest.raises(ValueError, match="fee_rate"):
         run_top_n_backtest(bars, predictions, fee_rate=-0.1)
+
+    with pytest.raises(ValueError, match="slippage_rate"):
+        run_top_n_backtest(bars, predictions, slippage_rate=-0.1)
+
+
+def test_top_n_backtest_slippage_reduces_returns() -> None:
+    bars = generate_sample_bars(days=8)
+    predictions = generate_historical_predictions(compute_features(bars))
+
+    without_slippage = run_top_n_backtest(
+        bars, predictions, top_n=2, fee_rate=0.001, slippage_rate=0.0
+    )
+    with_slippage = run_top_n_backtest(
+        bars, predictions, top_n=2, fee_rate=0.001, slippage_rate=0.002
+    )
+
+    assert with_slippage.cumulative_return < without_slippage.cumulative_return
