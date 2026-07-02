@@ -34,6 +34,14 @@ BASELINE_TRAINING_PARAMS: dict[str, float | int | str | bool | None] = {
     "requires_fit": False,
     "random_seed": None,
 }
+BASELINE_FEATURE_WEIGHTS = {
+    "momentum_5d": 0.7,
+    "return_1d": 0.2,
+    "volatility_5d": -0.1,
+    "rsi_6": 0.05,
+    "macd_hist": 0.05,
+    "volume_change_1d": 0.1,
+}
 LIGHTGBM_TRAINING_PARAMS: dict[str, float | int | str | bool | None] = {
     "objective": "binary",
     "metric": "binary_logloss",
@@ -72,6 +80,7 @@ class ModelMetadata:
     dependency_status: str = "not_checked"
     training_params: dict[str, float | int | str | bool | None] | None = None
     model_artifact_path: str | None = None
+    feature_importance: list[dict[str, float | int | str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -186,6 +195,7 @@ def train_lightgbm_model(
         dependency_status="lightgbm_available",
         training_params=LIGHTGBM_TRAINING_PARAMS,
         model_artifact_path=str(model_output_path) if model_output_path is not None else None,
+        feature_importance=build_lightgbm_feature_importance(booster),
     )
 
 
@@ -236,6 +246,7 @@ def train_baseline_model(
         training_backend=training_backend,
         dependency_status=dependency_status,
         training_params=BASELINE_TRAINING_PARAMS,
+        feature_importance=build_baseline_feature_importance(),
     )
 
 
@@ -385,6 +396,61 @@ def build_lightgbm_evaluation_metrics(
         }
     )
     return metrics
+
+
+def build_baseline_feature_importance() -> list[dict[str, float | int | str]]:
+    total_weight = sum(abs(BASELINE_FEATURE_WEIGHTS[name]) for name in BASELINE_FEATURE_NAMES)
+    rows = []
+    for feature_name in BASELINE_FEATURE_NAMES:
+        weight = BASELINE_FEATURE_WEIGHTS[feature_name]
+        rows.append(
+            {
+                "feature_name": feature_name,
+                "importance": round(abs(weight) / total_weight, 6),
+                "raw_importance": weight,
+                "importance_type": "rule_weight",
+            }
+        )
+    return _rank_feature_importance(rows)
+
+
+def build_lightgbm_feature_importance(booster: Any) -> list[dict[str, float | int | str]]:
+    gain_values = _booster_feature_importance(booster, "gain")
+    split_values = _booster_feature_importance(booster, "split")
+    total_gain = sum(gain_values)
+    rows = []
+    for index, feature_name in enumerate(BASELINE_FEATURE_NAMES):
+        gain = gain_values[index] if index < len(gain_values) else 0.0
+        split = split_values[index] if index < len(split_values) else 0.0
+        rows.append(
+            {
+                "feature_name": feature_name,
+                "importance": round(gain / total_gain, 6) if total_gain > 0 else 0.0,
+                "raw_importance": round(gain, 6),
+                "split_count": int(split),
+                "importance_type": "lightgbm_gain",
+            }
+        )
+    # 特征重要性只解释已训练模型的相对贡献，不作为独立选股信号或投资建议。
+    return _rank_feature_importance(rows)
+
+
+def _booster_feature_importance(booster: Any, importance_type: str) -> list[float]:
+    if not hasattr(booster, "feature_importance"):
+        return [0.0 for _feature_name in BASELINE_FEATURE_NAMES]
+    values = booster.feature_importance(importance_type=importance_type)
+    return [float(value) for value in values]
+
+
+def _rank_feature_importance(
+    rows: list[dict[str, float | int | str]],
+) -> list[dict[str, float | int | str]]:
+    ranked = sorted(
+        rows, key=lambda row: (-abs(float(row["importance"])), str(row["feature_name"]))
+    )
+    for index, row in enumerate(ranked, start=1):
+        row["rank"] = index
+    return ranked
 
 
 def build_training_samples(
@@ -572,6 +638,7 @@ def read_model_metadata(path: Path) -> ModelMetadata:
         dependency_status=payload.get("dependency_status", "legacy_not_recorded"),
         training_params=payload.get("training_params"),
         model_artifact_path=payload.get("model_artifact_path"),
+        feature_importance=payload.get("feature_importance"),
     )
 
 

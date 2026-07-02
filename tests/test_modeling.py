@@ -43,6 +43,11 @@ class FakeBooster:
         self.saved_path = path
         Path(path).write_text("fake lightgbm model\n", encoding="utf-8")
 
+    def feature_importance(self, importance_type: str) -> list[float]:
+        if importance_type == "gain":
+            return [6.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+        return [6.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+
 
 def test_baseline_model_metadata_uses_labeled_rows() -> None:
     bars = generate_sample_bars(days=20)
@@ -58,6 +63,9 @@ def test_baseline_model_metadata_uses_labeled_rows() -> None:
     assert metadata.dependency_status in {"lightgbm_available", "lightgbm_missing"}
     assert metadata.training_params is not None
     assert metadata.training_params["requires_fit"] is False
+    assert metadata.feature_importance is not None
+    assert metadata.feature_importance[0]["feature_name"] == "momentum_5d"
+    assert metadata.feature_importance[0]["importance_type"] == "rule_weight"
     assert metadata.feature_names == [
         "momentum_5d",
         "return_1d",
@@ -133,6 +141,10 @@ def test_train_model_uses_lightgbm_when_dependency_is_available(
     assert metadata.training_params is not None
     assert metadata.training_params["objective"] == "binary"
     assert metadata.model_artifact_path == str(model_path)
+    assert metadata.feature_importance is not None
+    assert metadata.feature_importance[0]["feature_name"] == "momentum_5d"
+    assert metadata.feature_importance[0]["importance_type"] == "lightgbm_gain"
+    assert metadata.feature_importance[0]["split_count"] == 6
     assert model_path.exists()
     assert predictions[0].model_version == LIGHTGBM_MODEL_VERSION
     assert predictions[0].score >= predictions[-1].score

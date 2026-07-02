@@ -644,6 +644,7 @@ def load_latest_model_artifact(path: Path) -> dict[str, Any]:
         "dependency_status": payload.get("dependency_status", "legacy_not_recorded"),
         "model_artifact_path": payload.get("model_artifact_path"),
         "training_params": payload.get("training_params", {}),
+        "feature_importance": payload.get("feature_importance", []),
         "label_gap_days": payload.get("label_gap_days", 5),
         "evaluation_status": payload.get("evaluation_status", "not_available"),
         "evaluation_train_start": payload.get("evaluation_train_start"),

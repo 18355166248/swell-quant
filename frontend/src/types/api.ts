@@ -99,6 +99,7 @@ export interface ResearchStatus {
     training_backend: string;
     dependency_status: string;
     model_artifact_path: string | null;
+    feature_importance: ModelFeatureImportance[];
     train_start: string;
     train_end: string;
     prediction_date: string;
@@ -398,6 +399,7 @@ export interface LatestModel {
   dependency_status: string;
   model_artifact_path: string | null;
   training_params: Record<string, number | string | boolean | null>;
+  feature_importance: ModelFeatureImportance[];
   train_start: string;
   train_end: string;
   prediction_date: string;
@@ -414,6 +416,15 @@ export interface LatestModel {
   path?: string;
   updated_at?: string;
   disclaimer: string;
+}
+
+export interface ModelFeatureImportance {
+  feature_name: string;
+  rank: number;
+  importance: number;
+  raw_importance: number;
+  split_count?: number;
+  importance_type: string;
 }
 
 export interface ModelSummary {

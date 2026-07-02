@@ -65,6 +65,7 @@ def build_research_status(
             "training_backend": metadata.training_backend,
             "dependency_status": metadata.dependency_status,
             "model_artifact_path": metadata.model_artifact_path,
+            "feature_importance": metadata.feature_importance or [],
             "train_start": metadata.train_start,
             "train_end": metadata.train_end,
             "prediction_date": metadata.prediction_date,

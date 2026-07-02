@@ -477,6 +477,7 @@ def test_local_api_latest_model_artifact(tmp_path: Path) -> None:
     assert model["training_backend"] == "rule_baseline"
     assert model["dependency_status"] == "legacy_not_recorded"
     assert model["training_params"] == {}
+    assert model["feature_importance"] == []
     assert model["label_gap_days"] == 5
     assert model["evaluation_status"] == "not_available"
     assert model["metrics"] == {}
@@ -508,6 +509,7 @@ def test_local_api_model_route_dispatches_list_and_detail(tmp_path: Path) -> Non
           "test_start": "2024-01-16",
           "test_end": "2024-01-16",
           "metrics": {"labeled_row_count": 45, "top1_outperform_rate": 1.0},
+          "feature_importance": [{"feature_name": "momentum_5d", "rank": 1, "importance": 0.7, "raw_importance": 0.7, "importance_type": "rule_weight"}],
           "disclaimer": "仅用于研究，不构成投资建议"
         }
         """,
@@ -533,6 +535,7 @@ def test_local_api_model_route_dispatches_list_and_detail(tmp_path: Path) -> Non
     assert detail["requested_model_type"] == "lightgbm"
     assert detail["training_backend"] == "rule_baseline_fallback"
     assert detail["metrics"]["top1_outperform_rate"] == 1.0
+    assert detail["feature_importance"][0]["feature_name"] == "momentum_5d"
     assert detail["path"].endswith("baseline-rule-v1.json")
     assert list_status.value == 200
     assert list_payload["models"][0]["model_version"] == "baseline-rule-v1"
