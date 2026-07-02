@@ -29,7 +29,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
 | `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、训练样本切分、预测、回测和关键产物完整性门禁，并在状态快照中暴露产物大小与更新时间用于排查。 |
 | `make smoke` | 串联 pipeline、storage 和 acceptance，作为无页面端到端验收入口。 |
-| `make frontend-test` | 校验前端共享展示工具等可单元测试逻辑，避免页面拆分时格式化和状态映射口径漂移。 |
+| `make frontend-test` | 校验前端共享展示工具、图表配置、表格列构造器、PageTitle 和页面级 render 测试，避免页面拆分时展示口径漂移。 |
 | `make frontend-build` | 校验前端类型和生产构建。 |
 
 ## 关键测试覆盖
@@ -43,7 +43,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 - DuckDB 存储：CSV 镜像到本地单文件 DuckDB，检查表行数和 schema。
 - 产物完整性：模型、预测、回测、报告、pipeline 运行记录和 DuckDB 文件都必须存在。
 - API：本地只读 API 路由、pipeline 触发锁、列表和详情接口。
-- 前端：Vitest 覆盖共享展示工具的数字/时间格式化、状态颜色映射和交易拒绝原因展示；构建检查覆盖页面类型、API 类型、验收页产物状态和生产 bundle。
+- 前端：Vitest 覆盖共享展示工具的数字/时间格式化、状态颜色映射和交易拒绝原因展示；图表配置覆盖预测分数、净值、回撤、相对收益、单股行情和因子走势；表格列构造器覆盖预测、验收检查、产物、任务和模型列表列；PageTitle 覆盖页面标题、说明和操作区渲染；页面级 render 测试覆盖研究用途声明、空状态、关键表格列标题稳定，以及设置页不展示 secret 明文；构建检查覆盖页面类型、API 类型和生产 bundle。
 
 ## 当前边界
 
