@@ -30,6 +30,19 @@ python3 scripts/run_pipeline.py
 python3 -m pytest
 ```
 
+本地只读 API 可用于无页面验收：
+
+```bash
+python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
+```
+
+可用端点：
+
+- `GET /api/health`
+- `GET /api/status`
+- `GET /api/pipeline`
+- `GET /api/report`
+
 `scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
 
 - `data/raw/sample_prices.csv`
