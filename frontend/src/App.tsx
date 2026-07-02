@@ -122,6 +122,17 @@ function formatDateTime(value: string | null | undefined): string {
   }).format(new Date(value));
 }
 
+function rejectedTradeReasonLabel(value: string): string {
+  const labels: Record<string, string> = {
+    missing_next_trade_date: "无下一交易日",
+    missing_signal_bar: "缺失信号日行情",
+    missing_trade_bar: "缺失成交日行情",
+    suspended_or_zero_volume: "停牌或零成交量",
+    limit_up_buy_blocked: "涨停买入受限",
+  };
+  return labels[value] ?? value;
+}
+
 function statusColor(status?: string): string {
   if (status === "success") {
     return "green";
@@ -1375,7 +1386,7 @@ function BacktestsPage({
               { title: "成交日", dataIndex: "trade_date", width: 120 },
               { title: "代码", dataIndex: "symbol", width: 120 },
               { title: "排名", dataIndex: "rank", width: 80, align: "right" },
-              { title: "原因", dataIndex: "reason" },
+              { title: "原因", dataIndex: "reason", render: rejectedTradeReasonLabel },
             ]}
           />
         ) : (

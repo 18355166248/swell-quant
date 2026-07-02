@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from swell_quant.data.sample_data import generate_sample_bars
@@ -82,5 +84,54 @@ def test_top_n_backtest_records_missing_trade_bar_rejections() -> None:
         row["symbol"] == missing_symbol
         and row["trade_date"] == first_trade_date.isoformat()
         and row["reason"] == "missing_trade_bar"
+        for row in result.rejected_trades
+    )
+
+
+def test_top_n_backtest_records_suspended_trade_rejections() -> None:
+    bars = generate_sample_bars(days=8)
+    predictions = generate_historical_predictions(compute_features(bars))
+    first_signal = predictions[0].trade_date
+    first_trade_date = sorted({bar.trade_date for bar in bars if bar.trade_date > first_signal})[0]
+    suspended_symbol = predictions[0].symbol
+    adjusted_bars = [
+        replace(bar, volume=0)
+        if bar.symbol == suspended_symbol and bar.trade_date == first_trade_date
+        else bar
+        for bar in bars
+    ]
+
+    result = run_top_n_backtest(adjusted_bars, predictions, top_n=2)
+
+    assert any(
+        row["symbol"] == suspended_symbol
+        and row["trade_date"] == first_trade_date.isoformat()
+        and row["reason"] == "suspended_or_zero_volume"
+        for row in result.rejected_trades
+    )
+
+
+def test_top_n_backtest_records_limit_up_buy_rejections() -> None:
+    bars = generate_sample_bars(days=8)
+    predictions = generate_historical_predictions(compute_features(bars))
+    first_signal = predictions[0].trade_date
+    first_trade_date = sorted({bar.trade_date for bar in bars if bar.trade_date > first_signal})[0]
+    blocked_symbol = predictions[0].symbol
+    signal_close = next(
+        bar.close for bar in bars if bar.symbol == blocked_symbol and bar.trade_date == first_signal
+    )
+    adjusted_bars = [
+        replace(bar, open=round(signal_close * 1.1, 4), high=round(signal_close * 1.1, 4))
+        if bar.symbol == blocked_symbol and bar.trade_date == first_trade_date
+        else bar
+        for bar in bars
+    ]
+
+    result = run_top_n_backtest(adjusted_bars, predictions, top_n=2)
+
+    assert any(
+        row["symbol"] == blocked_symbol
+        and row["trade_date"] == first_trade_date.isoformat()
+        and row["reason"] == "limit_up_buy_blocked"
         for row in result.rejected_trades
     )

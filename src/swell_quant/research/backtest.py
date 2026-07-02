@@ -95,6 +95,16 @@ def run_top_n_backtest(
                     _rejected_trade(prediction, signal_date, trade_date, "missing_trade_bar")
                 )
                 continue
+            if trade_bar.volume <= 0:
+                rejected_trades.append(
+                    _rejected_trade(prediction, signal_date, trade_date, "suspended_or_zero_volume")
+                )
+                continue
+            if _is_limit_up_open(signal_bar, trade_bar):
+                rejected_trades.append(
+                    _rejected_trade(prediction, signal_date, trade_date, "limit_up_buy_blocked")
+                )
+                continue
 
             # 回测严格使用 T 日信号、T+1 开盘成交到 T+1 收盘的收益；买入滑点只抬高入场价，
             # 不读取成交日之后的数据，保证和预测标签的 T+1 入场口径一致。
@@ -209,6 +219,10 @@ def _rejected_trade(
         "trade_date": "-" if trade_date is None else trade_date.isoformat(),
         "reason": reason,
     }
+
+
+def _is_limit_up_open(signal_bar: PriceBar, trade_bar: PriceBar, threshold: float = 0.095) -> bool:
+    return trade_bar.open / signal_bar.close - 1.0 >= threshold
 
 
 def _annualized_return(final_equity: float, periods: int, periods_per_year: int = 252) -> float:
