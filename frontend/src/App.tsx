@@ -928,6 +928,7 @@ function BacktestsPage({
 function StocksPage({
   symbol,
   symbols,
+  stockSummaries,
   onSymbolChange,
   summary,
   prices,
@@ -937,6 +938,7 @@ function StocksPage({
 }: {
   symbol: string;
   symbols: string[];
+  stockSummaries: StockSummary[];
   onSymbolChange: (symbol: string) => void;
   summary?: StockSummary;
   prices?: StockPrices;
@@ -973,6 +975,38 @@ function StocksPage({
             <Card><Statistic title="结束日期" value={summary?.end_date ?? "-"} /></Card>
           </Col>
         </Row>
+
+        <Card title="股票池覆盖">
+          <Table<StockSummary>
+            rowKey="symbol"
+            size="middle"
+            dataSource={stockSummaries}
+            pagination={{ pageSize: 8, hideOnSinglePage: true }}
+            onRow={(record) => ({
+              onClick: () => onSymbolChange(record.symbol),
+            })}
+            rowClassName={(record) => (record.symbol === symbol ? "selected-table-row" : "")}
+            columns={[
+              { title: "代码", dataIndex: "symbol", width: 140 },
+              {
+                title: "价格行数",
+                dataIndex: "price_row_count",
+                width: 120,
+                align: "right",
+                sorter: (a, b) => a.price_row_count - b.price_row_count,
+              },
+              {
+                title: "历史预测",
+                dataIndex: "prediction_row_count",
+                width: 120,
+                align: "right",
+                sorter: (a, b) => a.prediction_row_count - b.prediction_row_count,
+              },
+              { title: "开始日期", dataIndex: "start_date", width: 130, render: (value) => value ?? "-" },
+              { title: "结束日期", dataIndex: "end_date", width: 130, render: (value) => value ?? "-" },
+            ]}
+          />
+        </Card>
 
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={12}>
@@ -1441,6 +1475,7 @@ function App() {
       <StocksPage
         symbol={selectedSymbol}
         symbols={stockSymbols}
+        stockSummaries={stocksQuery.data?.stocks ?? []}
         onSymbolChange={setSelectedSymbol}
         summary={stockSummaryQuery.data}
         prices={stockPricesQuery.data}
