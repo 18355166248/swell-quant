@@ -12,7 +12,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from swell_quant.core.config import Settings
-from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps
+from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps, write_run_manifest
 from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import ensure_sample_prices, read_price_bars_csv
 from swell_quant.research.backtest import (
@@ -156,9 +156,12 @@ def main() -> int:
 
     settings = Settings.from_env()
     results = run_steps(build_steps(settings))
+    manifest_path = settings.data_dir / "reports" / "pipeline_run.json"
+    write_run_manifest(manifest_path, results)
 
     for result in results:
         print(f"{result.status.value:7s} {result.name}: {result.message}")
+    print(f"manifest {manifest_path}")
 
     if any(result.status == StepStatus.FAILED for result in results):
         return 1

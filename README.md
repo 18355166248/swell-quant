@@ -41,6 +41,7 @@ python3 -m pytest
 - `data/processed/historical_predictions.csv`
 - `data/reports/sample_backtest.json`
 - `data/reports/sample_research_summary.md`
+- `data/reports/pipeline_run.json`
 
 当前模型是可复现的规则 baseline，用于验证链路，不是最终 LightGBM 模型。
 

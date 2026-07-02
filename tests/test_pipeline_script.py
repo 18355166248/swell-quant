@@ -1,4 +1,5 @@
 import os
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -37,3 +38,16 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert (tmp_path / "data" / "processed" / "historical_predictions.csv").exists()
     assert (tmp_path / "data" / "reports" / "sample_backtest.json").exists()
     assert (tmp_path / "data" / "reports" / "sample_research_summary.md").exists()
+    manifest_path = tmp_path / "data" / "reports" / "pipeline_run.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["status"] == "success"
+    assert [step["name"] for step in manifest["steps"]] == [
+        "prepare_directories",
+        "data_update",
+        "data_quality",
+        "features",
+        "labels",
+        "train",
+        "backtest",
+        "report",
+    ]
