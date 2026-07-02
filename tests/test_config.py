@@ -1,4 +1,31 @@
+from pathlib import Path
+
 from swell_quant.core.config import Settings
+
+
+def test_env_example_documents_all_supported_environment_variables() -> None:
+    expected_variables = {
+        "DATA_DIR",
+        "DUCKDB_PATH",
+        "DATA_SOURCE",
+        "AKSHARE_SYMBOLS",
+        "AKSHARE_START_DATE",
+        "AKSHARE_END_DATE",
+        "AKSHARE_BENCHMARK_SYMBOL",
+        "MODEL_TYPE",
+        "LLM_PROVIDER",
+        "DEEPSEEK_MODEL",
+        "DEEPSEEK_BASE_URL",
+        "DEEPSEEK_API_KEY",
+        "OPENAI_API_KEY",
+    }
+    documented_variables = {
+        line.split("=", 1)[0]
+        for line in Path(".env.example").read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    }
+
+    assert expected_variables <= documented_variables
 
 
 def test_settings_loads_akshare_data_source(monkeypatch) -> None:
