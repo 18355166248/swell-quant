@@ -56,6 +56,9 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/stocks/{symbol}/features`
 - `GET /api/stocks/{symbol}/predictions`
 - `GET /api/report`
+- `GET /api/reports`
+- `GET /api/reports/latest`
+- `GET /api/reports/{report_id}`
 - `POST /api/pipeline/run`
 
 `POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。

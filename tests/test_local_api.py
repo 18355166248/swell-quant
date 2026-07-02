@@ -10,6 +10,9 @@ from swell_quant.api.local_server import (
     load_latest_predictions_artifact,
     load_prediction_route,
     load_predictions_artifact,
+    load_report_artifact,
+    load_report_route,
+    load_reports_artifact,
     load_settings_artifact,
     load_stock_features_artifact,
     load_stock_predictions_artifact,
@@ -192,6 +195,46 @@ def test_local_api_prediction_route_dispatches(tmp_path: Path) -> None:
 
     assert status.value == 200
     assert payload["count"] == 2
+    assert ignored is None
+
+
+def test_local_api_report_route_dispatches(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    report_path = reports_dir / "sample_research_summary.md"
+    report_path.write_text(
+        "# Swell Quant 离线研究摘要\n\n"
+        "> 仅用于研究，不构成投资建议。\n\n"
+        "## 模型\n\n"
+        "- 模型版本：`baseline-rule-v1`\n\n"
+        "## 回测摘要\n\n"
+        "- 回测 ID：`sample-topn-baseline`\n",
+        encoding="utf-8",
+    )
+
+    list_payload = load_reports_artifact(report_path)
+    detail_payload = load_report_artifact(report_path)
+    list_status, route_list_payload = load_report_route("/api/reports", tmp_path)
+    detail_status, route_detail_payload = load_report_route(
+        "/api/reports/sample-research-summary", tmp_path
+    )
+    latest_status, latest_payload = load_report_route("/api/reports/latest", tmp_path)
+    missing_status, missing_payload = load_report_route("/api/reports/nope", tmp_path)
+    ignored = load_report_route("/api/status", tmp_path)
+
+    assert list_payload["count"] == 1
+    assert "body" not in list_payload["reports"][0]
+    assert detail_payload["model_version"] == "baseline-rule-v1"
+    assert detail_payload["backtest_id"] == "sample-topn-baseline"
+    assert "不构成投资建议" in detail_payload["body"]
+    assert list_status.value == 200
+    assert route_list_payload["reports"][0]["report_id"] == "sample-research-summary"
+    assert detail_status.value == 200
+    assert route_detail_payload["report_id"] == "sample-research-summary"
+    assert latest_status.value == 200
+    assert latest_payload["report_id"] == "sample-research-summary"
+    assert missing_status.value == 404
+    assert missing_payload["error"] == "report_not_found"
     assert ignored is None
 
 

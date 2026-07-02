@@ -252,3 +252,23 @@ export interface LocalSettings {
   };
   artifacts: SettingsArtifact[];
 }
+
+export interface ReportSummary {
+  report_id: string;
+  title: string;
+  path: string;
+  generated_at: string;
+  model_version: string | null;
+  backtest_id: string | null;
+  summary: string;
+  disclaimer: string;
+}
+
+export interface ReportList {
+  count: number;
+  reports: ReportSummary[];
+}
+
+export interface ReportDetail extends ReportSummary {
+  body: string;
+}

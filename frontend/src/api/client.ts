@@ -5,6 +5,8 @@ import type {
   LatestPredictions,
   LocalSettings,
   PipelineRun,
+  ReportDetail,
+  ReportList,
   ResearchStatus,
   StockFeatures,
   StockPredictions,
@@ -51,6 +53,8 @@ export const api = {
   getBacktests: () => requestJson<BacktestList>("/api/backtests"),
   getBacktest: (backtestId: string) => requestJson<LatestBacktest>(`/api/backtests/${backtestId}`),
   getReport: () => requestText("/api/report"),
+  getReports: () => requestJson<ReportList>("/api/reports"),
+  getReportDetail: (reportId: string) => requestJson<ReportDetail>(`/api/reports/${reportId}`),
   getStockSummary: (symbol: string) => requestJson<StockSummary>(`/api/stocks/${symbol}`),
   getStockPrices: (symbol: string) => requestJson<StockPrices>(`/api/stocks/${symbol}/prices`),
   getStockFeatures: (symbol: string) =>

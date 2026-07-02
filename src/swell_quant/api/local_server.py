@@ -92,6 +92,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 content_type="text/markdown; charset=utf-8",
             )
             return
+        report_response = load_report_route(route, self.data_dir)
+        if report_response is not None:
+            status, payload = report_response
+            self._send_json(payload, status=status)
+            return
 
         self._send_json({"error": "not_found", "path": route}, status=HTTPStatus.NOT_FOUND)
 
@@ -462,6 +467,77 @@ def load_backtest_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[st
         backtest_id = route[len("/api/backtests/") :]
         return HTTPStatus.NOT_FOUND, {"error": "backtest_not_found", "backtest_id": backtest_id}
     return None
+
+
+def load_report_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route == "/api/reports":
+        path = data_dir / "reports" / "sample_research_summary.md"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_reports_artifact(path)
+    if route in {"/api/reports/latest", "/api/reports/sample-research-summary"}:
+        path = data_dir / "reports" / "sample_research_summary.md"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_report_artifact(path)
+    if route.startswith("/api/reports/"):
+        report_id = route[len("/api/reports/") :]
+        return HTTPStatus.NOT_FOUND, {"error": "report_not_found", "report_id": report_id}
+    return None
+
+
+def load_reports_artifact(path: Path) -> dict[str, Any]:
+    detail = load_report_artifact(path)
+    summary_keys = (
+        "report_id",
+        "title",
+        "path",
+        "generated_at",
+        "model_version",
+        "backtest_id",
+        "summary",
+        "disclaimer",
+    )
+    return {"count": 1, "reports": [{key: detail[key] for key in summary_keys}]}
+
+
+def load_report_artifact(path: Path) -> dict[str, Any]:
+    body = load_text_artifact(path)
+    lines = [line.strip() for line in body.splitlines() if line.strip()]
+    title = lines[0].lstrip("# ").strip() if lines else "Research Report"
+    return {
+        "report_id": "sample-research-summary",
+        "title": title,
+        "path": str(path),
+        "generated_at": _format_file_timestamp(path),
+        "model_version": _extract_markdown_value(body, "模型版本"),
+        "backtest_id": _extract_markdown_value(body, "回测 ID"),
+        "summary": _first_markdown_paragraph(body),
+        "body": body,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def _format_file_timestamp(path: Path) -> str:
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+
+
+def _extract_markdown_value(body: str, label: str) -> str | None:
+    prefix = f"- {label}："
+    for line in body.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip().strip("`")
+    return None
+
+
+def _first_markdown_paragraph(body: str) -> str:
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and not stripped.startswith(">"):
+            return stripped.lstrip("- ").strip()
+    return ""
 
 
 def load_backtests_artifact(path: Path) -> dict[str, Any]:

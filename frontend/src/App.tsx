@@ -44,6 +44,8 @@ import type {
   LocalSettings,
   PipelineRun,
   Prediction,
+  ReportDetail,
+  ReportSummary,
   ResearchStatus,
   StockFeature,
   StockPrediction,
@@ -725,11 +727,17 @@ function StocksPage({
 }
 
 function ReportsPage({
+  reports,
   report,
+  selectedReportId,
+  onSelectReport,
   status,
   qualityIssues,
 }: {
-  report?: string;
+  reports: ReportSummary[];
+  report?: ReportDetail;
+  selectedReportId: string;
+  onSelectReport: (reportId: string) => void;
   status?: ResearchStatus;
   qualityIssues: DataQualityIssue[];
 }) {
@@ -744,14 +752,46 @@ function ReportsPage({
     <>
       <PageTitle title="报告" description="展示离线研究报告和结构化风险提示。" />
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={15}>
-          <Card title="报告正文">
-            {report ? <Paragraph className="report-body">{report}</Paragraph> : <Empty description="暂无研究报告" />}
+        <Col xs={24} xl={6}>
+          <Card title="报告列表">
+            <Table<ReportSummary>
+              rowKey="report_id"
+              size="small"
+              dataSource={reports}
+              pagination={false}
+              onRow={(record) => ({
+                onClick: () => onSelectReport(record.report_id),
+              })}
+              rowClassName={(record) =>
+                record.report_id === selectedReportId ? "selected-table-row" : ""
+              }
+              columns={[
+                { title: "报告", dataIndex: "title" },
+                {
+                  title: "状态",
+                  dataIndex: "report_id",
+                  width: 80,
+                  render: () => <Tag color="green">可读</Tag>,
+                },
+              ]}
+            />
           </Card>
         </Col>
-        <Col xs={24} xl={9}>
+        <Col xs={24} xl={11}>
+          <Card title="报告正文">
+            {report?.body ? (
+              <Paragraph className="report-body">{report.body}</Paragraph>
+            ) : (
+              <Empty description="暂无研究报告" />
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} xl={7}>
           <Card title="结构化依据">
             <Space direction="vertical" size={10}>
+              <Text>报告 ID：{report?.report_id ?? "-"}</Text>
+              <Text>模型版本：{report?.model_version ?? status?.model.model_version ?? "-"}</Text>
+              <Text>回测 ID：{report?.backtest_id ?? status?.backtest.backtest_id ?? "-"}</Text>
               {riskItems.map((item) => (
                 <Text key={item}>{item}</Text>
               ))}
@@ -850,6 +890,7 @@ function App() {
   const [activePage, setActivePage] = useState<PageKey>("dashboard");
   const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
   const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
+  const [selectedReportId, setSelectedReportId] = useState("sample-research-summary");
 
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
@@ -879,6 +920,12 @@ function App() {
     enabled: selectedBacktestId.length > 0,
   });
   const reportQuery = useQuery({ queryKey: ["report"], queryFn: api.getReport });
+  const reportsQuery = useQuery({ queryKey: ["reports"], queryFn: api.getReports });
+  const reportDetailQuery = useQuery({
+    queryKey: ["reports", selectedReportId],
+    queryFn: () => api.getReportDetail(selectedReportId),
+    enabled: selectedReportId.length > 0,
+  });
   const stockSummaryQuery = useQuery({
     queryKey: ["stocks", selectedSymbol, "summary"],
     queryFn: () => api.getStockSummary(selectedSymbol),
@@ -944,6 +991,8 @@ function App() {
     backtestQuery.isLoading ||
     predictionsListQuery.isLoading ||
     reportQuery.isLoading ||
+    reportsQuery.isLoading ||
+    reportDetailQuery.isLoading ||
     settingsQuery.isLoading;
   const isStockLoading =
     stockSummaryQuery.isLoading ||
@@ -962,6 +1011,8 @@ function App() {
     backtestQuery.isError ||
     predictionsListQuery.isError ||
     reportQuery.isError ||
+    reportsQuery.isError ||
+    reportDetailQuery.isError ||
     settingsQuery.isError;
 
   const pageContent = {
@@ -1004,7 +1055,16 @@ function App() {
         isLoading={isStockLoading}
       />
     ),
-    reports: <ReportsPage report={report} status={status} qualityIssues={quality?.issues ?? []} />,
+    reports: (
+      <ReportsPage
+        reports={reportsQuery.data?.reports ?? []}
+        report={reportDetailQuery.data}
+        selectedReportId={selectedReportId}
+        onSelectReport={setSelectedReportId}
+        status={status}
+        qualityIssues={quality?.issues ?? []}
+      />
+    ),
     settings: <SettingsPage settings={settingsQuery.data} />,
   } satisfies Record<PageKey, ReactNode>;
 
