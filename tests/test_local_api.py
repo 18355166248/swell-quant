@@ -8,6 +8,8 @@ from swell_quant.api.local_server import (
     load_data_quality_artifact,
     load_json_artifact,
     load_latest_predictions_artifact,
+    load_prediction_route,
+    load_predictions_artifact,
     load_settings_artifact,
     load_stock_features_artifact,
     load_stock_predictions_artifact,
@@ -153,6 +155,44 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert backtest["trade_count"] == 14
     assert backtest["equity_curve"][0]["date"] == "2024-01-08"
     assert "portfolio_value" in backtest["equity_curve"][0]
+
+
+def test_local_api_predictions_route_filters_historical_predictions(tmp_path: Path) -> None:
+    bars = generate_sample_bars(days=8)
+    features = compute_features(bars)
+    predictions_path = write_predictions_csv(
+        tmp_path / "historical_predictions.csv",
+        generate_historical_predictions(features),
+    )
+
+    latest = load_predictions_artifact(predictions_path, {})
+    top_one = load_predictions_artifact(predictions_path, {"top_n": ["1"]})
+    model_filtered = load_predictions_artifact(
+        predictions_path, {"model_version": ["baseline-rule-v1"], "date": ["2024-01-08"]}
+    )
+
+    assert latest["filters"]["date"] == "2024-01-09"
+    assert latest["count"] == 3
+    assert top_one["count"] == 1
+    assert top_one["predictions"][0]["rank"] == 1
+    assert model_filtered["count"] == 3
+
+
+def test_local_api_prediction_route_dispatches(tmp_path: Path) -> None:
+    processed_dir = tmp_path / "processed"
+    bars = generate_sample_bars(days=8)
+    features = compute_features(bars)
+    write_predictions_csv(
+        processed_dir / "historical_predictions.csv",
+        generate_historical_predictions(features),
+    )
+
+    status, payload = load_prediction_route("/api/predictions", {"top_n": ["2"]}, tmp_path)
+    ignored = load_prediction_route("/api/status", {}, tmp_path)
+
+    assert status.value == 200
+    assert payload["count"] == 2
+    assert ignored is None
 
 
 def test_local_api_backtest_route_dispatches(tmp_path: Path) -> None:

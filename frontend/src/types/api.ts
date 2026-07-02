@@ -109,6 +109,11 @@ export interface LatestPredictions {
   count: number;
   predictions: Prediction[];
   disclaimer: string;
+  filters?: {
+    date: string | null;
+    model_version: string | null;
+    top_n: number | null;
+  };
 }
 
 export interface BacktestPoint {

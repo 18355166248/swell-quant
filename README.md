@@ -45,6 +45,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/tasks`
 - `GET /api/tasks/pipeline-latest`
 - `GET /api/data-quality`
+- `GET /api/predictions`
 - `GET /api/predictions/latest`
 - `GET /api/backtest/latest`
 - `GET /api/backtests`

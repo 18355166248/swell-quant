@@ -864,6 +864,10 @@ function App() {
     queryKey: ["predictions", "latest"],
     queryFn: api.getLatestPredictions,
   });
+  const predictionsListQuery = useQuery({
+    queryKey: ["predictions", "list", 10],
+    queryFn: () => api.getPredictions(10),
+  });
   const backtestQuery = useQuery({
     queryKey: ["backtest", "latest"],
     queryFn: api.getLatestBacktest,
@@ -914,6 +918,10 @@ function App() {
   const status = statusQuery.data;
   const quality = qualityQuery.data;
   const predictions = useMemo(() => predictionsQuery.data?.predictions ?? [], [predictionsQuery.data]);
+  const predictionRows = useMemo(
+    () => predictionsListQuery.data?.predictions ?? predictions,
+    [predictions, predictionsListQuery.data],
+  );
   const stockSymbols = useMemo(() => {
     const symbols = [
       ...predictions.map((row) => row.symbol),
@@ -934,6 +942,7 @@ function App() {
     backtestsQuery.isLoading ||
     backtestDetailQuery.isLoading ||
     backtestQuery.isLoading ||
+    predictionsListQuery.isLoading ||
     reportQuery.isLoading ||
     settingsQuery.isLoading;
   const isStockLoading =
@@ -951,6 +960,7 @@ function App() {
     backtestsQuery.isError ||
     backtestDetailQuery.isError ||
     backtestQuery.isError ||
+    predictionsListQuery.isError ||
     reportQuery.isError ||
     settingsQuery.isError;
 
@@ -973,7 +983,7 @@ function App() {
         onRunPipeline={() => runPipelineMutation.mutate()}
       />
     ),
-    predictions: <PredictionsPage predictions={predictions} />,
+    predictions: <PredictionsPage predictions={predictionRows} />,
     backtests: (
       <BacktestsPage
         backtests={backtestsQuery.data?.backtests ?? []}

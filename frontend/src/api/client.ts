@@ -46,6 +46,7 @@ export const api = {
   getTaskDetail: (taskId: string) => requestJson<TaskDetail>(`/api/tasks/${taskId}`),
   getDataQuality: () => requestJson<DataQuality>("/api/data-quality"),
   getLatestPredictions: () => requestJson<LatestPredictions>("/api/predictions/latest"),
+  getPredictions: (topN = 10) => requestJson<LatestPredictions>(`/api/predictions?top_n=${topN}`),
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),
   getBacktests: () => requestJson<BacktestList>("/api/backtests"),
   getBacktest: (backtestId: string) => requestJson<LatestBacktest>(`/api/backtests/${backtestId}`),

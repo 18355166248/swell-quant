@@ -8,7 +8,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from swell_quant.core.config import Settings
 from swell_quant.data.quality import read_quality_report
@@ -26,7 +26,9 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
     openai_api_key_configured = False
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
-        route = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        route = parsed.path
+        query = parse_qs(parsed.query)
         if route == "/api/health":
             self._send_json({"status": "ok", "service": "swell-quant-local-api"})
             return
@@ -62,6 +64,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 self.data_dir / "processed" / "latest_predictions.csv",
                 load_latest_predictions_artifact,
             )
+            return
+        prediction_response = load_prediction_route(route, query, self.data_dir)
+        if prediction_response is not None:
+            status, payload = prediction_response
+            self._send_json(payload, status=status)
             return
         if route == "/api/backtest/latest":
             self._send_loader_json(
@@ -350,8 +357,54 @@ def load_data_quality_artifact(path: Path) -> dict[str, Any]:
 def load_latest_predictions_artifact(path: Path) -> dict[str, Any]:
     predictions = read_predictions_csv(path)
     ordered = sorted(predictions, key=lambda row: row.rank)
+    return predictions_payload(ordered)
+
+
+def load_prediction_route(
+    route: str,
+    query: dict[str, list[str]],
+    data_dir: Path,
+) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route != "/api/predictions":
+        return None
+    path = data_dir / "processed" / "historical_predictions.csv"
+    if not path.exists():
+        return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+    return HTTPStatus.OK, load_predictions_artifact(path, query)
+
+
+def load_predictions_artifact(path: Path, query: dict[str, list[str]]) -> dict[str, Any]:
+    rows = read_predictions_csv(path)
+    selected_date = _first_query_value(query, "date")
+    selected_model = _first_query_value(query, "model_version")
+    top_n_value = _first_query_value(query, "top_n")
+
+    if selected_date is None and rows:
+        selected_date = max(row.trade_date for row in rows).isoformat()
+
+    filtered = rows
+    if selected_date is not None:
+        filtered = [row for row in filtered if row.trade_date.isoformat() == selected_date]
+    if selected_model is not None:
+        filtered = [row for row in filtered if row.model_version == selected_model]
+
+    ordered = sorted(filtered, key=lambda row: (row.rank, row.symbol))
+    if top_n_value is not None:
+        top_n = max(0, int(top_n_value))
+        ordered = ordered[:top_n]
+
+    payload = predictions_payload(ordered)
+    payload["filters"] = {
+        "date": selected_date,
+        "model_version": selected_model,
+        "top_n": None if top_n_value is None else int(top_n_value),
+    }
+    return payload
+
+
+def predictions_payload(predictions: list[Any]) -> dict[str, Any]:
     return {
-        "count": len(ordered),
+        "count": len(predictions),
         "predictions": [
             {
                 "rank": row.rank,
@@ -363,10 +416,18 @@ def load_latest_predictions_artifact(path: Path) -> dict[str, Any]:
                 "momentum_5d": row.momentum_5d,
                 "volume_change_1d": row.volume_change_1d,
             }
-            for row in ordered
+            for row in predictions
         ],
         "disclaimer": "仅用于研究，不构成投资建议",
     }
+
+
+def _first_query_value(query: dict[str, list[str]], key: str) -> str | None:
+    values = query.get(key)
+    if not values:
+        return None
+    value = values[0].strip()
+    return value or None
 
 
 def load_backtest_artifact(path: Path) -> dict[str, Any]:
