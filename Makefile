@@ -1,4 +1,4 @@
-.PHONY: pipeline storage acceptance smoke test frontend-build ci-local
+.PHONY: pipeline storage acceptance smoke lint frontend-build ci-local
 
 PYTHON ?= python3
 NPM ?= npm
@@ -18,7 +18,10 @@ smoke:
 test:
 	$(PYTHON) -m pytest
 
+lint:
+	$(PYTHON) -m ruff check .
+
 frontend-build:
 	cd frontend && $(NPM) run build
 
-ci-local: test smoke frontend-build
+ci-local: lint test smoke frontend-build
