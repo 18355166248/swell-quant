@@ -90,6 +90,21 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert acceptance["status"] == "passed"
     assert acceptance["failed_count"] == 0
 
+    smoke_result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "smoke_test.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    smoke = json.loads(smoke_result.stdout)
+    assert smoke_result.returncode == 0
+    assert smoke["status"] == "passed"
+    assert smoke["pipeline"]["failed"] is False
+    assert smoke["storage"]["status"] == "healthy"
+    assert smoke["acceptance"]["status"] == "passed"
+
 
 def test_check_storage_returns_nonzero_for_missing_duckdb(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
