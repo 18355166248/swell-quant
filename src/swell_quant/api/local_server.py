@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from swell_quant.data.quality import read_quality_report
+from swell_quant.research.backtest import read_backtest_result
+from swell_quant.research.modeling import read_predictions_csv
+
 
 class ResearchApiHandler(BaseHTTPRequestHandler):
     data_dir = Path("./data")
@@ -21,6 +25,24 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             return
         if route == "/api/pipeline":
             self._send_artifact_json(self.data_dir / "reports" / "pipeline_run.json")
+            return
+        if route == "/api/data-quality":
+            self._send_loader_json(
+                self.data_dir / "processed" / "data_quality.json",
+                load_data_quality_artifact,
+            )
+            return
+        if route == "/api/predictions/latest":
+            self._send_loader_json(
+                self.data_dir / "processed" / "latest_predictions.csv",
+                load_latest_predictions_artifact,
+            )
+            return
+        if route == "/api/backtest/latest":
+            self._send_loader_json(
+                self.data_dir / "reports" / "sample_backtest.json",
+                load_backtest_artifact,
+            )
             return
         if route == "/api/report":
             self._send_artifact_text(
@@ -39,6 +61,12 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             self._send_json(missing_artifact_payload(path), status=HTTPStatus.NOT_FOUND)
             return
         self._send_json(load_json_artifact(path))
+
+    def _send_loader_json(self, path: Path, loader: Any) -> None:
+        if not path.exists():
+            self._send_json(missing_artifact_payload(path), status=HTTPStatus.NOT_FOUND)
+            return
+        self._send_json(loader(path))
 
     def _send_artifact_text(self, path: Path, content_type: str) -> None:
         if not path.exists():
@@ -76,6 +104,67 @@ def load_json_artifact(path: Path) -> dict[str, Any]:
 
 def load_text_artifact(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def load_data_quality_artifact(path: Path) -> dict[str, Any]:
+    report = read_quality_report(path)
+    return {
+        "passed": report.passed,
+        "row_count": report.row_count,
+        "symbol_count": report.symbol_count,
+        "start_date": report.start_date,
+        "end_date": report.end_date,
+        "issue_count": report.issue_count,
+        "issues": [
+            {
+                "code": issue.code,
+                "severity": issue.severity,
+                "message": issue.message,
+                "symbol": issue.symbol,
+                "date": issue.date,
+            }
+            for issue in report.issues
+        ],
+    }
+
+
+def load_latest_predictions_artifact(path: Path) -> dict[str, Any]:
+    predictions = read_predictions_csv(path)
+    ordered = sorted(predictions, key=lambda row: row.rank)
+    return {
+        "count": len(ordered),
+        "predictions": [
+            {
+                "rank": row.rank,
+                "symbol": row.symbol,
+                "date": row.trade_date.isoformat(),
+                "model_version": row.model_version,
+                "score": row.score,
+                "return_1d": row.return_1d,
+                "momentum_5d": row.momentum_5d,
+                "volume_change_1d": row.volume_change_1d,
+            }
+            for row in ordered
+        ],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_backtest_artifact(path: Path) -> dict[str, Any]:
+    result = read_backtest_result(path)
+    return {
+        "backtest_id": result.backtest_id,
+        "model_version": result.model_version,
+        "top_n": result.top_n,
+        "trade_count": result.trade_count,
+        "start_date": result.start_date,
+        "end_date": result.end_date,
+        "cumulative_return": result.cumulative_return,
+        "benchmark_return": result.benchmark_return,
+        "excess_return": result.excess_return,
+        "equity_curve": result.equity_curve,
+        "disclaimer": result.disclaimer,
+    }
 
 
 def missing_artifact_payload(path: Path) -> dict[str, str]:

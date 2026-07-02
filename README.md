@@ -41,6 +41,9 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/health`
 - `GET /api/status`
 - `GET /api/pipeline`
+- `GET /api/data-quality`
+- `GET /api/predictions/latest`
+- `GET /api/backtest/latest`
 - `GET /api/report`
 
 `scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
