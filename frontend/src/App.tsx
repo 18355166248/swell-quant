@@ -55,6 +55,7 @@ import {
   statusColor,
   storageStatusColor,
 } from "./utils/display";
+import { buildPredictionColumns } from "./utils/tableColumns";
 import type {
   AcceptanceStatus,
   ArtifactStatus,
@@ -105,39 +106,6 @@ interface PredictionFilters {
   date: string;
   modelVersion: string;
   topN: number;
-}
-
-function predictionColumns() {
-  return [
-    { title: "排名", dataIndex: "rank", width: 76, sorter: (a: Prediction, b: Prediction) => a.rank - b.rank },
-    { title: "代码", dataIndex: "symbol", width: 120 },
-    { title: "日期", dataIndex: "date", width: 120 },
-    {
-      title: "预测分数",
-      dataIndex: "score",
-      align: "right" as const,
-      sorter: (a: Prediction, b: Prediction) => a.score - b.score,
-      render: (value: number) => value.toFixed(4),
-    },
-    {
-      title: "1 日收益",
-      dataIndex: "return_1d",
-      align: "right" as const,
-      render: formatNumber,
-    },
-    {
-      title: "5 日动量",
-      dataIndex: "momentum_5d",
-      align: "right" as const,
-      render: formatNumber,
-    },
-    {
-      title: "成交量变化",
-      dataIndex: "volume_change_1d",
-      align: "right" as const,
-      render: formatNumber,
-    },
-  ];
 }
 
 function PageTitle({
@@ -272,7 +240,7 @@ function DashboardPage({
                 size="middle"
                 pagination={false}
                 dataSource={predictions}
-                columns={predictionColumns()}
+                columns={buildPredictionColumns()}
               />
             ) : (
               <Empty description="暂无预测结果" />
@@ -1212,7 +1180,7 @@ function PredictionsPage({
               rowKey={(row) => `${row.date}-${row.symbol}-${row.rank}`}
               size="middle"
               dataSource={predictions}
-              columns={predictionColumns()}
+              columns={buildPredictionColumns()}
               pagination={{ pageSize: 10, hideOnSinglePage: true }}
             />
           </Card>
