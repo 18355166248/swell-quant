@@ -33,6 +33,8 @@ python3 scripts/smoke_test.py
 python3 -m pytest
 ```
 
+GitHub Actions 会在 `main` push 和 pull request 上运行后端测试、端到端 smoke 验收和前端构建。
+
 本地 API 可用于无页面验收：
 
 ```bash
