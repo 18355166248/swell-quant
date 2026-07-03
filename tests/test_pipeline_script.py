@@ -459,6 +459,21 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
     assert artifact["status"] == "dry_run"
     assert artifact["steps"][0]["name"] == "config"
 
+    check_result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_akshare_trial.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    trial_status = json.loads(check_result.stdout)
+    assert check_result.returncode == 0
+    assert trial_status["status"] == "dry_run"
+    assert trial_status["passed"] is True
+    assert trial_status["step_count"] == 6
+    assert trial_status["failed_step"] is None
+
 
 def test_run_akshare_trial_rejects_invalid_symbol_cap(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
@@ -484,3 +499,23 @@ def test_run_akshare_trial_rejects_invalid_symbol_cap(tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "--max-symbols must be greater than 0" in result.stderr
+
+
+def test_check_akshare_trial_returns_nonzero_before_trial_runs(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_akshare_trial.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "akshare_trial_status=missing" in result.stdout

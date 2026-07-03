@@ -33,6 +33,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | `make config` | 校验本地数据源、股票池、AKShare 日期区间、DuckDB 路径和 LLM 配置风险。 |
 | `make akshare-universe` | 校验 AKShare 股票池解析；目标股票池模式下要求解析数量达到最低门槛。 |
 | `make akshare-trial` | 使用 csi800 股票池和 20 只标的上限串联真实 AKShare 小规模试跑、数据源门禁、总验收和进度检查，并写入 `data/reports/akshare_trial_run.json`。 |
+| `make akshare-trial-status` | 只读检查最近一次真实 AKShare 试跑摘要，缺少或失败时返回非零。 |
 | `make data-source` | 校验 `data/raw/data_source.json`，区分通过、warning 和阻断失败。 |
 | `make progress` | 汇总阶段 0 到阶段 6 的完成度、当前阶段和每阶段证据计数。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
