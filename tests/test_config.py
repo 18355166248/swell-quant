@@ -15,6 +15,7 @@ def test_env_example_documents_all_supported_environment_variables() -> None:
         "AKSHARE_START_DATE",
         "AKSHARE_END_DATE",
         "AKSHARE_BENCHMARK_SYMBOL",
+        "AKSHARE_MAX_SYMBOLS",
         "MODEL_TYPE",
         "LLM_PROVIDER",
         "DEEPSEEK_MODEL",
@@ -38,6 +39,7 @@ def test_settings_loads_akshare_data_source(monkeypatch) -> None:
     monkeypatch.setenv("AKSHARE_START_DATE", "20240102")
     monkeypatch.setenv("AKSHARE_END_DATE", "20240201")
     monkeypatch.setenv("AKSHARE_BENCHMARK_SYMBOL", "sh000906")
+    monkeypatch.setenv("AKSHARE_MAX_SYMBOLS", "20")
     monkeypatch.setenv("LLM_PROVIDER", "deepseek")
     monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
 
@@ -49,6 +51,7 @@ def test_settings_loads_akshare_data_source(monkeypatch) -> None:
     assert settings.akshare_start_date == "20240102"
     assert settings.akshare_end_date == "20240201"
     assert settings.akshare_benchmark_symbol == "sh000906"
+    assert settings.akshare_max_symbols == 20
     assert settings.llm_provider == "deepseek"
     assert settings.deepseek_model == "deepseek-chat"
 
@@ -81,6 +84,27 @@ def test_settings_preflight_accepts_runtime_resolved_csi800_symbols() -> None:
         check["key"] == "akshare_symbols"
         and check["status"] == "passed"
         and "运行时" in check["message"]
+        for check in preflight["checks"]
+    )
+
+
+def test_settings_preflight_warns_for_akshare_max_symbols() -> None:
+    settings = Settings(
+        data_dir=Path("./data"),
+        duckdb_path=Path("./data/duckdb/swell_quant.duckdb"),
+        data_source="akshare",
+        akshare_universe_mode="csi800",
+        akshare_symbols=(),
+        akshare_max_symbols=20,
+    )
+
+    preflight = build_settings_preflight(settings)
+
+    assert preflight["status"] == "warning"
+    assert any(
+        check["key"] == "akshare_max_symbols"
+        and check["status"] == "warning"
+        and "20" in check["message"]
         for check in preflight["checks"]
     )
 
@@ -133,3 +157,10 @@ def test_settings_rejects_invalid_akshare_date_range() -> None:
             akshare_start_date="20240301",
             akshare_end_date="20240201",
         )
+
+
+def test_settings_rejects_invalid_akshare_max_symbols(monkeypatch) -> None:
+    monkeypatch.setenv("AKSHARE_MAX_SYMBOLS", "0")
+
+    with pytest.raises(ValueError, match="AKSHARE_MAX_SYMBOLS"):
+        Settings.from_env()

@@ -122,6 +122,8 @@ def build_price_data_metadata(
     benchmark_fallback: str = "CSI300",
     adjustment: str = "forward_adjusted_daily",
     update_mode: str = "manual_trigger",
+    resolved_symbol_count: int | None = None,
+    max_symbols: int | None = None,
 ) -> dict[str, Any]:
     is_same_source_benchmark = data_source == "sample"
     resolved_universe_mode = universe_mode or ("sample" if data_source == "sample" else "manual")
@@ -143,6 +145,9 @@ def build_price_data_metadata(
         "universe_mode": resolved_universe_mode,
         "universe_name": universe_name,
         "symbols": list(symbols),
+        "selected_symbol_count": len(symbols),
+        "resolved_symbol_count": resolved_symbol_count or len(symbols),
+        "max_symbols": max_symbols,
         "target_universe": "沪深 300 + 中证 500",
         "target_universe_size": 800,
         "benchmark": benchmark,

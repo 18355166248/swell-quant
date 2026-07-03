@@ -27,6 +27,7 @@ class Settings:
     akshare_start_date: str = "20240101"
     akshare_end_date: str = "20240229"
     akshare_benchmark_symbol: str = "sh000906"
+    akshare_max_symbols: int | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "data_source", self.data_source.strip().lower())
@@ -67,6 +68,9 @@ class Settings:
             akshare_start_date=os.getenv("AKSHARE_START_DATE", "20240101"),
             akshare_end_date=os.getenv("AKSHARE_END_DATE", "20240229"),
             akshare_benchmark_symbol=os.getenv("AKSHARE_BENCHMARK_SYMBOL", "sh000906"),
+            akshare_max_symbols=_parse_optional_positive_int(
+                os.getenv("AKSHARE_MAX_SYMBOLS"), "AKSHARE_MAX_SYMBOLS"
+            ),
         )
 
     def ensure_directories(self) -> None:
@@ -149,6 +153,15 @@ def build_settings_preflight(settings: Settings) -> dict[str, object]:
                 "message": "当前手工股票池小于 10 只，只适合连通性验证，不适合评估策略稳定性",
             }
         )
+    if settings.data_source == "akshare" and settings.akshare_max_symbols is not None:
+        checks.append(
+            {
+                "key": "akshare_max_symbols",
+                "name": "AKShare 试跑上限",
+                "status": "warning",
+                "message": f"当前最多采集 {settings.akshare_max_symbols} 只标的，只适合真实数据连通性试跑",
+            }
+        )
     if settings.llm_provider == "deepseek" and settings.deepseek_api_key is None:
         checks.append(
             {
@@ -187,3 +200,15 @@ def _parse_akshare_date(value: str, name: str) -> datetime:
         return datetime.strptime(value, "%Y%m%d")
     except ValueError as error:
         raise ValueError(f"{name} must use YYYYMMDD format") from error
+
+
+def _parse_optional_positive_int(value: str | None, name: str) -> int | None:
+    if value is None or value.strip() == "":
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a positive integer") from error
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed

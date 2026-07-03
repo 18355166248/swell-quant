@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.run_pipeline import limit_akshare_symbols
 from swell_quant.core.config import Settings
 from swell_quant.data.universe_check import build_akshare_universe_payload
 
@@ -24,6 +25,13 @@ class SmallFakeUniverseProvider:
             "000905": [{"品种代码": "000001", "交易所": "SZ"}],
         }
         return FakeUniverseFrame(rows_by_symbol[symbol])
+
+
+def test_limit_akshare_symbols_only_applies_explicit_trial_cap() -> None:
+    symbols = ("000001.SZ", "000002.SZ", "600000.SH")
+
+    assert limit_akshare_symbols(symbols, None) == symbols
+    assert limit_akshare_symbols(symbols, 2) == ("000001.SZ", "000002.SZ")
 
 
 def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:

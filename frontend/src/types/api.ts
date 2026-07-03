@@ -318,6 +318,9 @@ export interface DataStatus {
   universe_mode: string;
   universe_name: string;
   symbols: string[];
+  selected_symbol_count: number;
+  resolved_symbol_count: number;
+  max_symbols: number | null;
   target_universe: string;
   target_universe_size: number;
   benchmark: string;
@@ -611,6 +614,7 @@ export interface LocalSettings {
     start_date: string;
     end_date: string;
     benchmark_symbol: string;
+    max_symbols: number | null;
   };
   llm: {
     provider: string;

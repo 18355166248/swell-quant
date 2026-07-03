@@ -183,6 +183,7 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
         data_source="akshare",
         akshare_universe_mode="manual",
         akshare_symbols=("000001.SZ", "600000.SH"),
+        akshare_max_symbols=1,
     )
     settings.ensure_directories()
     (settings.data_dir / "reports" / "research_status.json").write_text("{}", encoding="utf-8")
@@ -197,12 +198,14 @@ def test_local_api_settings_artifact_hides_secret_values(tmp_path: Path) -> None
     assert payload["runtime"]["llm_provider"] == "deepseek"
     assert payload["akshare"]["universe_mode"] == "manual"
     assert payload["akshare"]["symbols"] == ["000001.SZ", "600000.SH"]
+    assert payload["akshare"]["max_symbols"] == 1
     assert payload["llm"]["deepseek_model"] == "deepseek-chat"
     assert payload["preflight"]["status"] == "warning"
     assert payload["preflight"]["failed_count"] == 0
-    assert payload["preflight"]["warning_count"] == 1
+    assert payload["preflight"]["warning_count"] == 2
     assert any(check["key"] == "akshare_symbols" for check in payload["preflight"]["checks"])
     assert any(check["key"] == "akshare_symbol_count" for check in payload["preflight"]["checks"])
+    assert any(check["key"] == "akshare_max_symbols" for check in payload["preflight"]["checks"])
     assert payload["api_keys"]["deepseek_configured"] is True
     assert payload["api_keys"]["openai_configured"] is False
     assert "deepseek-secret" not in serialized
@@ -366,6 +369,9 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert data_status["data_source"] == "akshare"
     assert data_status["universe_mode"] == "manual"
     assert data_status["symbols"] == ["000001.SZ", "600000.SH"]
+    assert data_status["selected_symbol_count"] == 2
+    assert data_status["resolved_symbol_count"] == 2
+    assert data_status["max_symbols"] is None
     assert data_status["target_universe"] == "沪深 300 + 中证 500"
     assert data_status["target_universe_size"] == 800
     assert data_status["benchmark"] == "sh000906"

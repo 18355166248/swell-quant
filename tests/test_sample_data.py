@@ -40,6 +40,9 @@ def test_price_data_metadata_round_trip(tmp_path: Path) -> None:
 
     assert loaded["data_source"] == "akshare"
     assert loaded["symbols"] == ["000001.SZ", "600000.SH"]
+    assert loaded["selected_symbol_count"] == 2
+    assert loaded["resolved_symbol_count"] == 2
+    assert loaded["max_symbols"] is None
     assert loaded["benchmark"] == "sh000906"
     assert loaded["universe"] == "akshare_manual"
     assert loaded["universe_mode"] == "manual"
@@ -56,9 +59,14 @@ def test_price_data_metadata_marks_csi800_universe_as_same_source_benchmark() ->
         end_date="20240229",
         benchmark="sh000906",
         universe_mode="csi800",
+        resolved_symbol_count=800,
+        max_symbols=2,
     )
 
     assert metadata["universe"] == "akshare_csi800"
     assert metadata["universe_name"] == "AKShare 沪深 300 + 中证 500 股票池"
+    assert metadata["selected_symbol_count"] == 2
+    assert metadata["resolved_symbol_count"] == 800
+    assert metadata["max_symbols"] == 2
     assert metadata["benchmark_same_source"] is True
     assert "同源" in metadata["benchmark_note"]

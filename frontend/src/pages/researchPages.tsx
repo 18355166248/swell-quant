@@ -1665,6 +1665,9 @@ export function SettingsPage({
               <Descriptions.Item label="AKShare 基准">
                 {settings?.akshare.benchmark_symbol ?? "-"}
               </Descriptions.Item>
+              <Descriptions.Item label="AKShare 试跑上限">
+                {settings?.akshare.max_symbols ?? "未限制"}
+              </Descriptions.Item>
               <Descriptions.Item label="DeepSeek 模型">
                 {settings?.llm.deepseek_model ?? "-"}
               </Descriptions.Item>

@@ -150,6 +150,7 @@ describe("research pages module", () => {
         start_date: "2024-01-01",
         end_date: "2024-01-31",
         benchmark_symbol: "000300.SH",
+        max_symbols: 20,
       },
       llm: {
         provider: "deepseek",
@@ -197,6 +198,8 @@ describe("research pages module", () => {
     expect(html).toContain("已配置");
     expect(html).toContain("股票池解析门禁");
     expect(html).toContain("000300.SH");
+    expect(html).toContain("AKShare 试跑上限");
+    expect(html).toContain("20");
     expect(html).not.toContain("sk-secret-should-not-render");
   });
 });

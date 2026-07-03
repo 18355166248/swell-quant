@@ -90,10 +90,11 @@ def run_data_update(settings: Settings) -> str:
         )
         source_message = "source=sample"
     elif data_source == "akshare":
-        symbols = resolve_akshare_symbols(
+        resolved_symbols = resolve_akshare_symbols(
             universe_mode=settings.akshare_universe_mode,
             manual_symbols=settings.akshare_symbols,
         )
+        symbols = limit_akshare_symbols(resolved_symbols, settings.akshare_max_symbols)
         write_akshare_prices_csv(
             sample_path,
             symbols=symbols,
@@ -110,12 +111,15 @@ def run_data_update(settings: Settings) -> str:
                 end_date=settings.akshare_end_date,
                 benchmark=settings.akshare_benchmark_symbol,
                 universe_mode=settings.akshare_universe_mode,
+                resolved_symbol_count=len(resolved_symbols),
+                max_symbols=settings.akshare_max_symbols,
             ),
         )
         source_message = (
             "source=akshare, "
             f"universe_mode={settings.akshare_universe_mode}, "
             f"symbols={len(symbols)}, "
+            f"resolved_symbols={len(resolved_symbols)}, "
             f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
             f"benchmark={settings.akshare_benchmark_symbol}"
         )
@@ -127,6 +131,16 @@ def run_data_update(settings: Settings) -> str:
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
     # 数据更新统一落到同一 CSV 契约，后续因子、标签、训练和回测不感知样例数据或 AKShare 来源差异。
     return f"wrote prices to {sample_path} ({source_message}; {backup_message})"
+
+
+def limit_akshare_symbols(
+    symbols: tuple[str, ...],
+    max_symbols: int | None,
+) -> tuple[str, ...]:
+    if max_symbols is None:
+        return symbols
+    # 真实 AKShare 首次试跑可能触发数百只股票采集；这里仅在用户显式配置上限时截断，避免默认口径被悄悄缩小。
+    return symbols[:max_symbols]
 
 
 def run_feature_pipeline(settings: Settings) -> str:
