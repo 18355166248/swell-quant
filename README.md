@@ -90,6 +90,15 @@ python3 scripts/check_akshare_universe.py
 make akshare-trial
 ```
 
+如果本机访问东方财富 K 线接口需要代理，可设置 `AKSHARE_HTTP_PROXY`，例如 Windows PowerShell：
+
+```powershell
+$env:AKSHARE_HTTP_PROXY='http://127.0.0.1:7897'
+python scripts\run_akshare_trial.py
+```
+
+该代理只用于 AKShare 个股日线请求失败后的东方财富 fallback；股票池、基准、因子、标签、训练和回测口径不变。
+
 该命令等价于用 `DATA_SOURCE=akshare`、`AKSHARE_UNIVERSE_MODE=csi800`、`AKSHARE_MAX_SYMBOLS=20`、`AKSHARE_START_DATE=20240102`、`AKSHARE_END_DATE=20240131` 依次执行配置预检、股票池解析、pipeline、数据源门禁、总验收和进度检查，并把试跑摘要写入 `data/reports/akshare_trial_run.json`。需要先确认计划命令时可运行 `make akshare-trial-dry-run`；需要检查最近一次试跑摘要时可运行 `make akshare-trial-status`；需要调整范围时可使用 `--max-symbols`、`--start-date` 和 `--end-date`。
 
 真实 AKShare 采集会按标的记录成功和失败摘要；单只股票临时失败时，pipeline 会继续处理已成功获取的标的，并把 `succeeded_symbol_count`、`failed_symbol_count` 和 `failed_symbols` 写入 `data/raw/data_source.json`。
