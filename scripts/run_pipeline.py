@@ -310,6 +310,9 @@ def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
     backtest = read_backtest_result(settings.data_dir / "reports" / "sample_backtest.json")
     manifest = read_json(manifest_path)
     storage_status = inspect_duckdb_mirror(settings.duckdb_path, settings.data_dir)
+    data_source_metadata = read_price_data_metadata(
+        settings.data_dir / "raw" / DATA_SOURCE_METADATA_FILENAME
+    )
     status = build_research_status(
         quality,
         metadata,
@@ -319,6 +322,7 @@ def write_status_snapshot(settings: Settings, manifest_path: Path) -> Path:
         storage_status,
         default_artifact_paths(settings.data_dir),
         training_samples,
+        data_source_metadata,
     )
     return write_research_status(settings.data_dir / "reports" / "research_status.json", status)
 

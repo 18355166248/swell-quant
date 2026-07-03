@@ -61,6 +61,33 @@ export interface AcceptanceStatus {
   disclaimer?: string;
 }
 
+export interface DataSourceStatus {
+  status: "passed" | "warning" | "failed" | "missing";
+  passed: boolean;
+  path: string | null;
+  data_source?: string;
+  market?: string;
+  universe_mode?: string;
+  universe_name?: string;
+  benchmark?: string;
+  benchmark_name?: string;
+  selected_symbol_count: number;
+  resolved_symbol_count?: number;
+  succeeded_symbol_count: number;
+  failed_symbol_count: number;
+  max_symbols?: number | null;
+  failed_symbols: Array<{
+    symbol: string;
+    reason: string;
+  }>;
+  warning_count: number;
+  warnings: string[];
+  failed_count: number;
+  failures: string[];
+  updated_at?: string | null;
+  disclaimer: string;
+}
+
 export interface ArtifactStatus {
   status: "complete" | "missing";
   missing: string[];
@@ -123,6 +150,7 @@ export interface ResearchStatus {
     end_date: string;
     issue_count: number;
   };
+  data_source: DataSourceStatus | null;
   model: {
     model_version: string;
     model_type: string;

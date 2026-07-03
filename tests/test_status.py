@@ -31,6 +31,22 @@ def write_complete_artifacts(tmp_path: Path) -> dict[str, Path]:
     return artifact_paths
 
 
+def sample_data_source_metadata() -> dict:
+    return {
+        "data_source": "sample",
+        "market": "A_SHARE_DAILY",
+        "universe_mode": "sample",
+        "universe_name": "本地样例 A 股股票池",
+        "benchmark": "CSI800",
+        "benchmark_name": "中证 800",
+        "selected_symbol_count": 3,
+        "resolved_symbol_count": 3,
+        "succeeded_symbol_count": 3,
+        "failed_symbol_count": 0,
+        "failed_symbols": [],
+    }
+
+
 def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     bars = generate_sample_bars(days=20)
     features = compute_features(bars)
@@ -59,6 +75,7 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
         storage_status,
         artifact_paths,
         training_samples,
+        sample_data_source_metadata(),
     )
 
     assert status["disclaimer"] == "仅用于研究，不构成投资建议"
@@ -69,6 +86,8 @@ def test_build_research_status_aggregates_outputs(tmp_path: Path) -> None:
     assert status["artifact_status"]["artifacts"][0]["updated_at"] is not None
     assert status["pipeline"]["status"] == "success"
     assert status["data_quality"]["passed"] is True
+    assert status["data_source"]["status"] == "passed"
+    assert status["acceptance"]["checks"][2]["key"] == "data_source_available"
     assert status["model"]["model_version"] == "baseline-rule-v1"
     assert status["model"]["requested_model_type"] == "lightgbm"
     assert status["model"]["training_backend"] == "rule_baseline_fallback"
@@ -120,11 +139,12 @@ def test_build_research_status_fails_acceptance_when_storage_is_stale(tmp_path: 
         {"status": "inconsistent"},
         write_complete_artifacts(tmp_path),
         training_samples,
+        sample_data_source_metadata(),
     )
 
     assert status["acceptance"]["status"] == "failed"
     assert status["acceptance"]["failed_count"] == 1
-    assert status["acceptance"]["checks"][2]["key"] == "duckdb_mirror_healthy"
+    assert status["acceptance"]["checks"][3]["key"] == "duckdb_mirror_healthy"
 
 
 def test_build_research_status_fails_acceptance_when_training_samples_are_empty(
@@ -154,11 +174,12 @@ def test_build_research_status_fails_acceptance_when_training_samples_are_empty(
         {"status": "healthy"},
         write_complete_artifacts(tmp_path),
         [],
+        sample_data_source_metadata(),
     )
 
     assert status["acceptance"]["status"] == "failed"
     assert status["training_samples"]["status"] == "incomplete"
-    assert status["acceptance"]["checks"][3]["key"] == "training_samples_ready"
+    assert status["acceptance"]["checks"][4]["key"] == "training_samples_ready"
 
 
 def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_path: Path) -> None:
@@ -192,6 +213,7 @@ def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_pat
             "summary": tmp_path / "missing.md",
         },
         training_samples,
+        sample_data_source_metadata(),
     )
 
     assert status["acceptance"]["status"] == "failed"
@@ -200,3 +222,85 @@ def test_build_research_status_fails_acceptance_when_artifact_is_missing(tmp_pat
     assert status["artifact_status"]["artifacts"][1]["size_bytes"] is None
     assert status["artifact_status"]["artifacts"][1]["updated_at"] is None
     assert status["acceptance"]["checks"][-1]["key"] == "artifacts_complete"
+
+
+def test_build_research_status_fails_acceptance_when_data_source_is_missing(
+    tmp_path: Path,
+) -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+    quality = validate_price_bars(bars)
+    metadata = train_baseline_model(features, labels)
+    training_samples = build_training_samples(features, labels)
+    predictions = generate_predictions(features)
+    backtest = run_top_n_backtest(bars, generate_historical_predictions(features), top_n=2)
+    manifest = {
+        "status": "success",
+        "started_at": "2024-01-01T00:00:00Z",
+        "ended_at": "2024-01-01T00:00:01Z",
+        "duration_seconds": 1.0,
+        "step_count": 9,
+    }
+
+    status = build_research_status(
+        quality,
+        metadata,
+        predictions,
+        backtest,
+        manifest,
+        {"status": "healthy"},
+        write_complete_artifacts(tmp_path),
+        training_samples,
+    )
+
+    assert status["data_source"] is None
+    assert status["acceptance"]["status"] == "failed"
+    assert status["acceptance"]["checks"][2]["key"] == "data_source_available"
+    assert status["acceptance"]["checks"][2]["message"] == "status=missing"
+
+
+def test_build_research_status_keeps_warning_data_source_non_blocking(
+    tmp_path: Path,
+) -> None:
+    bars = generate_sample_bars(days=20)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+    quality = validate_price_bars(bars)
+    metadata = train_baseline_model(features, labels)
+    training_samples = build_training_samples(features, labels)
+    predictions = generate_predictions(features)
+    backtest = run_top_n_backtest(bars, generate_historical_predictions(features), top_n=2)
+    manifest = {
+        "status": "success",
+        "started_at": "2024-01-01T00:00:00Z",
+        "ended_at": "2024-01-01T00:00:01Z",
+        "duration_seconds": 1.0,
+        "step_count": 9,
+    }
+    data_source_metadata = {
+        **sample_data_source_metadata(),
+        "data_source": "akshare",
+        "selected_symbol_count": 20,
+        "resolved_symbol_count": 800,
+        "succeeded_symbol_count": 19,
+        "failed_symbol_count": 1,
+        "max_symbols": 20,
+        "failed_symbols": [{"symbol": "600000.SH", "reason": "timeout"}],
+    }
+
+    status = build_research_status(
+        quality,
+        metadata,
+        predictions,
+        backtest,
+        manifest,
+        {"status": "healthy"},
+        write_complete_artifacts(tmp_path),
+        training_samples,
+        data_source_metadata,
+    )
+
+    assert status["data_source"]["status"] == "warning"
+    assert status["acceptance"]["status"] == "passed"
+    assert status["acceptance"]["checks"][2]["status"] == "passed"

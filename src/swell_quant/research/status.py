@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from swell_quant.data.quality import DataQualityReport
+from swell_quant.data.source_status import build_data_source_status_from_metadata
 from swell_quant.research.backtest import BacktestResult
 from swell_quant.research.modeling import (
     LATEST_MODEL_METADATA_FILENAME,
@@ -24,11 +25,17 @@ def build_research_status(
     storage_status: dict[str, Any] | None = None,
     artifact_paths: dict[str, Path] | None = None,
     training_samples: list[TrainingSampleRow] | None = None,
+    data_source_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     top_predictions = sorted(predictions, key=lambda row: row.rank)
     resolved_artifact_paths = artifact_paths or default_artifact_paths(Path("data"))
     artifact_status = build_artifact_status(resolved_artifact_paths)
     training_sample_status = build_training_sample_status(training_samples, metadata.feature_names)
+    data_source_status = (
+        build_data_source_status_from_metadata(data_source_metadata)
+        if data_source_metadata is not None
+        else None
+    )
     gates = build_acceptance_gates(
         quality=quality,
         predictions=top_predictions,
@@ -37,6 +44,7 @@ def build_research_status(
         storage_status=storage_status,
         artifact_status=artifact_status,
         training_sample_status=training_sample_status,
+        data_source_status=data_source_status,
     )
 
     # 状态快照面向 CLI/API/页面复用，只聚合结构化产物，不重新计算研究结果。
@@ -58,6 +66,7 @@ def build_research_status(
             "end_date": quality.end_date,
             "issue_count": quality.issue_count,
         },
+        "data_source": data_source_status,
         "model": {
             "model_version": metadata.model_version,
             "model_type": metadata.model_type,
@@ -212,6 +221,7 @@ def build_acceptance_gates(
     storage_status: dict[str, Any] | None,
     artifact_status: dict[str, Any] | None,
     training_sample_status: dict[str, Any] | None,
+    data_source_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     split_counts = training_sample_status.get("split_counts", {}) if training_sample_status else {}
     checks = [
@@ -226,6 +236,19 @@ def build_acceptance_gates(
             "数据质量通过",
             quality.passed,
             f"issues={quality.issue_count}, rows={quality.row_count}",
+        ),
+        _gate_check(
+            "data_source_available",
+            "数据源采集可用",
+            data_source_status is not None and data_source_status.get("passed") is True,
+            "status=missing"
+            if data_source_status is None
+            else (
+                f"status={data_source_status.get('status')}, "
+                f"selected={data_source_status.get('selected_symbol_count')}, "
+                f"succeeded={data_source_status.get('succeeded_symbol_count')}, "
+                f"failed={data_source_status.get('failed_symbol_count')}"
+            ),
         ),
         _gate_check(
             "duckdb_mirror_healthy",
