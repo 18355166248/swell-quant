@@ -4,6 +4,7 @@ import pytest
 
 from swell_quant.data.akshare_data import (
     AkshareDependencyError,
+    _fetch_eastmoney_price_rows,
     collect_akshare_price_bars,
     fetch_akshare_price_bars,
     resolve_akshare_symbols,
@@ -178,6 +179,44 @@ def test_collect_akshare_price_bars_falls_back_to_eastmoney_proxy(
     assert result.bars[0].close == 7.29
     assert result.succeeded_symbols == ("000001.SZ",)
     assert result.failed_symbols == ()
+
+
+def test_eastmoney_proxy_fallback_retries_transient_disconnect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"data": {"klines": ["2024-01-02,7.47,7.29,7.50,7.29,1158366,1075742252.45"]}}
+
+    class CurlRequests:
+        attempts = 0
+
+        @classmethod
+        def get(cls, *args, **kwargs):  # noqa: ANN002, ANN003
+            cls.attempts += 1
+            if cls.attempts == 1:
+                raise RuntimeError("Connection closed abruptly")
+            return Response()
+
+    monkeypatch.setattr(
+        "swell_quant.data.akshare_data.importlib.import_module",
+        lambda name: CurlRequests if name == "curl_cffi.requests" else pytest.fail(name),
+    )
+
+    rows = _fetch_eastmoney_price_rows(
+        "000001.SZ",
+        "20240102",
+        "20240103",
+        "http://127.0.0.1:7897",
+    )
+
+    assert CurlRequests.attempts == 2
+    assert rows[0]["日期"] == "2024-01-02"
 
 
 def test_resolve_akshare_symbols_fetches_csi800_components() -> None:

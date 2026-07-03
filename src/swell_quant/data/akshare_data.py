@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
+from time import sleep
 from typing import Any
 
 from swell_quant.data.sample_data import PriceBar, write_price_bars_csv
@@ -189,22 +190,33 @@ def _fetch_eastmoney_price_rows(
             'AKShare proxy fallback requires optional dependency: python3 -m pip install -e ".[data]"'
         ) from error
 
-    response = curl_requests.get(
-        "https://push2his.eastmoney.com/api/qt/stock/kline/get",
-        params={
-            "fields1": "f1,f2,f3,f4,f5,f6",
-            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",
-            "klt": "101",
-            "fqt": "1",
-            "secid": _eastmoney_secid(symbol),
-            "beg": start_date,
-            "end": end_date,
-        },
-        proxy=proxy_url,
-        timeout=30,
-        impersonate="chrome",
-    )
+    params = {
+        "fields1": "f1,f2,f3,f4,f5,f6",
+        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
+        "ut": "7eea3edcaed734bea9cbfc24409ed989",
+        "klt": "101",
+        "fqt": "1",
+        "secid": _eastmoney_secid(symbol),
+        "beg": start_date,
+        "end": end_date,
+    }
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            response = curl_requests.get(
+                "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+                params=params,
+                proxy=proxy_url,
+                timeout=30,
+                impersonate="chrome",
+            )
+            break
+        except Exception as error:  # noqa: BLE001 - 上游偶发断连需要保留最后一次原始错误。
+            last_error = error
+            if attempt < 2:
+                sleep(0.25 * (attempt + 1))
+    else:
+        raise last_error or RuntimeError("Eastmoney fallback request failed")
     response.raise_for_status()
     payload = response.json()
     klines = ((payload.get("data") or {}).get("klines")) or []
