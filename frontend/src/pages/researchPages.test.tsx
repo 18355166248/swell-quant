@@ -13,7 +13,13 @@ import {
   StocksPage,
   TasksPage,
 } from "./researchPages";
-import type { AkshareUniverseStatus, LocalSettings, Prediction, ProjectProgress } from "../types/api";
+import type {
+  AkshareUniverseStatus,
+  DataStatus,
+  LocalSettings,
+  Prediction,
+  ProjectProgress,
+} from "../types/api";
 
 describe("research pages module", () => {
   it("exports every top-level research dashboard page", () => {
@@ -126,6 +132,50 @@ describe("research pages module", () => {
     expect(html).toContain("暂无验收结果");
     expect(html).toContain("暂无产物状态");
     expect(html).toContain("仅用于研究，不构成投资建议");
+  });
+
+  it("renders AKShare collection failures on the data page", () => {
+    const dataStatus: DataStatus = {
+      data_source: "akshare",
+      market: "A_SHARE_DAILY",
+      universe: "akshare_csi800",
+      universe_mode: "csi800",
+      universe_name: "AKShare 沪深 300 + 中证 500 股票池",
+      symbols: ["000001.SZ"],
+      selected_symbol_count: 2,
+      resolved_symbol_count: 800,
+      max_symbols: 2,
+      succeeded_symbols: ["000001.SZ"],
+      succeeded_symbol_count: 1,
+      failed_symbols: [{ symbol: "600000.SH", reason: "temporary upstream error" }],
+      failed_symbol_count: 1,
+      target_universe: "沪深 300 + 中证 500",
+      target_universe_size: 800,
+      benchmark: "sh000906",
+      benchmark_name: "中证 800",
+      benchmark_fallback: "CSI300",
+      benchmark_same_source: true,
+      benchmark_note: "同源说明",
+      adjustment: "forward_adjusted_daily",
+      update_mode: "manual_trigger",
+      configured_start_date: "20240102",
+      configured_end_date: "20240131",
+      source_updated_at: "2024-01-31T00:00:00Z",
+      row_count: 10,
+      symbol_count: 1,
+      start_date: "2024-01-02",
+      end_date: "2024-01-31",
+      quality_passed: true,
+      issue_count: 0,
+      disclaimer: "仅用于研究，不构成投资建议",
+    };
+
+    const html = renderToStaticMarkup(<DataPage dataStatus={dataStatus} />);
+
+    expect(html).toContain("采集摘要");
+    expect(html).toContain("失败标的");
+    expect(html).toContain("600000.SH");
+    expect(html).toContain("temporary upstream error");
   });
 
   it("shows API key configuration status without rendering secret values", () => {

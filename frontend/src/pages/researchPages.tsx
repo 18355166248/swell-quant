@@ -536,6 +536,7 @@ export function DataPage({
   labels?: LabelSummary;
 }) {
   const issues = quality?.issues ?? [];
+  const failedSymbols = dataStatus?.failed_symbols ?? [];
   const featureRows = features?.feature_names.map((featureName) => ({
     featureName,
     nonNullCount: features.non_null_counts[featureName] ?? 0,
@@ -680,6 +681,33 @@ export function DataPage({
                 },
               ]}
             />
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={[16, 16]}>
+        <Col xs={24}>
+          <Card title="采集摘要">
+            <Descriptions column={4} size="small">
+              <Descriptions.Item label="解析标的">{dataStatus?.resolved_symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="选择标的">{dataStatus?.selected_symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="成功标的">{dataStatus?.succeeded_symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="失败标的">{dataStatus?.failed_symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="试跑上限">{dataStatus?.max_symbols ?? "未限制"}</Descriptions.Item>
+            </Descriptions>
+            {failedSymbols.length > 0 ? (
+              <Table
+                rowKey="symbol"
+                size="small"
+                dataSource={failedSymbols}
+                pagination={{ pageSize: 6, hideOnSinglePage: true }}
+                columns={[
+                  { title: "标的", dataIndex: "symbol", width: 140 },
+                  { title: "失败原因", dataIndex: "reason" },
+                ]}
+              />
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无采集失败标的" />
+            )}
           </Card>
         </Col>
       </Row>
