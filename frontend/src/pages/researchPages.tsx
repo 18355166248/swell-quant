@@ -172,31 +172,41 @@ export function DashboardPage({
         }
       >
         {progress?.stages.length ? (
-          <Table<ProjectProgressStage>
-            rowKey="id"
-            size="small"
-            pagination={false}
-            dataSource={progress.stages}
-            columns={[
-              { title: "阶段", dataIndex: "name", width: 220 },
-              { title: "目标", dataIndex: "goal" },
-              {
-                title: "状态",
-                dataIndex: "status",
-                width: 110,
-                render: (value: ProjectProgressStage["status"]) => (
-                  <Tag color={value === "complete" ? "green" : value === "partial" ? "orange" : "default"}>
-                    {value}
-                  </Tag>
-                ),
-              },
-              {
-                title: "证据",
-                width: 120,
-                render: (_, row) => `${row.completed_count}/${row.required_count}`,
-              },
-            ]}
-          />
+          <Space direction="vertical" size={12} className="full-width">
+            {progress.next_actions.length > 0 ? (
+              <Alert
+                type={progress.status === "complete" ? "success" : "info"}
+                showIcon
+                message="下一步建议"
+                description={progress.next_actions.join("；")}
+              />
+            ) : null}
+            <Table<ProjectProgressStage>
+              rowKey="id"
+              size="small"
+              pagination={false}
+              dataSource={progress.stages}
+              columns={[
+                { title: "阶段", dataIndex: "name", width: 220 },
+                { title: "目标", dataIndex: "goal" },
+                {
+                  title: "状态",
+                  dataIndex: "status",
+                  width: 110,
+                  render: (value: ProjectProgressStage["status"]) => (
+                    <Tag color={value === "complete" ? "green" : value === "partial" ? "orange" : "default"}>
+                      {value}
+                    </Tag>
+                  ),
+                },
+                {
+                  title: "证据",
+                  width: 120,
+                  render: (_, row) => `${row.completed_count}/${row.required_count}`,
+                },
+              ]}
+            />
+          </Space>
         ) : (
           <Empty description="暂无阶段进度" />
         )}
@@ -1721,4 +1731,3 @@ export function SettingsPage({
     </>
   );
 }
-

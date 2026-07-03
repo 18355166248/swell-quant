@@ -58,6 +58,10 @@ body,
   margin-top: 16px;
 }
 
+.full-width {
+  width: 100%;
+}
+
 .equity-chart {
   width: 100%;
   height: 346px;

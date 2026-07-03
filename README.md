@@ -197,7 +197,7 @@ DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/p
 
 `python3 scripts/check_config.py` 会输出本地配置预检 JSON；配置非法时返回非零，警告项只提示不阻塞，适合无页面排查。
 
-`python3 scripts/check_progress.py` 会输出阶段 0 到阶段 6 的完成度、当前阶段和每个阶段的证据计数；加 `--json` 可获取完整结构化进度。
+`python3 scripts/check_progress.py` 会输出阶段 0 到阶段 6 的完成度、当前阶段、下一步建议和每个阶段的证据计数；加 `--json` 可获取完整结构化进度。
 
 `python3 scripts/check_acceptance.py` 会读取 `research_status.json` 中的验收门禁；未通过或尚未生成状态产物时返回非零退出码。
 

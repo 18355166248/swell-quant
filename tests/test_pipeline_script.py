@@ -205,6 +205,7 @@ def test_check_progress_reports_current_stage(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert "progress_status=in_progress" in result.stdout
     assert "current_stage=阶段 1：数据采集与存储" in result.stdout
+    assert "next_action_1=阶段 1：数据采集与存储 缺少证据" in result.stdout
     assert "stage=stage_0 status=complete" in result.stdout
 
 
@@ -229,6 +230,7 @@ def test_check_progress_json_reports_stage_evidence(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert payload["stage_count"] == 8
     assert payload["current_stage"]["id"] == "stage_1"
+    assert payload["next_actions"]
     assert payload["stages"][0]["id"] == "stage_0"
     assert payload["stages"][0]["status"] == "complete"
 

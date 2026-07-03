@@ -76,6 +76,7 @@ describe("research pages module", () => {
         required_count: 4,
         evidence: [],
       },
+      next_actions: ["补齐 AI 报告产物"],
       stages: [
         {
           id: "stage_0",
@@ -111,6 +112,7 @@ describe("research pages module", () => {
     expect(html).toContain("6/8");
     expect(html).toContain("阶段 6：AI 报告与 Agent 集成");
     expect(html).toContain("阶段进度");
+    expect(html).toContain("补齐 AI 报告产物");
   });
 
   it("renders empty states for missing acceptance artifacts", () => {

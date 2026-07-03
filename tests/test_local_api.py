@@ -220,6 +220,8 @@ def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> Non
     assert stage_by_id["stage_5"]["status"] == "complete"
     assert stage_by_id["stage_1"]["completed_count"] == 1
     assert payload["current_stage"]["id"] == "stage_1"
+    assert payload["next_actions"]
+    assert "阶段 1" in payload["next_actions"][0]
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 

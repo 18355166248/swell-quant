@@ -456,6 +456,7 @@ def load_progress_artifact(settings: Settings) -> dict[str, Any]:
     complete_count = sum(1 for stage in stages if stage["status"] == "complete")
     partial_count = sum(1 for stage in stages if stage["status"] == "partial")
     current_stage = next((stage for stage in stages if stage["status"] != "complete"), stages[-1])
+    next_actions = _build_progress_next_actions(stages)
     return {
         "status": "complete" if complete_count == len(stages) else "in_progress",
         "completed_stage_count": complete_count,
@@ -463,6 +464,7 @@ def load_progress_artifact(settings: Settings) -> dict[str, Any]:
         "stage_count": len(stages),
         "completion_ratio": complete_count / len(stages),
         "current_stage": current_stage,
+        "next_actions": next_actions,
         "stages": stages,
         "disclaimer": "仅用于研究，不构成投资建议",
     }
@@ -522,6 +524,24 @@ def _build_progress_stage(
         "required_count": required_count,
         "evidence": evidence,
     }
+
+
+def _build_progress_next_actions(stages: list[dict[str, Any]]) -> list[str]:
+    incomplete_stages = [stage for stage in stages if stage["status"] != "complete"]
+    if not incomplete_stages:
+        return [
+            "当前样例离线闭环阶段证据已完整；下一步建议接入更真实的 AKShare 股票池样本并复跑门禁。",
+            "继续补充真实数据源下的性能、稳定性和模型效果验收，不要把样例回测解读为可交易收益。",
+        ]
+
+    actions: list[str] = []
+    for stage in incomplete_stages[:3]:
+        missing = [item["key"] for item in stage["evidence"] if item["status"] != "passed"]
+        if missing:
+            actions.append(f"{stage['name']} 缺少证据：{', '.join(missing)}")
+        else:
+            actions.append(f"{stage['name']} 尚未完成，请检查阶段产物和验收门禁")
+    return actions
 
 
 def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:

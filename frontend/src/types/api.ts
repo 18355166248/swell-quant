@@ -100,6 +100,7 @@ export interface ProjectProgress {
   stage_count: number;
   completion_ratio: number;
   current_stage: ProjectProgressStage;
+  next_actions: string[];
   stages: ProjectProgressStage[];
   disclaimer: string;
 }

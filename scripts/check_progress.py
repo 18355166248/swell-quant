@@ -41,6 +41,8 @@ def main() -> int:
     print(f"completed_stages={payload['completed_stage_count']}/{payload['stage_count']}")
     print(f"partial_stages={payload['partial_stage_count']}")
     print(f"current_stage={payload['current_stage']['name']}")
+    for index, action in enumerate(payload.get("next_actions", []), start=1):
+        print(f"next_action_{index}={action}")
     for stage in payload["stages"]:
         print(
             "stage="
