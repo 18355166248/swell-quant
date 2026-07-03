@@ -19,9 +19,11 @@ make ci-local
 5. `make akshare-universe`：验证当前 AKShare 股票池模式能解析出可用标的；默认 manual 模式不联网，`csi800` 模式用于真实数据源前置验收。
 6. `make smoke`：运行离线 pipeline，并校验 DuckDB 存储和研究验收门禁。
 7. `make data-source`：检查最新数据采集元数据，暴露限量试跑和单标的采集失败 warning。
-8. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
-9. `make frontend-test`：`npm test`，运行前端单元测试。
-10. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
+8. `make akshare-trial-dry-run`：预演真实 AKShare 小规模试跑并写入 dry-run 摘要，不访问外部数据源。
+9. `make akshare-trial-status`：检查最近一次试跑摘要是否可读且通过。
+10. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
+11. `make frontend-test`：`npm test`，运行前端单元测试。
+12. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
 
 GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 

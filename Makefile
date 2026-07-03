@@ -71,4 +71,4 @@ format-check:
 frontend-build:
 	cd frontend && $(NPM) run build
 
-ci-local: lint format-check test config akshare-universe smoke data-source progress frontend-test frontend-build
+ci-local: lint format-check test config akshare-universe smoke data-source akshare-trial-dry-run akshare-trial-status progress frontend-test frontend-build
