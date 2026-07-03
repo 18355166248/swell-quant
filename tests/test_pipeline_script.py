@@ -4,6 +4,27 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.check_akshare_universe import build_akshare_universe_payload
+from swell_quant.core.config import Settings
+
+
+class FakeUniverseFrame:
+    def __init__(self, rows: list[dict]) -> None:
+        self.rows = rows
+
+    def to_dict(self, orient: str) -> list[dict]:
+        assert orient == "records"
+        return self.rows
+
+
+class SmallFakeUniverseProvider:
+    def index_stock_cons(self, symbol: str) -> FakeUniverseFrame:
+        rows_by_symbol = {
+            "000300": [{"品种代码": "600000", "交易所": "SH"}],
+            "000905": [{"品种代码": "000001", "交易所": "SZ"}],
+        }
+        return FakeUniverseFrame(rows_by_symbol[symbol])
+
 
 def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
@@ -183,6 +204,96 @@ def test_check_config_returns_nonzero_for_invalid_settings(tmp_path: Path) -> No
     assert payload["status"] == "failed"
     assert payload["error"] == "invalid_settings"
     assert "AKSHARE_SYMBOLS" in payload["message"]
+
+
+def test_check_akshare_universe_reports_manual_symbols(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "AKSHARE_UNIVERSE_MODE": "manual",
+        "AKSHARE_SYMBOLS": "000001.SZ,600000.SH",
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_akshare_universe.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "akshare_universe_status=passed" in result.stdout
+    assert "universe_mode=manual" in result.stdout
+    assert "symbol_count=2" in result.stdout
+
+
+def test_check_akshare_universe_json_reports_research_disclaimer(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "AKSHARE_UNIVERSE_MODE": "manual",
+        "AKSHARE_SYMBOLS": "000001.SZ",
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_akshare_universe.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["status"] == "passed"
+    assert payload["symbol_count"] == 1
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
+def test_check_akshare_universe_returns_nonzero_for_invalid_settings(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "AKSHARE_UNIVERSE_MODE": "manual",
+        "AKSHARE_SYMBOLS": "",
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_akshare_universe.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 2
+    assert payload["error"] == "invalid_settings"
+    assert "manual mode" in payload["message"]
+
+
+def test_akshare_universe_payload_fails_when_csi800_count_is_too_small() -> None:
+    settings = Settings(
+        data_dir=Path("./data"),
+        duckdb_path=Path("./data/duckdb/swell_quant.duckdb"),
+        data_source="akshare",
+        akshare_universe_mode="csi800",
+        akshare_symbols=(),
+    )
+
+    payload = build_akshare_universe_payload(settings, provider=SmallFakeUniverseProvider())
+
+    assert payload["status"] == "failed"
+    assert payload["passed"] is False
+    assert payload["symbol_count"] == 2
+    assert payload["minimum_expected_count"] == 700
 
 
 def test_check_progress_reports_current_stage(tmp_path: Path) -> None:

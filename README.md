@@ -42,6 +42,12 @@ make ci-local
 make config
 ```
 
+验证 AKShare 股票池解析：
+
+```bash
+make akshare-universe
+```
+
 查看当前阶段进度：
 
 ```bash
@@ -73,8 +79,10 @@ DATA_SOURCE=akshare \
 AKSHARE_UNIVERSE_MODE=csi800 \
 AKSHARE_START_DATE=20240102 \
 AKSHARE_END_DATE=20240229 \
-python3 scripts/run_pipeline.py
+python3 scripts/check_akshare_universe.py
 ```
+
+目标股票池解析通过后，再运行 `python3 scripts/run_pipeline.py` 拉取行情并复跑完整离线链路。
 
 训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
 `rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。

@@ -530,8 +530,8 @@ def _build_progress_next_actions(stages: list[dict[str, Any]]) -> list[str]:
     incomplete_stages = [stage for stage in stages if stage["status"] != "complete"]
     if not incomplete_stages:
         return [
-            "当前样例离线闭环阶段证据已完整；下一步建议接入更真实的 AKShare 股票池样本并复跑门禁。",
-            "继续补充真实数据源下的性能、稳定性和模型效果验收，不要把样例回测解读为可交易收益。",
+            "当前样例离线闭环阶段证据已完整；下一步建议用 AKSHARE_UNIVERSE_MODE=csi800 运行 make akshare-universe，先验收目标股票池解析。",
+            "目标股票池解析通过后，再用真实 AKShare 行情复跑 pipeline 和门禁；不要把样例回测解读为可交易收益。",
         ]
 
     actions: list[str] = []
