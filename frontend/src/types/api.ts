@@ -114,11 +114,13 @@ export interface DataSourceStatus {
 export interface ArtifactStatus {
   status: "complete" | "missing";
   missing: string[];
+  optional_missing?: string[];
   disclaimer?: string;
   artifacts: Array<{
     name: string;
     path: string;
     exists: boolean;
+    required?: boolean;
     size_bytes: number | null;
     updated_at: string | null;
   }>;

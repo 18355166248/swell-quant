@@ -30,6 +30,7 @@ from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror
 
 
 _PIPELINE_RUN_LOCK = threading.Lock()
+OPTIONAL_ARTIFACTS = {"akshare_trial"}
 TASK_TRIGGER_ROUTES = {
     "/api/pipeline/run": "pipeline",
     "/api/data/update": "data_update",
@@ -431,6 +432,15 @@ def load_akshare_trial_artifact(path: Path) -> dict[str, Any]:
 def load_artifacts_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]:
     # API/设置页/脚本共享同一份产物清单，避免新增产物时只更新其中一个入口造成排查误导。
     artifact_status = build_artifact_status(local_artifact_paths(data_dir, duckdb_path))
+    optional_missing = [name for name in artifact_status["missing"] if name in OPTIONAL_ARTIFACTS]
+    required_missing = [
+        name for name in artifact_status["missing"] if name not in OPTIONAL_ARTIFACTS
+    ]
+    for artifact in artifact_status["artifacts"]:
+        artifact["required"] = artifact["name"] not in OPTIONAL_ARTIFACTS
+    artifact_status["status"] = "complete" if not required_missing else "missing"
+    artifact_status["missing"] = required_missing
+    artifact_status["optional_missing"] = optional_missing
     artifact_status["disclaimer"] = "仅用于研究，不构成投资建议"
     return artifact_status
 

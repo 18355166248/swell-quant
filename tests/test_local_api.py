@@ -274,9 +274,11 @@ def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path)
     assert raw_prices["size_bytes"] > 0
     assert raw_prices["updated_at"] is not None
     assert akshare_trial["exists"] is False
+    assert akshare_trial["required"] is False
     assert akshare_trial["path"].endswith("akshare_trial_run.json")
     assert "duckdb" in payload["missing"]
-    assert "akshare_trial" in payload["missing"]
+    assert "akshare_trial" not in payload["missing"]
+    assert "akshare_trial" in payload["optional_missing"]
 
 
 def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> None:
