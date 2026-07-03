@@ -135,6 +135,51 @@ def test_collect_akshare_price_bars_reports_all_failures_when_no_bars() -> None:
         )
 
 
+def test_collect_akshare_price_bars_falls_back_to_eastmoney_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingAkshare(FakeAkshare):
+        def stock_zh_a_hist(
+            self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            raise RuntimeError("requests upstream closed")
+
+    def fake_eastmoney_rows(symbol: str, start_date: str, end_date: str, proxy_url: str):
+        assert symbol == "000001.SZ"
+        assert start_date == "20240102"
+        assert end_date == "20240103"
+        assert proxy_url == "http://127.0.0.1:7897"
+        return [
+            {
+                "日期": "2024-01-02",
+                "开盘": 7.47,
+                "收盘": 7.29,
+                "最高": 7.50,
+                "最低": 7.29,
+                "成交量": 1158366,
+            }
+        ]
+
+    monkeypatch.setenv("AKSHARE_HTTP_PROXY", "http://127.0.0.1:7897")
+    monkeypatch.setattr(
+        "swell_quant.data.akshare_data._fetch_eastmoney_price_rows",
+        fake_eastmoney_rows,
+    )
+
+    result = collect_akshare_price_bars(
+        symbols=("000001.SZ",),
+        start_date="20240102",
+        end_date="20240103",
+        provider=FailingAkshare(),
+    )
+
+    assert len(result.bars) == 1
+    assert result.bars[0].symbol == "000001.SZ"
+    assert result.bars[0].close == 7.29
+    assert result.succeeded_symbols == ("000001.SZ",)
+    assert result.failed_symbols == ()
+
+
 def test_resolve_akshare_symbols_fetches_csi800_components() -> None:
     provider = FakeAkshare()
 

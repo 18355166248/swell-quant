@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -88,13 +89,20 @@ def collect_akshare_price_bars(
     failed_symbols: list[AkshareSymbolFailure] = []
     for symbol in symbols:
         try:
-            frame = akshare.stock_zh_a_hist(
-                symbol=_akshare_stock_symbol(symbol),
-                period="daily",
-                start_date=start_date,
-                end_date=end_date,
-                adjust="qfq",
-            )
+            try:
+                frame = akshare.stock_zh_a_hist(
+                    symbol=_akshare_stock_symbol(symbol),
+                    period="daily",
+                    start_date=start_date,
+                    end_date=end_date,
+                    adjust="qfq",
+                )
+            except Exception:
+                proxy_url = _eastmoney_proxy_url()
+                if not proxy_url:
+                    raise
+                # 当前 AKShare 个股日线底层走 requests，部分代理链路会被东方财富断开；配置代理时用 curl_cffi 只兜底原始行情读取。
+                frame = _fetch_eastmoney_price_rows(symbol, start_date, end_date, proxy_url)
             symbol_bars: list[PriceBar] = []
             for row in _iter_rows(frame):
                 trade_date = _parse_trade_date(_value(row, "日期", "date"))
@@ -166,6 +174,72 @@ def _load_akshare() -> Any:
         raise AkshareDependencyError(
             'DATA_SOURCE=akshare requires optional dependency: python3 -m pip install -e ".[data]"'
         ) from error
+
+
+def _fetch_eastmoney_price_rows(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    proxy_url: str,
+) -> list[dict[str, Any]]:
+    try:
+        curl_requests = importlib.import_module("curl_cffi.requests")
+    except ImportError as error:
+        raise AkshareDependencyError(
+            'AKShare proxy fallback requires optional dependency: python3 -m pip install -e ".[data]"'
+        ) from error
+
+    response = curl_requests.get(
+        "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+        params={
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
+            "ut": "7eea3edcaed734bea9cbfc24409ed989",
+            "klt": "101",
+            "fqt": "1",
+            "secid": _eastmoney_secid(symbol),
+            "beg": start_date,
+            "end": end_date,
+        },
+        proxy=proxy_url,
+        timeout=30,
+        impersonate="chrome",
+    )
+    response.raise_for_status()
+    payload = response.json()
+    klines = ((payload.get("data") or {}).get("klines")) or []
+    return [_parse_eastmoney_kline(kline) for kline in klines]
+
+
+def _parse_eastmoney_kline(kline: str) -> dict[str, Any]:
+    parts = kline.split(",")
+    if len(parts) < 6:
+        raise ValueError(f"unexpected Eastmoney kline format: {kline}")
+    return {
+        "日期": parts[0],
+        "开盘": float(parts[1]),
+        "收盘": float(parts[2]),
+        "最高": float(parts[3]),
+        "最低": float(parts[4]),
+        "成交量": int(float(parts[5])),
+    }
+
+
+def _eastmoney_secid(symbol: str) -> str:
+    digits = _akshare_stock_symbol(symbol)
+    suffix = symbol.split(".")[1].upper() if "." in symbol else _exchange_suffix(digits, "")
+    market = "1" if suffix == "SH" else "0"
+    return f"{market}.{digits}"
+
+
+def _eastmoney_proxy_url() -> str | None:
+    return (
+        os.getenv("AKSHARE_HTTP_PROXY")
+        or os.getenv("HTTPS_PROXY")
+        or os.getenv("HTTP_PROXY")
+        or os.getenv("https_proxy")
+        or os.getenv("http_proxy")
+    )
 
 
 def _fetch_benchmark_close(
