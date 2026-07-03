@@ -216,6 +216,8 @@ describe("research pages module", () => {
     );
 
     expect(html).toContain("最近真实试跑");
+    expect(html).toContain("make akshare-trial");
+    expect(html).toContain("python3 scripts/run_akshare_trial.py --dry-run");
     expect(html).toContain("dry_run");
     expect(html).toContain("csi800");
     expect(html).toContain("data/reports/akshare_trial_run.json");

@@ -532,6 +532,14 @@ export function TasksPage({
           </Tag>
         }
       >
+        <Descriptions column={2} size="small" className="trial-command-summary">
+          <Descriptions.Item label="生成命令">
+            <Text code>make akshare-trial</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="预演命令">
+            <Text code>python3 scripts/run_akshare_trial.py --dry-run</Text>
+          </Descriptions.Item>
+        </Descriptions>
         {akshareTrial?.status && akshareTrial.status !== "missing" ? (
           <Space direction="vertical" size={12} style={{ width: "100%" }}>
             <Descriptions column={2} size="small">
