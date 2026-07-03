@@ -20,12 +20,18 @@ def default_trial_path(data_dir: Path) -> Path:
     return data_dir / "reports" / "akshare_trial_run.json"
 
 
+def last_passed_trial_path(path: Path) -> Path:
+    return path.with_name("akshare_trial_last_passed.json")
+
+
 def build_trial_status(path: Path) -> dict[str, Any]:
+    last_passed = _load_last_passed_summary(last_passed_trial_path(path))
     if not path.exists():
         return {
             "status": "missing",
             "passed": False,
             "path": str(path),
+            "last_passed": last_passed,
             "message": "run `make akshare-trial` or `python3 scripts/run_akshare_trial.py --dry-run` first",
             "step_count": 0,
             "failed_step": None,
@@ -45,6 +51,7 @@ def build_trial_status(path: Path) -> dict[str, Any]:
         "trial_kind": payload.get("trial_kind")
         or ("real_data" if real_data_verified else "dry_run"),
         "real_data_verified": real_data_verified,
+        "last_passed": last_passed,
         "path": str(path),
         "started_at": payload.get("started_at"),
         "ended_at": payload.get("ended_at"),
@@ -54,6 +61,30 @@ def build_trial_status(path: Path) -> dict[str, Any]:
         "failed_step": failed_step,
         "steps": steps,
         "disclaimer": payload.get("disclaimer", "仅用于研究，不构成投资建议"),
+    }
+
+
+def _load_last_passed_summary(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    real_data_verified = payload.get("real_data_verified")
+    if real_data_verified is None:
+        real_data_verified = payload.get("status") == "passed"
+    if real_data_verified is not True:
+        return None
+    return {
+        "status": payload.get("status", "unknown"),
+        "passed": payload.get("passed") is True,
+        "trial_kind": payload.get("trial_kind") or "real_data",
+        "real_data_verified": True,
+        "path": str(path),
+        "started_at": payload.get("started_at"),
+        "ended_at": payload.get("ended_at"),
+        "duration_seconds": payload.get("duration_seconds"),
     }
 
 

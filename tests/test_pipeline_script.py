@@ -3,8 +3,11 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
+from scripts import run_akshare_trial as akshare_trial_script
 from scripts.run_pipeline import limit_akshare_symbols
+from scripts.run_akshare_trial import TrialStep, write_trial_artifacts
 from swell_quant.core.config import Settings
 from swell_quant.data.universe_check import build_akshare_universe_payload
 
@@ -498,6 +501,58 @@ def test_akshare_trial_dry_run_entrypoint_writes_summary(tmp_path: Path) -> None
     assert result.returncode == 0
     assert "akshare_trial_status=dry_run" in result.stdout
     assert (tmp_path / "data" / "reports" / "akshare_trial_run.json").exists()
+
+
+def test_write_trial_artifacts_preserves_last_passed_summary(tmp_path: Path) -> None:
+    latest_path = tmp_path / "data" / "reports" / "akshare_trial_run.json"
+    payload = {
+        "status": "passed",
+        "passed": True,
+        "real_data_verified": True,
+        "artifact_path": str(latest_path),
+        "steps": [],
+    }
+
+    write_trial_artifacts(latest_path, payload)
+
+    last_passed_path = tmp_path / "data" / "reports" / "akshare_trial_last_passed.json"
+    assert latest_path.exists()
+    assert last_passed_path.exists()
+    assert json.loads(last_passed_path.read_text(encoding="utf-8"))["status"] == "passed"
+
+    failed_payload = {
+        "status": "failed",
+        "passed": False,
+        "real_data_verified": False,
+        "artifact_path": str(latest_path),
+        "steps": [{"name": "pipeline", "status": "failed"}],
+    }
+    write_trial_artifacts(latest_path, failed_payload)
+
+    assert json.loads(latest_path.read_text(encoding="utf-8"))["status"] == "failed"
+    assert json.loads(last_passed_path.read_text(encoding="utf-8"))["status"] == "passed"
+
+
+def test_run_akshare_trial_failed_attempt_reports_real_data_kind(monkeypatch) -> None:
+    args = SimpleNamespace(
+        dry_run=False,
+        universe_mode="csi800",
+        max_symbols=1,
+        start_date="20240102",
+        end_date="20240131",
+        benchmark_symbol="sh000906",
+    )
+    monkeypatch.setattr(
+        akshare_trial_script,
+        "build_trial_steps",
+        lambda _args: [TrialStep("failing_step", (sys.executable, "-c", "raise SystemExit(1)"))],
+    )
+
+    payload = akshare_trial_script.run_trial(args)
+
+    assert payload["status"] == "failed"
+    assert payload["trial_kind"] == "real_data"
+    assert payload["real_data_verified"] is False
 
 
 def test_run_akshare_trial_rejects_invalid_symbol_cap(tmp_path: Path) -> None:

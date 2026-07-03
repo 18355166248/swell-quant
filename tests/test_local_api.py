@@ -390,6 +390,27 @@ def test_local_api_progress_artifact_advances_after_real_trial(tmp_path: Path) -
     assert "AKSHARE_MAX_SYMBOLS" in payload["next_actions"][1]
 
 
+def test_local_api_progress_uses_last_passed_trial_when_latest_failed(tmp_path: Path) -> None:
+    settings = _complete_progress_settings(tmp_path)
+    reports_dir = settings.data_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    (reports_dir / "akshare_trial_run.json").write_text(
+        '{"status": "failed", "passed": false, "real_data_verified": false, "steps": []}\n',
+        encoding="utf-8",
+    )
+    (reports_dir / "akshare_trial_last_passed.json").write_text(
+        '{"status": "passed", "passed": true, "real_data_verified": true, "steps": []}\n',
+        encoding="utf-8",
+    )
+
+    payload = load_progress_artifact(settings)
+
+    assert payload["akshare_trial"]["status"] == "failed"
+    assert payload["akshare_trial"]["real_data_verified"] is True
+    assert payload["akshare_trial"]["last_passed"]["status"] == "passed"
+    assert "真实 AKShare 小规模试跑已通过" in payload["next_actions"][0]
+
+
 def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:
     pipeline_path = tmp_path / "pipeline_run.json"
     pipeline_path.write_text(

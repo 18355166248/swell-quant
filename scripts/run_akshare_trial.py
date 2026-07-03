@@ -118,7 +118,7 @@ def _trial_payload(
     return {
         "status": status,
         "passed": status in {"passed", "dry_run"},
-        "trial_kind": "real_data" if real_data_verified else "dry_run",
+        "trial_kind": "dry_run" if status == "dry_run" else "real_data",
         "real_data_verified": real_data_verified,
         "started_at": started_at.isoformat(),
         "ended_at": ended_at.isoformat(),
@@ -149,9 +149,21 @@ def default_trial_artifact_path(env: dict[str, str]) -> Path:
     return data_dir / "reports" / "akshare_trial_run.json"
 
 
+def last_passed_trial_artifact_path(path: Path) -> Path:
+    return path.with_name("akshare_trial_last_passed.json")
+
+
 def write_trial_payload(path: Path, payload: dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def write_trial_artifacts(path: Path, payload: dict[str, Any]) -> Path:
+    write_trial_payload(path, payload)
+    if payload.get("real_data_verified") is True:
+        # 外部行情源偶发失败不能覆盖最近一次真实通过证据，进度判断用这份成功快照兜底。
+        write_trial_payload(last_passed_trial_artifact_path(path), payload)
     return path
 
 
@@ -177,7 +189,7 @@ def main() -> int:
 
     payload = run_trial(args)
     # 真实数据试跑通常依赖外部数据源，结果必须落盘，方便失败后不依赖终端滚动日志复盘。
-    write_trial_payload(Path(payload["artifact_path"]), payload)
+    write_trial_artifacts(Path(payload["artifact_path"]), payload)
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:

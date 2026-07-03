@@ -590,17 +590,53 @@ def _build_progress_stage(
 
 def _load_latest_trial_status(data_dir: Path) -> dict[str, Any]:
     trial_path = data_dir / "reports" / "akshare_trial_run.json"
+    last_passed_path = trial_path.with_name("akshare_trial_last_passed.json")
+    last_passed = _load_last_passed_trial_summary(last_passed_path)
     if not trial_path.exists():
-        return {"status": "missing", "real_data_verified": False, "path": str(trial_path)}
+        return {
+            "status": "missing",
+            "real_data_verified": last_passed is not None,
+            "path": str(trial_path),
+            "last_passed": last_passed,
+        }
     try:
         payload = load_akshare_trial_artifact(trial_path)
     except (OSError, json.JSONDecodeError):
-        return {"status": "invalid", "real_data_verified": False, "path": str(trial_path)}
+        return {
+            "status": "invalid",
+            "real_data_verified": last_passed is not None,
+            "path": str(trial_path),
+            "last_passed": last_passed,
+        }
+    latest_real_data_verified = payload.get("real_data_verified") is True
+    # latest 记录当前网络状态，last_passed 记录历史成功证据；两者分离避免短暂上游失败抹掉验收进度。
     return {
         "status": payload.get("status", "unknown"),
         "trial_kind": payload.get("trial_kind"),
-        "real_data_verified": payload.get("real_data_verified") is True,
+        "real_data_verified": latest_real_data_verified or last_passed is not None,
+        "latest_real_data_verified": latest_real_data_verified,
         "path": str(trial_path),
+        "last_passed": last_passed,
+    }
+
+
+def _load_last_passed_trial_summary(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = load_akshare_trial_artifact(path)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if payload.get("real_data_verified") is not True:
+        return None
+    return {
+        "status": payload.get("status", "unknown"),
+        "trial_kind": payload.get("trial_kind"),
+        "real_data_verified": True,
+        "path": str(path),
+        "started_at": payload.get("started_at"),
+        "ended_at": payload.get("ended_at"),
+        "duration_seconds": payload.get("duration_seconds"),
     }
 
 
