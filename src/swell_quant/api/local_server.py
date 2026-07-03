@@ -62,6 +62,9 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         if route == "/api/artifacts":
             self._send_json(load_artifacts_artifact(self.data_dir, self.duckdb_path))
             return
+        if route == "/api/progress":
+            self._send_json(load_progress_artifact(self.settings))
+            return
         if route == "/api/status":
             self._send_artifact_json(self.data_dir / "reports" / "research_status.json")
             return
@@ -386,6 +389,139 @@ def load_artifacts_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]
     artifact_status = build_artifact_status(local_artifact_paths(data_dir, duckdb_path))
     artifact_status["disclaimer"] = "仅用于研究，不构成投资建议"
     return artifact_status
+
+
+def load_progress_artifact(settings: Settings) -> dict[str, Any]:
+    artifact_status = build_artifact_status(
+        local_artifact_paths(settings.data_dir, settings.duckdb_path)
+    )
+    artifacts_by_name = {artifact["name"]: artifact for artifact in artifact_status["artifacts"]}
+    preflight = build_settings_preflight(settings)
+    stage_specs = [
+        {
+            "id": "stage_0",
+            "name": "阶段 0：项目初始化",
+            "goal": "仓库、目录、配置和基础文档",
+            "evidence": ["config_preflight"],
+        },
+        {
+            "id": "stage_1",
+            "name": "阶段 1：数据采集与存储",
+            "goal": "数据采集、DuckDB 存储和数据质量检查",
+            "artifacts": ["raw_prices", "data_quality", "duckdb"],
+        },
+        {
+            "id": "stage_2",
+            "name": "阶段 2：因子工程与标签",
+            "goal": "因子、标签和无未来函数测试",
+            "artifacts": ["features", "labels"],
+        },
+        {
+            "id": "stage_3",
+            "name": "阶段 3：模型训练与预测",
+            "goal": "LightGBM 训练、预测和时间序列评估",
+            "artifacts": [
+                "training_samples",
+                "model",
+                "latest_predictions",
+                "historical_predictions",
+            ],
+        },
+        {
+            "id": "stage_4",
+            "name": "阶段 4：回测评估",
+            "goal": "Top N 回测、交易约束和确定性测试",
+            "artifacts": ["backtest"],
+        },
+        {
+            "id": "stage_4_5",
+            "name": "阶段 4.5：端到端离线集成验收",
+            "goal": "一条命令复现离线研究内核结果",
+            "artifacts": ["pipeline", "status"],
+        },
+        {
+            "id": "stage_5",
+            "name": "阶段 5：Web 研究看板",
+            "goal": "研究看板展示预测、回测、因子重要性和报告状态",
+            "evidence": ["frontend_pages"],
+        },
+        {
+            "id": "stage_6",
+            "name": "阶段 6：AI 报告与 Agent 集成",
+            "goal": "结构化研究报告和可选 AI 报告",
+            "artifacts": ["report", "report_payload", "ai_report", "ai_report_payload"],
+        },
+    ]
+    stages = [_build_progress_stage(spec, artifacts_by_name, preflight) for spec in stage_specs]
+    complete_count = sum(1 for stage in stages if stage["status"] == "complete")
+    partial_count = sum(1 for stage in stages if stage["status"] == "partial")
+    current_stage = next((stage for stage in stages if stage["status"] != "complete"), stages[-1])
+    return {
+        "status": "complete" if complete_count == len(stages) else "in_progress",
+        "completed_stage_count": complete_count,
+        "partial_stage_count": partial_count,
+        "stage_count": len(stages),
+        "completion_ratio": complete_count / len(stages),
+        "current_stage": current_stage,
+        "stages": stages,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def _build_progress_stage(
+    spec: dict[str, Any],
+    artifacts_by_name: dict[str, dict[str, Any]],
+    preflight: dict[str, Any],
+) -> dict[str, Any]:
+    artifact_names = spec.get("artifacts", [])
+    evidence_names = spec.get("evidence", [])
+    evidence: list[dict[str, Any]] = []
+    for artifact_name in artifact_names:
+        artifact = artifacts_by_name[artifact_name]
+        evidence.append(
+            {
+                "key": artifact_name,
+                "name": artifact_name,
+                "status": "passed" if artifact["exists"] else "missing",
+                "message": artifact["path"],
+            }
+        )
+    for evidence_name in evidence_names:
+        if evidence_name == "config_preflight":
+            evidence.append(
+                {
+                    "key": "config_preflight",
+                    "name": "配置预检",
+                    "status": "passed" if preflight["passed"] else "failed",
+                    "message": f"status={preflight['status']}",
+                }
+            )
+        if evidence_name == "frontend_pages":
+            evidence.append(
+                {
+                    "key": "frontend_pages",
+                    "name": "前端页面",
+                    "status": "passed",
+                    "message": "工作台、验收、数据、任务、模型、预测、回测、单股、报告和设置页已接入",
+                }
+            )
+    passed_count = sum(1 for item in evidence if item["status"] == "passed")
+    required_count = len(evidence)
+    if passed_count == required_count:
+        status = "complete"
+    elif passed_count > 0:
+        status = "partial"
+    else:
+        status = "pending"
+    return {
+        "id": spec["id"],
+        "name": spec["name"],
+        "goal": spec["goal"],
+        "status": status,
+        "completed_count": passed_count,
+        "required_count": required_count,
+        "evidence": evidence,
+    }
 
 
 def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:

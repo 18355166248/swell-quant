@@ -20,6 +20,7 @@ from swell_quant.api.local_server import (
     load_models_artifact,
     load_prediction_route,
     load_predictions_artifact,
+    load_progress_artifact,
     load_report_artifact,
     load_report_route,
     load_reports_artifact,
@@ -197,6 +198,29 @@ def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path)
     assert raw_prices["size_bytes"] > 0
     assert raw_prices["updated_at"] is not None
     assert "duckdb" in payload["missing"]
+
+
+def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
+    )
+    settings.ensure_directories()
+    settings.data_dir.joinpath("raw", "sample_prices.csv").write_text(
+        "symbol,date\n", encoding="utf-8"
+    )
+
+    payload = load_progress_artifact(settings)
+    stage_by_id = {stage["id"]: stage for stage in payload["stages"]}
+
+    assert payload["stage_count"] == 8
+    assert payload["status"] == "in_progress"
+    assert stage_by_id["stage_0"]["status"] == "complete"
+    assert stage_by_id["stage_1"]["status"] == "partial"
+    assert stage_by_id["stage_5"]["status"] == "complete"
+    assert stage_by_id["stage_1"]["completed_count"] == 1
+    assert payload["current_stage"]["id"] == "stage_1"
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
 def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:

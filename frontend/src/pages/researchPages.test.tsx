@@ -13,7 +13,7 @@ import {
   StocksPage,
   TasksPage,
 } from "./researchPages";
-import type { LocalSettings, Prediction } from "../types/api";
+import type { LocalSettings, Prediction, ProjectProgress } from "../types/api";
 
 describe("research pages module", () => {
   it("exports every top-level research dashboard page", () => {
@@ -58,6 +58,59 @@ describe("research pages module", () => {
     expect(html).toContain("代码");
     expect(html).toContain("预测分数");
     expect(html).toContain("成交量变化");
+  });
+
+  it("renders project stage progress on the dashboard", () => {
+    const progress: ProjectProgress = {
+      status: "in_progress",
+      completed_stage_count: 6,
+      partial_stage_count: 1,
+      stage_count: 8,
+      completion_ratio: 0.75,
+      current_stage: {
+        id: "stage_6",
+        name: "阶段 6：AI 报告与 Agent 集成",
+        goal: "结构化研究报告和可选 AI 报告",
+        status: "partial",
+        completed_count: 2,
+        required_count: 4,
+        evidence: [],
+      },
+      stages: [
+        {
+          id: "stage_0",
+          name: "阶段 0：项目初始化",
+          goal: "仓库、目录、配置和基础文档",
+          status: "complete",
+          completed_count: 1,
+          required_count: 1,
+          evidence: [],
+        },
+        {
+          id: "stage_6",
+          name: "阶段 6：AI 报告与 Agent 集成",
+          goal: "结构化研究报告和可选 AI 报告",
+          status: "partial",
+          completed_count: 2,
+          required_count: 4,
+          evidence: [],
+        },
+      ],
+      disclaimer: "仅用于研究，不构成投资建议",
+    };
+
+    const html = renderToStaticMarkup(
+      <DashboardPage
+        models={[]}
+        predictions={[]}
+        progress={progress}
+      />,
+    );
+
+    expect(html).toContain("阶段完成度");
+    expect(html).toContain("6/8");
+    expect(html).toContain("阶段 6：AI 报告与 Agent 集成");
+    expect(html).toContain("阶段进度");
   });
 
   it("renders empty states for missing acceptance artifacts", () => {

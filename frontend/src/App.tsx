@@ -70,6 +70,7 @@ function App() {
   const statusQuery = useQuery({ queryKey: ["status"], queryFn: api.getStatus });
   const acceptanceQuery = useQuery({ queryKey: ["acceptance"], queryFn: api.getAcceptance });
   const artifactsQuery = useQuery({ queryKey: ["artifacts"], queryFn: api.getArtifacts });
+  const progressQuery = useQuery({ queryKey: ["progress"], queryFn: api.getProgress });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const pipelineQuery = useQuery({ queryKey: ["pipeline"], queryFn: api.getPipeline });
   const tasksQuery = useQuery({ queryKey: ["tasks"], queryFn: api.getTasks });
@@ -198,6 +199,7 @@ function App() {
     statusQuery.isLoading ||
     acceptanceQuery.isLoading ||
     artifactsQuery.isLoading ||
+    progressQuery.isLoading ||
     qualityQuery.isLoading ||
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
@@ -229,6 +231,7 @@ function App() {
     statusQuery.isError ||
     acceptanceQuery.isError ||
     artifactsQuery.isError ||
+    progressQuery.isError ||
     qualityQuery.isError ||
     tasksQuery.isError ||
     taskDetailQuery.isError ||
@@ -263,6 +266,7 @@ function App() {
         predictions={predictions}
         backtest={backtest}
         pipeline={pipeline}
+        progress={progressQuery.data}
         report={report}
       />
     ),
@@ -407,4 +411,3 @@ function App() {
 }
 
 export default App;
-

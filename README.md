@@ -88,6 +88,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/status`
 - `GET /api/acceptance`
 - `GET /api/artifacts`
+- `GET /api/progress`
 - `GET /api/pipeline`
 - `GET /api/tasks`
 - `GET /api/tasks/pipeline-latest`
@@ -133,6 +134,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 `GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
 
 `GET /api/artifacts` 返回本地研究产物清单、缺失项、文件大小和更新时间，适合无页面排查 pipeline 是否生成了完整可用的结果。
+
+`GET /api/progress` 返回阶段 0 到阶段 6 的完成度、当前阶段和每个阶段的产物证据，用于回答当前开发进度到哪。
 
 `GET /api/settings` 会返回本地路径、运行模式、非敏感数据源配置、API key 是否配置，以及运行前预检结果；预检只暴露阻塞项和风险提示，不返回任何 secret 明文。
 

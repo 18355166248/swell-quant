@@ -74,6 +74,36 @@ export interface ArtifactStatus {
   }>;
 }
 
+export type ProjectProgressStageStatus = "complete" | "partial" | "pending";
+
+export interface ProjectProgressEvidence {
+  key: string;
+  name: string;
+  status: "passed" | "missing" | "failed";
+  message: string;
+}
+
+export interface ProjectProgressStage {
+  id: string;
+  name: string;
+  goal: string;
+  status: ProjectProgressStageStatus;
+  completed_count: number;
+  required_count: number;
+  evidence: ProjectProgressEvidence[];
+}
+
+export interface ProjectProgress {
+  status: "complete" | "in_progress";
+  completed_stage_count: number;
+  partial_stage_count: number;
+  stage_count: number;
+  completion_ratio: number;
+  current_stage: ProjectProgressStage;
+  stages: ProjectProgressStage[];
+  disclaimer: string;
+}
+
 export interface ResearchStatus {
   acceptance: AcceptanceStatus;
   artifact_status: ArtifactStatus;

@@ -66,6 +66,8 @@ import type {
   LocalSettings,
   ModelSummary,
   PipelineRun,
+  ProjectProgress,
+  ProjectProgressStage,
   Prediction,
   RejectedTrade,
   ReportDetail,
@@ -97,6 +99,7 @@ export function DashboardPage({
   predictions,
   backtest,
   pipeline,
+  progress,
   report,
 }: {
   status?: ResearchStatus;
@@ -108,6 +111,7 @@ export function DashboardPage({
   predictions: Prediction[];
   backtest?: LatestBacktest;
   pipeline?: PipelineRun;
+  progress?: ProjectProgress;
   report?: string;
 }) {
   const acceptanceStatus = acceptance ?? status?.acceptance;
@@ -150,11 +154,53 @@ export function DashboardPage({
         </Col>
         <Col xs={24} md={12} xl={6}>
           <Card>
-            <Statistic title="超额收益" value={formatPercent(backtest?.excess_return)} />
-            <Text type="secondary">回测：{backtest?.backtest_id ?? status?.backtest.backtest_id ?? "-"}</Text>
+            <Statistic
+              title="阶段完成度"
+              value={progress ? `${progress.completed_stage_count}/${progress.stage_count}` : "-"}
+            />
+            <Text type="secondary">当前：{progress?.current_stage.name ?? "-"}</Text>
           </Card>
         </Col>
       </Row>
+
+      <Card
+        title="阶段进度"
+        extra={
+          <Tag color={progress?.status === "complete" ? "green" : "blue"}>
+            {progress?.status ?? "unknown"}
+          </Tag>
+        }
+      >
+        {progress?.stages.length ? (
+          <Table<ProjectProgressStage>
+            rowKey="id"
+            size="small"
+            pagination={false}
+            dataSource={progress.stages}
+            columns={[
+              { title: "阶段", dataIndex: "name", width: 220 },
+              { title: "目标", dataIndex: "goal" },
+              {
+                title: "状态",
+                dataIndex: "status",
+                width: 110,
+                render: (value: ProjectProgressStage["status"]) => (
+                  <Tag color={value === "complete" ? "green" : value === "partial" ? "orange" : "default"}>
+                    {value}
+                  </Tag>
+                ),
+              },
+              {
+                title: "证据",
+                width: 120,
+                render: (_, row) => `${row.completed_count}/${row.required_count}`,
+              },
+            ]}
+          />
+        ) : (
+          <Empty description="暂无阶段进度" />
+        )}
+      </Card>
 
       <Card
         title="验收门禁"
@@ -1675,5 +1721,4 @@ export function SettingsPage({
     </>
   );
 }
-
 
