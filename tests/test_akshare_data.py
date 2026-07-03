@@ -119,6 +119,22 @@ def test_collect_akshare_price_bars_records_symbol_failures() -> None:
     assert "temporary upstream error" in result.failed_symbols[0].reason
 
 
+def test_collect_akshare_price_bars_reports_all_failures_when_no_bars() -> None:
+    class FailingAkshare(FakeAkshare):
+        def stock_zh_a_hist(
+            self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            raise RuntimeError(f"blocked {symbol}")
+
+    with pytest.raises(ValueError, match="000001.SZ: blocked 000001"):
+        collect_akshare_price_bars(
+            symbols=("000001.SZ", "600000.SH"),
+            start_date="20240102",
+            end_date="20240103",
+            provider=FailingAkshare(),
+        )
+
+
 def test_resolve_akshare_symbols_fetches_csi800_components() -> None:
     provider = FakeAkshare()
 

@@ -127,7 +127,12 @@ def collect_akshare_price_bars(
         except Exception as error:  # noqa: BLE001 - 单只股票失败应记录并继续采集其它标的。
             failed_symbols.append(AkshareSymbolFailure(symbol=symbol, reason=str(error)))
     if not bars:
-        raise ValueError("akshare returned no price bars after benchmark alignment")
+        # 真实行情源失败时必须保留单标的原因，否则 pipeline 只能看到“无数据”的二次症状，排查不到上游接口或网络问题。
+        failure_summary = "; ".join(
+            f"{failure.symbol}: {failure.reason}" for failure in failed_symbols[:5]
+        )
+        detail = f"; failures={failure_summary}" if failure_summary else ""
+        raise ValueError(f"akshare returned no price bars after benchmark alignment{detail}")
     return AksharePriceFetchResult(
         bars=sorted(bars, key=lambda bar: (bar.trade_date, bar.symbol)),
         requested_symbols=symbols,

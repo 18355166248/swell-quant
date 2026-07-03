@@ -479,7 +479,7 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
     assert trial_status["failed_step"] is None
 
 
-def test_make_akshare_trial_dry_run_target_writes_summary(tmp_path: Path) -> None:
+def test_akshare_trial_dry_run_entrypoint_writes_summary(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     env = {
         **os.environ,
@@ -487,7 +487,7 @@ def test_make_akshare_trial_dry_run_target_writes_summary(tmp_path: Path) -> Non
     }
 
     result = subprocess.run(
-        ["make", "akshare-trial-dry-run"],
+        [sys.executable, str(root / "scripts" / "run_akshare_trial.py"), "--dry-run"],
         cwd=root,
         env=env,
         text=True,
