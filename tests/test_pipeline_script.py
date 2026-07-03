@@ -438,6 +438,10 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
 
     assert result.returncode == 0
     assert payload["status"] == "dry_run"
+    assert payload["passed"] is True
+    assert payload["artifact_path"] == str(tmp_path / "data" / "reports" / "akshare_trial_run.json")
+    assert payload["started_at"]
+    assert payload["ended_at"]
     assert payload["env"]["DATA_SOURCE"] == "akshare"
     assert payload["env"]["AKSHARE_UNIVERSE_MODE"] == "csi800"
     assert payload["env"]["AKSHARE_MAX_SYMBOLS"] == "5"
@@ -449,6 +453,11 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
         "acceptance",
         "progress",
     ]
+    artifact = json.loads(
+        (tmp_path / "data" / "reports" / "akshare_trial_run.json").read_text(encoding="utf-8")
+    )
+    assert artifact["status"] == "dry_run"
+    assert artifact["steps"][0]["name"] == "config"
 
 
 def test_run_akshare_trial_rejects_invalid_symbol_cap(tmp_path: Path) -> None:
