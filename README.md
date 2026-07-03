@@ -87,13 +87,10 @@ python3 scripts/check_akshare_universe.py
 首次连接真实 AKShare 时建议先限制标的数量做小规模试跑：
 
 ```bash
-DATA_SOURCE=akshare \
-AKSHARE_UNIVERSE_MODE=csi800 \
-AKSHARE_MAX_SYMBOLS=20 \
-AKSHARE_START_DATE=20240102 \
-AKSHARE_END_DATE=20240131 \
-python3 scripts/run_pipeline.py
+make akshare-trial
 ```
+
+该命令等价于用 `DATA_SOURCE=akshare`、`AKSHARE_UNIVERSE_MODE=csi800`、`AKSHARE_MAX_SYMBOLS=20`、`AKSHARE_START_DATE=20240102`、`AKSHARE_END_DATE=20240131` 依次执行配置预检、股票池解析、pipeline、数据源门禁、总验收和进度检查。需要先确认计划命令时可运行 `python3 scripts/run_akshare_trial.py --dry-run`；需要调整范围时可使用 `--max-symbols`、`--start-date` 和 `--end-date`。
 
 真实 AKShare 采集会按标的记录成功和失败摘要；单只股票临时失败时，pipeline 会继续处理已成功获取的标的，并把 `succeeded_symbol_count`、`failed_symbol_count` 和 `failed_symbols` 写入 `data/raw/data_source.json`。
 跑完真实行情后建议执行 `python3 scripts/check_data_source.py` 或 `make data-source`。该检查会把限量试跑和单标的采集失败标为 warning，只有缺少元数据或没有成功标的时才阻断。

@@ -406,3 +406,72 @@ def test_check_data_source_returns_nonzero_before_pipeline_runs(tmp_path: Path) 
 
     assert result.returncode == 1
     assert "data_source_status=missing" in result.stdout
+
+
+def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "run_akshare_trial.py"),
+            "--dry-run",
+            "--json",
+            "--max-symbols",
+            "5",
+            "--start-date",
+            "20240102",
+            "--end-date",
+            "20240105",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["status"] == "dry_run"
+    assert payload["env"]["DATA_SOURCE"] == "akshare"
+    assert payload["env"]["AKSHARE_UNIVERSE_MODE"] == "csi800"
+    assert payload["env"]["AKSHARE_MAX_SYMBOLS"] == "5"
+    assert [step["name"] for step in payload["steps"]] == [
+        "config",
+        "akshare_universe",
+        "pipeline",
+        "data_source",
+        "acceptance",
+        "progress",
+    ]
+
+
+def test_run_akshare_trial_rejects_invalid_symbol_cap(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "run_akshare_trial.py"),
+            "--dry-run",
+            "--max-symbols",
+            "0",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "--max-symbols must be greater than 0" in result.stderr

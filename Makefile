@@ -1,4 +1,4 @@
-.PHONY: help config progress akshare-universe data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
+.PHONY: help config progress akshare-universe akshare-trial data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
 
 PYTHON ?= python3
 NPM ?= npm
@@ -8,6 +8,7 @@ help:
 	@printf "  make config          Check local configuration preflight\n"
 	@printf "  make progress        Show project stage progress\n"
 	@printf "  make akshare-universe Check AKShare universe resolution\n"
+	@printf "  make akshare-trial   Run bounded AKShare real-data trial\n"
 	@printf "  make data-source     Check latest data acquisition metadata\n"
 	@printf "  make pipeline        Run the offline research pipeline\n"
 	@printf "  make storage         Check DuckDB mirror tables, row counts, and schemas\n"
@@ -28,6 +29,9 @@ progress:
 
 akshare-universe:
 	$(PYTHON) scripts/check_akshare_universe.py
+
+akshare-trial:
+	$(PYTHON) scripts/run_akshare_trial.py
 
 data-source:
 	$(PYTHON) scripts/check_data_source.py
