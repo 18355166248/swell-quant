@@ -14,6 +14,7 @@ from swell_quant.core.config import Settings, build_settings_preflight
 from swell_quant.data.akshare_data import AkshareDependencyError
 from swell_quant.data.quality import read_quality_report
 from swell_quant.data.sample_data import DATA_SOURCE_METADATA_FILENAME, read_price_data_metadata
+from swell_quant.data.source_status import build_data_source_status_from_metadata
 from swell_quant.data.universe_check import build_akshare_universe_payload
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
@@ -677,7 +678,14 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
     metadata = _default_data_metadata()
     if metadata_path.exists():
         metadata.update(read_price_data_metadata(metadata_path))
+    source_status = build_data_source_status_from_metadata(metadata, metadata_path)
     return {
+        "data_source_status": source_status["status"],
+        "data_source_passed": source_status["passed"],
+        "data_source_warning_count": source_status["warning_count"],
+        "data_source_warnings": source_status["warnings"],
+        "data_source_failed_count": source_status["failed_count"],
+        "data_source_failures": source_status["failures"],
         "data_source": metadata["data_source"],
         "market": metadata["market"],
         "universe": metadata["universe"],

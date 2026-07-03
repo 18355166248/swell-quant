@@ -312,6 +312,12 @@ export interface DataQuality {
 }
 
 export interface DataStatus {
+  data_source_status: "passed" | "warning" | "failed" | "missing";
+  data_source_passed: boolean;
+  data_source_warning_count: number;
+  data_source_warnings: string[];
+  data_source_failed_count: number;
+  data_source_failures: string[];
   data_source: string;
   market: string;
   universe: string;

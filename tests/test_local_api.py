@@ -366,6 +366,10 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert quality["passed"] is True
     assert quality["row_count"] == 60
     assert data_status["market"] == "A_SHARE_DAILY"
+    assert data_status["data_source_status"] == "passed"
+    assert data_status["data_source_passed"] is True
+    assert data_status["data_source_warnings"] == []
+    assert data_status["data_source_failures"] == []
     assert data_status["data_source"] == "akshare"
     assert data_status["universe_mode"] == "manual"
     assert data_status["symbols"] == ["000001.SZ", "600000.SH"]

@@ -38,6 +38,7 @@ import {
 import {
   formatNumber,
   formatPercent,
+  preflightStatusColor,
   rejectedTradeReasonLabel,
   statusColor,
   storageStatusColor,
@@ -537,6 +538,8 @@ export function DataPage({
 }) {
   const issues = quality?.issues ?? [];
   const failedSymbols = dataStatus?.failed_symbols ?? [];
+  const dataSourceWarnings = dataStatus?.data_source_warnings ?? [];
+  const dataSourceFailures = dataStatus?.data_source_failures ?? [];
   const featureRows = features?.feature_names.map((featureName) => ({
     featureName,
     nonNullCount: features.non_null_counts[featureName] ?? 0,
@@ -687,6 +690,32 @@ export function DataPage({
       <Row gutter={[16, 16]}>
         <Col xs={24}>
           <Card title="采集摘要">
+            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+              <Space wrap>
+                <Tag color={preflightStatusColor(dataStatus?.data_source_status)}>
+                  采集状态：{dataStatus?.data_source_status ?? "missing"}
+                </Tag>
+                <Tag color={dataStatus?.data_source_passed ? "green" : "red"}>
+                  {dataStatus?.data_source_passed ? "可继续研究" : "需先修复采集"}
+                </Tag>
+              </Space>
+              {dataSourceWarnings.length > 0 ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="采集提示"
+                  description={dataSourceWarnings.join("；")}
+                />
+              ) : null}
+              {dataSourceFailures.length > 0 ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="采集阻断"
+                  description={dataSourceFailures.join("；")}
+                />
+              ) : null}
+            </Space>
             <Descriptions column={4} size="small">
               <Descriptions.Item label="解析标的">{dataStatus?.resolved_symbol_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="选择标的">{dataStatus?.selected_symbol_count ?? 0}</Descriptions.Item>

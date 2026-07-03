@@ -136,6 +136,15 @@ describe("research pages module", () => {
 
   it("renders AKShare collection failures on the data page", () => {
     const dataStatus: DataStatus = {
+      data_source_status: "warning",
+      data_source_passed: true,
+      data_source_warning_count: 2,
+      data_source_warnings: [
+        "1 symbols failed during collection",
+        "AKSHARE_MAX_SYMBOLS trial cap is active: 2",
+      ],
+      data_source_failed_count: 0,
+      data_source_failures: [],
       data_source: "akshare",
       market: "A_SHARE_DAILY",
       universe: "akshare_csi800",
@@ -173,6 +182,9 @@ describe("research pages module", () => {
     const html = renderToStaticMarkup(<DataPage dataStatus={dataStatus} />);
 
     expect(html).toContain("采集摘要");
+    expect(html).toContain("采集状态：warning");
+    expect(html).toContain("采集提示");
+    expect(html).toContain("AKSHARE_MAX_SYMBOLS trial cap is active: 2");
     expect(html).toContain("失败标的");
     expect(html).toContain("600000.SH");
     expect(html).toContain("temporary upstream error");
