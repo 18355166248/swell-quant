@@ -1,4 +1,4 @@
-.PHONY: help config progress akshare-universe akshare-trial akshare-trial-status data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
+.PHONY: help config progress akshare-universe akshare-trial akshare-trial-dry-run akshare-trial-status data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
 
 PYTHON ?= python3
 NPM ?= npm
@@ -9,6 +9,7 @@ help:
 	@printf "  make progress        Show project stage progress\n"
 	@printf "  make akshare-universe Check AKShare universe resolution\n"
 	@printf "  make akshare-trial   Run bounded AKShare real-data trial\n"
+	@printf "  make akshare-trial-dry-run Preview AKShare trial without network calls\n"
 	@printf "  make akshare-trial-status Check latest AKShare trial summary\n"
 	@printf "  make data-source     Check latest data acquisition metadata\n"
 	@printf "  make pipeline        Run the offline research pipeline\n"
@@ -33,6 +34,9 @@ akshare-universe:
 
 akshare-trial:
 	$(PYTHON) scripts/run_akshare_trial.py
+
+akshare-trial-dry-run:
+	$(PYTHON) scripts/run_akshare_trial.py --dry-run
 
 akshare-trial-status:
 	$(PYTHON) scripts/check_akshare_trial.py

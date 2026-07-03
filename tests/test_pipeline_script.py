@@ -475,6 +475,27 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
     assert trial_status["failed_step"] is None
 
 
+def test_make_akshare_trial_dry_run_target_writes_summary(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        ["make", "akshare-trial-dry-run"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "akshare_trial_status=dry_run" in result.stdout
+    assert (tmp_path / "data" / "reports" / "akshare_trial_run.json").exists()
+
+
 def test_run_akshare_trial_rejects_invalid_symbol_cap(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     env = {
