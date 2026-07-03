@@ -4,8 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts.check_akshare_universe import build_akshare_universe_payload
 from swell_quant.core.config import Settings
+from swell_quant.data.universe_check import build_akshare_universe_payload
 
 
 class FakeUniverseFrame:

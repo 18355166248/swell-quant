@@ -11,8 +11,10 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from swell_quant.core.config import Settings, build_settings_preflight
+from swell_quant.data.akshare_data import AkshareDependencyError
 from swell_quant.data.quality import read_quality_report
 from swell_quant.data.sample_data import DATA_SOURCE_METADATA_FILENAME, read_price_data_metadata
+from swell_quant.data.universe_check import build_akshare_universe_payload
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.labels import read_labels_csv
@@ -82,6 +84,10 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 self.data_dir / "processed" / "data_quality.json",
                 load_data_status_artifact,
             )
+            return
+        if route == "/api/akshare/universe":
+            status, payload = load_akshare_universe_artifact(self.settings)
+            self._send_json(payload, status=status)
             return
         if route == "/api/storage/duckdb":
             self._send_json(load_duckdb_storage_artifact(self.duckdb_path, self.data_dir))
@@ -382,6 +388,29 @@ def load_settings_artifact(
         "preflight": build_settings_preflight(settings),
         "artifacts": artifact_status["artifacts"],
     }
+
+
+def load_akshare_universe_artifact(settings: Settings) -> tuple[HTTPStatus, dict[str, Any]]:
+    try:
+        payload = build_akshare_universe_payload(settings)
+    except ValueError as error:
+        return HTTPStatus.BAD_REQUEST, {
+            "status": "failed",
+            "passed": False,
+            "error": "invalid_settings",
+            "message": str(error),
+            "disclaimer": "仅用于研究，不构成投资建议",
+        }
+    except (AkshareDependencyError, AttributeError) as error:
+        return HTTPStatus.SERVICE_UNAVAILABLE, {
+            "status": "failed",
+            "passed": False,
+            "error": "akshare_universe_unavailable",
+            "message": str(error),
+            "disclaimer": "仅用于研究，不构成投资建议",
+        }
+    status = HTTPStatus.OK if payload["passed"] else HTTPStatus.UNPROCESSABLE_ENTITY
+    return status, payload
 
 
 def load_artifacts_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]:

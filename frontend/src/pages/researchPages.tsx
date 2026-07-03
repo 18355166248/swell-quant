@@ -51,6 +51,7 @@ import {
 } from "../utils/tableColumns";
 import type {
   AcceptanceStatus,
+  AkshareUniverseStatus,
   ArtifactStatus,
   BacktestPoint,
   BacktestSummary,
@@ -1609,11 +1610,18 @@ export function ReportsPage({
 export function SettingsPage({
   settings,
   artifactStatus,
+  akshareUniverse,
 }: {
   settings?: LocalSettings;
   artifactStatus?: ArtifactStatus;
+  akshareUniverse?: AkshareUniverseStatus;
 }) {
   const artifacts = artifactStatus?.artifacts ?? settings?.artifacts ?? [];
+  const akshareUniverseDescription = akshareUniverse
+    ? akshareUniverse.passed
+      ? `模式 ${akshareUniverse.universe_mode ?? "-"}，解析 ${akshareUniverse.symbol_count ?? 0} 个标的，最低门槛 ${akshareUniverse.minimum_expected_count ?? 0}。样例：${akshareUniverse.symbols_sample?.join(", ") || "-"}`
+      : `${akshareUniverse.error ?? "akshare_universe_failed"}：${akshareUniverse.message ?? "股票池解析未通过"}`
+    : "暂无股票池解析结果";
   return (
     <>
       <PageTitle title="设置" description="查看本地研究环境、数据目录、API key 配置状态和关键产物是否存在。" />
@@ -1680,6 +1688,13 @@ export function SettingsPage({
                   ? `状态 ${settings.preflight.status}，${settings.preflight.failed_count} 个失败，${settings.preflight.warning_count} 个警告。`
                   : "暂无预检结果"
               }
+            />
+            <Alert
+              className="settings-runtime"
+              type={akshareUniverse?.passed ? "success" : akshareUniverse ? "warning" : "info"}
+              showIcon
+              message="股票池解析门禁"
+              description={akshareUniverseDescription}
             />
             <Table
               rowKey="key"

@@ -13,7 +13,7 @@ import {
   StocksPage,
   TasksPage,
 } from "./researchPages";
-import type { LocalSettings, Prediction, ProjectProgress } from "../types/api";
+import type { AkshareUniverseStatus, LocalSettings, Prediction, ProjectProgress } from "../types/api";
 
 describe("research pages module", () => {
   it("exports every top-level research dashboard page", () => {
@@ -178,11 +178,25 @@ describe("research pages module", () => {
       artifacts: [],
       secret_probe: "sk-secret-should-not-render",
     } satisfies LocalSettings & { secret_probe: string };
+    const akshareUniverse: AkshareUniverseStatus = {
+      status: "passed",
+      passed: true,
+      data_source: "sample",
+      universe_mode: "manual",
+      symbol_count: 1,
+      minimum_expected_count: 1,
+      symbols_sample: ["000300.SH"],
+      disclaimer: "仅用于研究，不构成投资建议",
+    };
 
-    const html = renderToStaticMarkup(<SettingsPage settings={settings} />);
+    const html = renderToStaticMarkup(
+      <SettingsPage settings={settings} akshareUniverse={akshareUniverse} />,
+    );
 
     expect(html).toContain("DeepSeek Key");
     expect(html).toContain("已配置");
+    expect(html).toContain("股票池解析门禁");
+    expect(html).toContain("000300.SH");
     expect(html).not.toContain("sk-secret-should-not-render");
   });
 });

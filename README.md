@@ -115,6 +115,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/tasks`
 - `GET /api/tasks/pipeline-latest`
 - `GET /api/data/status`
+- `GET /api/akshare/universe`
 - `GET /api/storage/duckdb`
 - `GET /api/data-quality`
 - `GET /api/features`
@@ -154,6 +155,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 `GET /api/acceptance` 只返回验收门禁摘要，适合前端首屏、脚本或外部集成直接判断当前研究链路是否可用。
 
 `GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
+
+`GET /api/akshare/universe` 会返回当前 AKShare 股票池解析门禁状态；manual 模式检查手工标的，`csi800` / `hs300_csi500` 模式会尝试解析沪深 300 + 中证 500 成分股，只用于研究链路前置验收。
 
 `GET /api/artifacts` 返回本地研究产物清单、缺失项、文件大小和更新时间，适合无页面排查 pipeline 是否生成了完整可用的结果。
 

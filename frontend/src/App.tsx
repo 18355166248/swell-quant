@@ -79,6 +79,11 @@ function App() {
     queryFn: () => api.getTaskDetail("pipeline-latest"),
   });
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
+  const akshareUniverseQuery = useQuery({
+    queryKey: ["akshare-universe"],
+    queryFn: api.getAkshareUniverse,
+    enabled: activePage === "settings",
+  });
   const duckdbStorageQuery = useQuery({ queryKey: ["duckdb-storage"], queryFn: api.getDuckDBStorage });
   const qualityQuery = useQuery({ queryKey: ["data-quality"], queryFn: api.getDataQuality });
   const featuresQuery = useQuery({ queryKey: ["features"], queryFn: api.getFeatures });
@@ -204,6 +209,7 @@ function App() {
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
     dataStatusQuery.isLoading ||
+    (activePage === "settings" && akshareUniverseQuery.isLoading) ||
     duckdbStorageQuery.isLoading ||
     featuresQuery.isLoading ||
     labelsQuery.isLoading ||
@@ -347,7 +353,13 @@ function App() {
         qualityIssues={quality?.issues ?? []}
       />
     ),
-    settings: <SettingsPage settings={settingsQuery.data} artifactStatus={artifactsQuery.data} />,
+    settings: (
+      <SettingsPage
+        settings={settingsQuery.data}
+        artifactStatus={artifactsQuery.data}
+        akshareUniverse={akshareUniverseQuery.data}
+      />
+    ),
   } satisfies Record<PageKey, ReactNode>;
 
   return (

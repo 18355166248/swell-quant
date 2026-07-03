@@ -637,6 +637,19 @@ export interface LocalSettings {
   artifacts: SettingsArtifact[];
 }
 
+export interface AkshareUniverseStatus {
+  status: "passed" | "failed";
+  passed: boolean;
+  data_source?: string;
+  universe_mode?: string;
+  symbol_count?: number;
+  minimum_expected_count?: number;
+  symbols_sample?: string[];
+  error?: string;
+  message?: string;
+  disclaimer: string;
+}
+
 export interface ReportSummary {
   report_id: string;
   title: string;

@@ -1,8 +1,10 @@
 import threading
+from http import HTTPStatus
 from pathlib import Path
 
 from swell_quant.api.local_server import (
     load_acceptance_artifact,
+    load_akshare_universe_artifact,
     load_artifacts_artifact,
     load_backtest_artifact,
     load_backtest_route,
@@ -85,6 +87,49 @@ def test_local_api_artifact_loaders_read_status_pipeline_and_report(tmp_path: Pa
     assert load_json_artifact(status_path)["pipeline"]["status"] == "success"
     assert load_json_artifact(pipeline_path)["step_count"] == 8
     assert "不构成投资建议" in load_text_artifact(report_path)
+
+
+def test_local_api_akshare_universe_artifact_reports_manual_symbols(tmp_path: Path) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
+        akshare_universe_mode="manual",
+        akshare_symbols=("000001.SZ", "600000.SH"),
+    )
+
+    status, payload = load_akshare_universe_artifact(settings)
+
+    assert status == HTTPStatus.OK
+    assert payload["status"] == "passed"
+    assert payload["symbol_count"] == 2
+    assert payload["symbols_sample"] == ["000001.SZ", "600000.SH"]
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
+def test_local_api_akshare_universe_artifact_handles_unavailable_provider(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import swell_quant.api.local_server as local_server
+    from swell_quant.data.akshare_data import AkshareDependencyError
+
+    def fail_universe_payload(_settings):
+        raise AkshareDependencyError("missing akshare")
+
+    monkeypatch.setattr(local_server, "build_akshare_universe_payload", fail_universe_payload)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
+        akshare_universe_mode="csi800",
+        akshare_symbols=(),
+    )
+
+    status, payload = load_akshare_universe_artifact(settings)
+
+    assert status == HTTPStatus.SERVICE_UNAVAILABLE
+    assert payload["status"] == "failed"
+    assert payload["error"] == "akshare_universe_unavailable"
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
 def test_local_api_acceptance_artifact_extracts_gate_summary(tmp_path: Path) -> None:

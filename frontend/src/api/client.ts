@@ -1,5 +1,6 @@
 import type {
   AcceptanceStatus,
+  AkshareUniverseStatus,
   ArtifactStatus,
   BacktestList,
   DataQuality,
@@ -74,6 +75,12 @@ async function requestText(path: string): Promise<string> {
   return response.text();
 }
 
+async function requestJsonLenient<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`);
+  const payload = await response.json();
+  return payload as T;
+}
+
 export const api = {
   getStatus: () => requestJson<ResearchStatus>("/api/status"),
   getAcceptance: () => requestJson<AcceptanceStatus>("/api/acceptance"),
@@ -84,6 +91,7 @@ export const api = {
   getTasks: () => requestJson<TaskList>("/api/tasks"),
   getTaskDetail: (taskId: string) => requestJson<TaskDetail>(`/api/tasks/${taskId}`),
   getDataStatus: () => requestJson<DataStatus>("/api/data/status"),
+  getAkshareUniverse: () => requestJsonLenient<AkshareUniverseStatus>("/api/akshare/universe"),
   getDuckDBStorage: () => requestJson<DuckDBStorageStatus>("/api/storage/duckdb"),
   getDataQuality: () => requestJson<DataQuality>("/api/data-quality"),
   getFeatures: () => requestJson<FeatureSummary>("/api/features"),

@@ -26,7 +26,7 @@ def main() -> int:
     print(f"serving read-only API on http://{args.host}:{args.port}")
     print(
         "available endpoints: /api/health /api/status /api/acceptance /api/artifacts /api/progress /api/settings "
-        "/api/data/status /api/storage/duckdb /api/features /api/labels /api/models "
+        "/api/data/status /api/akshare/universe /api/storage/duckdb /api/features /api/labels /api/models "
         "/api/models/latest /api/tasks /api/predictions /api/backtests /api/stocks "
         "/api/reports /api/pipeline POST:/api/data/update POST:/api/models/train "
         "POST:/api/predictions/run POST:/api/backtests/run POST:/api/reports/generate"
