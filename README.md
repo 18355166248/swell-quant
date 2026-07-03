@@ -96,6 +96,7 @@ python3 scripts/run_pipeline.py
 ```
 
 真实 AKShare 采集会按标的记录成功和失败摘要；单只股票临时失败时，pipeline 会继续处理已成功获取的标的，并把 `succeeded_symbol_count`、`failed_symbol_count` 和 `failed_symbols` 写入 `data/raw/data_source.json`。
+跑完真实行情后建议执行 `python3 scripts/check_data_source.py` 或 `make data-source`。该检查会把限量试跑和单标的采集失败标为 warning，只有缺少元数据或没有成功标的时才阻断。
 
 训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
 `rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。
@@ -108,7 +109,7 @@ LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=... python3 scripts/run_pipeline.py
 
 `.env.example` 会列出当前支持的全部本地环境变量。API key 只能通过本地环境变量或未提交的 `.env` 注入，不要写入代码、文档正文或提交记录。
 
-`make ci-local` 会运行 Python lint、Python format check、后端测试、端到端 smoke 验收和前端构建；这些检查与 GitHub Actions 的 `main` push 和 pull request 门禁保持一致。
+`make ci-local` 会运行 Python lint、Python format check、后端测试、端到端 smoke 验收、数据源元数据检查和前端构建；这些检查与 GitHub Actions 的 `main` push 和 pull request 门禁保持一致。
 
 本地 API 可用于无页面验收：
 

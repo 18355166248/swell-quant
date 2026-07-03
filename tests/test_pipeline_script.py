@@ -129,6 +129,20 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert acceptance["status"] == "passed"
     assert acceptance["failed_count"] == 0
 
+    data_source_result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_data_source.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    data_source = json.loads(data_source_result.stdout)
+    assert data_source_result.returncode == 0
+    assert data_source["status"] == "passed"
+    assert data_source["selected_symbol_count"] == 3
+    assert data_source["failed_symbol_count"] == 0
+
     smoke_result = subprocess.run(
         [sys.executable, str(root / "scripts" / "smoke_test.py"), "--json"],
         cwd=root,
@@ -372,3 +386,23 @@ def test_check_acceptance_returns_nonzero_before_pipeline_runs(tmp_path: Path) -
 
     assert result.returncode == 1
     assert "acceptance_status=missing" in result.stdout
+
+
+def test_check_data_source_returns_nonzero_before_pipeline_runs(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_data_source.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "data_source_status=missing" in result.stdout
