@@ -5,6 +5,7 @@ import pytest
 from swell_quant.data.akshare_data import (
     AkshareDependencyError,
     fetch_akshare_price_bars,
+    resolve_akshare_symbols,
     write_akshare_prices_csv,
 )
 from swell_quant.data.sample_data import read_price_bars_csv
@@ -20,6 +21,23 @@ class FakeFrame:
 
 
 class FakeAkshare:
+    def __init__(self) -> None:
+        self.index_symbols: list[str] = []
+
+    def index_stock_cons(self, symbol: str) -> FakeFrame:
+        self.index_symbols.append(symbol)
+        rows_by_symbol = {
+            "000300": [
+                {"品种代码": "600000", "交易所": "上海证券交易所"},
+                {"品种代码": "000001", "交易所": "深圳证券交易所"},
+            ],
+            "000905": [
+                {"成分券代码": "600000", "交易所": "SH"},
+                {"成分券代码": "300001", "交易所": "SZ"},
+            ],
+        }
+        return FakeFrame(rows_by_symbol[symbol])
+
     def stock_zh_index_daily(self, symbol: str) -> FakeFrame:
         assert symbol == "sh000906"
         return FakeFrame(
@@ -73,6 +91,29 @@ def test_fetch_akshare_price_bars_maps_daily_rows() -> None:
     assert bars[0].close == 10.2
     assert bars[0].benchmark_close == 1000.0
     assert bars[1].volume == 23456
+
+
+def test_resolve_akshare_symbols_fetches_csi800_components() -> None:
+    provider = FakeAkshare()
+
+    symbols = resolve_akshare_symbols(
+        universe_mode="csi800",
+        manual_symbols=(),
+        provider=provider,
+    )
+
+    assert provider.index_symbols == ["000300", "000905"]
+    assert symbols == ("600000.SH", "000001.SZ", "300001.SZ")
+
+
+def test_resolve_akshare_symbols_keeps_manual_symbols() -> None:
+    symbols = resolve_akshare_symbols(
+        universe_mode="manual",
+        manual_symbols=("000001.SZ", "600000.SH"),
+        provider=FakeAkshare(),
+    )
+
+    assert symbols == ("000001.SZ", "600000.SH")
 
 
 def test_write_akshare_prices_csv_uses_standard_price_contract(tmp_path: Path) -> None:

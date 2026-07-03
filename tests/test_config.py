@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from swell_quant.core.config import Settings
+from swell_quant.core.config import Settings, build_settings_preflight
 
 
 def test_env_example_documents_all_supported_environment_variables() -> None:
@@ -53,6 +53,60 @@ def test_settings_loads_akshare_data_source(monkeypatch) -> None:
     assert settings.deepseek_model == "deepseek-chat"
 
 
+def test_settings_allows_csi800_universe_without_manual_symbols(monkeypatch) -> None:
+    monkeypatch.setenv("DATA_SOURCE", "akshare")
+    monkeypatch.setenv("AKSHARE_UNIVERSE_MODE", "csi800")
+    monkeypatch.setenv("AKSHARE_SYMBOLS", "")
+
+    settings = Settings.from_env()
+
+    assert settings.akshare_universe_mode == "csi800"
+    assert settings.akshare_symbols == ()
+
+
+def test_settings_preflight_accepts_runtime_resolved_csi800_symbols() -> None:
+    settings = Settings(
+        data_dir=Path("./data"),
+        duckdb_path=Path("./data/duckdb/swell_quant.duckdb"),
+        data_source="akshare",
+        akshare_universe_mode="csi800",
+        akshare_symbols=(),
+    )
+
+    preflight = build_settings_preflight(settings)
+
+    assert preflight["status"] == "passed"
+    assert preflight["failed_count"] == 0
+    assert any(
+        check["key"] == "akshare_symbols"
+        and check["status"] == "passed"
+        and "运行时" in check["message"]
+        for check in preflight["checks"]
+    )
+
+
+def test_settings_allows_hs300_csi500_universe_alias() -> None:
+    settings = Settings(
+        data_dir=Path("./data"),
+        duckdb_path=Path("./data/duckdb/swell_quant.duckdb"),
+        akshare_universe_mode="hs300_csi500",
+        akshare_symbols=(),
+    )
+
+    assert settings.akshare_universe_mode == "hs300_csi500"
+    assert settings.akshare_symbols == ()
+
+
+def test_settings_rejects_empty_manual_akshare_symbols() -> None:
+    with pytest.raises(ValueError, match="manual mode"):
+        Settings(
+            data_dir=Path("./data"),
+            duckdb_path=Path("./data/duckdb/swell_quant.duckdb"),
+            akshare_universe_mode="manual",
+            akshare_symbols=(),
+        )
+
+
 def test_settings_rejects_invalid_akshare_symbol() -> None:
     with pytest.raises(ValueError, match="AKSHARE_SYMBOLS"):
         Settings(
@@ -67,7 +121,7 @@ def test_settings_rejects_unsupported_akshare_universe_mode() -> None:
         Settings(
             data_dir=Path("./data"),
             duckdb_path=Path("./data/duckdb/swell_quant.duckdb"),
-            akshare_universe_mode="target_csi800",
+            akshare_universe_mode="all_a",
         )
 
 

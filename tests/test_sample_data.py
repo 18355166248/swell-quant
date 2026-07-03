@@ -46,3 +46,19 @@ def test_price_data_metadata_round_trip(tmp_path: Path) -> None:
     assert loaded["benchmark_same_source"] is False
     assert "自定义股票池" in loaded["benchmark_note"]
     assert loaded["updated_at"]
+
+
+def test_price_data_metadata_marks_csi800_universe_as_same_source_benchmark() -> None:
+    metadata = build_price_data_metadata(
+        data_source="akshare",
+        symbols=("000001.SZ", "600000.SH"),
+        start_date="20240102",
+        end_date="20240229",
+        benchmark="sh000906",
+        universe_mode="csi800",
+    )
+
+    assert metadata["universe"] == "akshare_csi800"
+    assert metadata["universe_name"] == "AKShare 沪深 300 + 中证 500 股票池"
+    assert metadata["benchmark_same_source"] is True
+    assert "同源" in metadata["benchmark_note"]

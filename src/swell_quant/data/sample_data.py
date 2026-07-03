@@ -126,7 +126,16 @@ def build_price_data_metadata(
     is_same_source_benchmark = data_source == "sample"
     resolved_universe_mode = universe_mode or ("sample" if data_source == "sample" else "manual")
     universe = "sample_a_share" if data_source == "sample" else f"akshare_{resolved_universe_mode}"
-    universe_name = "本地样例 A 股股票池" if data_source == "sample" else "AKShare 手工股票池"
+    if data_source == "sample":
+        universe_name = "本地样例 A 股股票池"
+    elif resolved_universe_mode in {"csi800", "hs300_csi500"}:
+        universe_name = "AKShare 沪深 300 + 中证 500 股票池"
+    else:
+        universe_name = "AKShare 手工股票池"
+    benchmark_same_source = is_same_source_benchmark or resolved_universe_mode in {
+        "csi800",
+        "hs300_csi500",
+    }
     return {
         "data_source": data_source,
         "market": "A_SHARE_DAILY",
@@ -139,9 +148,9 @@ def build_price_data_metadata(
         "benchmark": benchmark,
         "benchmark_name": benchmark_name,
         "benchmark_fallback": benchmark_fallback,
-        "benchmark_same_source": is_same_source_benchmark,
+        "benchmark_same_source": benchmark_same_source,
         "benchmark_note": "v1 目标股票池与中证 800 基准同源，跑赢结果不能解读为跨股票池泛化能力。"
-        if is_same_source_benchmark
+        if benchmark_same_source
         else "当前为 AKShare 自定义股票池，需单独检查股票池与基准是否同源。",
         "adjustment": adjustment,
         "update_mode": update_mode,

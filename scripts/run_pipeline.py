@@ -13,7 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps, write_run_manifest
-from swell_quant.data.akshare_data import write_akshare_prices_csv
+from swell_quant.data.akshare_data import resolve_akshare_symbols, write_akshare_prices_csv
 from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import (
     DATA_SOURCE_METADATA_FILENAME,
@@ -90,9 +90,13 @@ def run_data_update(settings: Settings) -> str:
         )
         source_message = "source=sample"
     elif data_source == "akshare":
+        symbols = resolve_akshare_symbols(
+            universe_mode=settings.akshare_universe_mode,
+            manual_symbols=settings.akshare_symbols,
+        )
         write_akshare_prices_csv(
             sample_path,
-            symbols=settings.akshare_symbols,
+            symbols=symbols,
             start_date=settings.akshare_start_date,
             end_date=settings.akshare_end_date,
             benchmark_symbol=settings.akshare_benchmark_symbol,
@@ -101,7 +105,7 @@ def run_data_update(settings: Settings) -> str:
             metadata_path,
             build_price_data_metadata(
                 data_source="akshare",
-                symbols=settings.akshare_symbols,
+                symbols=symbols,
                 start_date=settings.akshare_start_date,
                 end_date=settings.akshare_end_date,
                 benchmark=settings.akshare_benchmark_symbol,
@@ -111,7 +115,7 @@ def run_data_update(settings: Settings) -> str:
         source_message = (
             "source=akshare, "
             f"universe_mode={settings.akshare_universe_mode}, "
-            f"symbols={len(settings.akshare_symbols)}, "
+            f"symbols={len(symbols)}, "
             f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
             f"benchmark={settings.akshare_benchmark_symbol}"
         )

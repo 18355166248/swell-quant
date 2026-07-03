@@ -12,6 +12,35 @@ class AkshareDependencyError(RuntimeError):
     pass
 
 
+CSI800_COMPONENT_INDEXES = ("000300", "000905")
+CSI800_UNIVERSE_MODES = {"csi800", "hs300_csi500"}
+
+
+def resolve_akshare_symbols(
+    universe_mode: str,
+    manual_symbols: tuple[str, ...],
+    provider: Any | None = None,
+) -> tuple[str, ...]:
+    mode = universe_mode.strip().lower()
+    if mode == "manual":
+        return manual_symbols
+    if mode not in CSI800_UNIVERSE_MODES:
+        raise ValueError(f"unsupported AKShare universe mode: {universe_mode}")
+
+    akshare = provider or _load_akshare()
+    symbols: list[str] = []
+    seen: set[str] = set()
+    for index_symbol in CSI800_COMPONENT_INDEXES:
+        for row in _iter_rows(_fetch_index_cons_frame(akshare, index_symbol)):
+            symbol = _normalize_component_symbol(row)
+            if symbol not in seen:
+                seen.add(symbol)
+                symbols.append(symbol)
+    if not symbols:
+        raise ValueError("akshare returned no CSI800 component symbols")
+    return tuple(symbols)
+
+
 def fetch_akshare_price_bars(
     symbols: tuple[str, ...],
     start_date: str,
@@ -98,6 +127,17 @@ def _fetch_benchmark_close(
     return closes
 
 
+def _fetch_index_cons_frame(provider: Any, index_symbol: str) -> Any:
+    # AKShare 不同版本的指数成分接口名称和来源可能变化；这里按明确优先级尝试，避免把版本差异扩散到 pipeline。
+    for method_name in ("index_stock_cons", "index_stock_cons_csindex"):
+        method = getattr(provider, method_name, None)
+        if method is not None:
+            return method(symbol=index_symbol)
+    raise AttributeError(
+        "akshare provider must expose index_stock_cons or index_stock_cons_csindex"
+    )
+
+
 def _iter_rows(frame: Any) -> list[dict[str, Any]]:
     if hasattr(frame, "to_dict"):
         return list(frame.to_dict("records"))
@@ -111,6 +151,13 @@ def _value(row: dict[str, Any], *keys: str) -> Any:
     raise KeyError(f"missing expected AKShare field; expected one of {keys}")
 
 
+def _optional_value(row: dict[str, Any], *keys: str) -> Any | None:
+    for key in keys:
+        if key in row:
+            return row[key]
+    return None
+
+
 def _parse_trade_date(value: Any) -> date:
     if isinstance(value, datetime):
         return value.date()
@@ -121,3 +168,30 @@ def _parse_trade_date(value: Any) -> date:
 
 def _akshare_stock_symbol(symbol: str) -> str:
     return symbol.split(".")[0]
+
+
+def _normalize_component_symbol(row: dict[str, Any]) -> str:
+    raw_symbol = str(
+        _value(row, "品种代码", "成分券代码", "证券代码", "代码", "stock_code", "code", "symbol")
+    ).strip()
+    digits = raw_symbol.split(".")[0].zfill(6)
+    exchange = _optional_value(row, "交易所", "市场", "exchange")
+    suffix = _exchange_suffix(digits, str(exchange) if exchange is not None else "")
+    return f"{digits}.{suffix}"
+
+
+def _exchange_suffix(symbol: str, exchange: str) -> str:
+    normalized_exchange = exchange.upper()
+    if "SH" in normalized_exchange or "上海" in exchange or "SSE" in normalized_exchange:
+        return "SH"
+    if "SZ" in normalized_exchange or "深圳" in exchange or "SZSE" in normalized_exchange:
+        return "SZ"
+    if "BJ" in normalized_exchange or "北京" in exchange or "BSE" in normalized_exchange:
+        return "BJ"
+    if symbol.startswith(("60", "68", "90")):
+        return "SH"
+    if symbol.startswith(("00", "30", "20")):
+        return "SZ"
+    if symbol.startswith(("43", "83", "87", "88")):
+        return "BJ"
+    raise ValueError(f"cannot infer exchange suffix for AKShare component symbol: {symbol}")

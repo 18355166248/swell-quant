@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 SUPPORTED_DATA_SOURCES = {"sample", "akshare"}
-SUPPORTED_AKSHARE_UNIVERSE_MODES = {"manual"}
+SUPPORTED_AKSHARE_UNIVERSE_MODES = {"manual", "csi800", "hs300_csi500"}
 _A_SHARE_SYMBOL_PATTERN = re.compile(r"^\d{6}\.(SH|SZ|BJ)$")
 
 
@@ -83,9 +83,10 @@ class Settings:
             )
         if self.akshare_universe_mode not in SUPPORTED_AKSHARE_UNIVERSE_MODES:
             raise ValueError(
-                "AKSHARE_UNIVERSE_MODE currently supports only 'manual'; "
-                "真实沪深300+中证500成分股自动拉取会在后续数据源阶段接入"
+                f"AKSHARE_UNIVERSE_MODE must be one of {sorted(SUPPORTED_AKSHARE_UNIVERSE_MODES)}"
             )
+        if self.akshare_universe_mode == "manual" and not self.akshare_symbols:
+            raise ValueError("AKSHARE_SYMBOLS must include at least one symbol in manual mode")
         invalid_symbols = [
             symbol for symbol in self.akshare_symbols if not _A_SHARE_SYMBOL_PATTERN.match(symbol)
         ]
@@ -117,8 +118,10 @@ def build_settings_preflight(settings: Settings) -> dict[str, object]:
         {
             "key": "akshare_symbols",
             "name": "AKShare 股票池",
-            "status": "passed" if settings.akshare_symbols else "failed",
-            "message": f"已配置 {len(settings.akshare_symbols)} 个标的",
+            "status": "passed"
+            if settings.akshare_universe_mode != "manual" or settings.akshare_symbols
+            else "failed",
+            "message": _akshare_symbols_preflight_message(settings),
         },
         {
             "key": "akshare_date_range",
@@ -133,7 +136,11 @@ def build_settings_preflight(settings: Settings) -> dict[str, object]:
             "message": str(settings.duckdb_path),
         },
     ]
-    if settings.data_source == "akshare" and len(settings.akshare_symbols) < 10:
+    if (
+        settings.data_source == "akshare"
+        and settings.akshare_universe_mode == "manual"
+        and len(settings.akshare_symbols) < 10
+    ):
         checks.append(
             {
                 "key": "akshare_symbol_count",
@@ -166,9 +173,13 @@ def build_settings_preflight(settings: Settings) -> dict[str, object]:
 
 def _parse_symbol_list(value: str) -> tuple[str, ...]:
     symbols = tuple(symbol.strip() for symbol in value.split(",") if symbol.strip())
-    if not symbols:
-        raise ValueError("AKSHARE_SYMBOLS must include at least one symbol")
     return symbols
+
+
+def _akshare_symbols_preflight_message(settings: Settings) -> str:
+    if settings.akshare_universe_mode == "manual":
+        return f"已配置 {len(settings.akshare_symbols)} 个手工标的"
+    return "运行时将从 AKShare 拉取沪深 300 + 中证 500 成分股"
 
 
 def _parse_akshare_date(value: str, name: str) -> datetime:
