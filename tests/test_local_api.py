@@ -273,6 +273,45 @@ def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> Non
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
+def test_local_api_progress_artifact_recommends_akshare_trial_when_complete(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
+    )
+    settings.ensure_directories()
+    artifact_paths = [
+        settings.data_dir / "raw" / "sample_prices.csv",
+        settings.data_dir / "processed" / "data_quality.json",
+        settings.data_dir / "processed" / "sample_features.csv",
+        settings.data_dir / "processed" / "sample_labels.csv",
+        settings.data_dir / "processed" / "training_samples.csv",
+        settings.data_dir / "models" / "latest_model.json",
+        settings.data_dir / "processed" / "latest_predictions.csv",
+        settings.data_dir / "processed" / "historical_predictions.csv",
+        settings.duckdb_path,
+        settings.data_dir / "reports" / "sample_backtest.json",
+        settings.data_dir / "reports" / "sample_research_summary.md",
+        settings.data_dir / "reports" / "sample_research_summary.json",
+        settings.data_dir / "reports" / "sample_ai_research_summary.md",
+        settings.data_dir / "reports" / "sample_ai_research_summary.json",
+        settings.data_dir / "reports" / "pipeline_run.json",
+        settings.data_dir / "reports" / "research_status.json",
+    ]
+    for path in artifact_paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok", encoding="utf-8")
+
+    payload = load_progress_artifact(settings)
+
+    assert payload["status"] == "complete"
+    assert payload["next_actions"]
+    assert "make akshare-trial" in payload["next_actions"][0]
+    assert "make data-source" in payload["next_actions"][1]
+    assert "不构成投资建议" in payload["disclaimer"]
+
+
 def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:
     pipeline_path = tmp_path / "pipeline_run.json"
     pipeline_path.write_text(

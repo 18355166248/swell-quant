@@ -18,9 +18,10 @@ make ci-local
 4. `make config`：输出配置预检，检查数据源、股票池、日期区间和本地路径。
 5. `make akshare-universe`：验证当前 AKShare 股票池模式能解析出可用标的；默认 manual 模式不联网，`csi800` 模式用于真实数据源前置验收。
 6. `make smoke`：运行离线 pipeline，并校验 DuckDB 存储和研究验收门禁。
-7. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
-8. `make frontend-test`：`npm test`，运行前端单元测试。
-9. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
+7. `make data-source`：检查最新数据采集元数据，暴露限量试跑和单标的采集失败 warning。
+8. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
+9. `make frontend-test`：`npm test`，运行前端单元测试。
+10. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
 
 GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 
@@ -31,6 +32,8 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | `make pipeline` | 生成样例行情、质量报告、因子、标签、模型、预测、回测、DuckDB 镜像和研究报告。 |
 | `make config` | 校验本地数据源、股票池、AKShare 日期区间、DuckDB 路径和 LLM 配置风险。 |
 | `make akshare-universe` | 校验 AKShare 股票池解析；目标股票池模式下要求解析数量达到最低门槛。 |
+| `make akshare-trial` | 使用 csi800 股票池和 20 只标的上限串联真实 AKShare 小规模试跑、数据源门禁、总验收和进度检查。 |
+| `make data-source` | 校验 `data/raw/data_source.json`，区分通过、warning 和阻断失败。 |
 | `make progress` | 汇总阶段 0 到阶段 6 的完成度、当前阶段和每阶段证据计数。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
 | `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、训练样本切分、预测、回测和关键产物完整性门禁，并在状态快照中暴露产物大小与更新时间用于排查。 |
