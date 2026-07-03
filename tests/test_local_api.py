@@ -140,6 +140,8 @@ def test_local_api_akshare_trial_artifact_reads_latest_trial(tmp_path: Path) -> 
         {
           "status": "dry_run",
           "passed": true,
+          "trial_kind": "dry_run",
+          "real_data_verified": false,
           "started_at": "2026-07-03T00:00:00+00:00",
           "ended_at": "2026-07-03T00:00:01+00:00",
           "duration_seconds": 1.0,
@@ -154,6 +156,7 @@ def test_local_api_akshare_trial_artifact_reads_latest_trial(tmp_path: Path) -> 
 
     assert payload["status"] == "dry_run"
     assert payload["passed"] is True
+    assert payload["real_data_verified"] is False
     assert payload["artifact_path"] == str(trial_path)
     assert payload["steps"][0]["name"] == "config"
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
@@ -306,9 +309,7 @@ def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> Non
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
-def test_local_api_progress_artifact_recommends_akshare_trial_when_complete(
-    tmp_path: Path,
-) -> None:
+def _complete_progress_settings(tmp_path: Path) -> Settings:
     settings = Settings(
         data_dir=tmp_path / "data",
         duckdb_path=tmp_path / "data" / "duckdb" / "swell_quant.duckdb",
@@ -335,16 +336,58 @@ def test_local_api_progress_artifact_recommends_akshare_trial_when_complete(
     for path in artifact_paths:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("ok", encoding="utf-8")
+    return settings
+
+
+def test_local_api_progress_artifact_recommends_akshare_trial_when_complete(
+    tmp_path: Path,
+) -> None:
+    settings = _complete_progress_settings(tmp_path)
 
     payload = load_progress_artifact(settings)
 
     assert payload["status"] == "complete"
+    assert payload["akshare_trial"]["status"] == "missing"
     assert payload["next_actions"]
     assert "make akshare-trial-dry-run" in payload["next_actions"][0]
     assert "make akshare-trial" in payload["next_actions"][1]
     assert "make akshare-trial-status" in payload["next_actions"][2]
     assert "make data-source" in payload["next_actions"][2]
     assert "不构成投资建议" in payload["disclaimer"]
+
+
+def test_local_api_progress_artifact_advances_after_trial_dry_run(tmp_path: Path) -> None:
+    settings = _complete_progress_settings(tmp_path)
+    trial_path = settings.data_dir / "reports" / "akshare_trial_run.json"
+    trial_path.parent.mkdir(parents=True, exist_ok=True)
+    trial_path.write_text(
+        '{"status": "dry_run", "passed": true, "steps": []}\n',
+        encoding="utf-8",
+    )
+
+    payload = load_progress_artifact(settings)
+
+    assert payload["akshare_trial"]["status"] == "dry_run"
+    assert payload["akshare_trial"]["real_data_verified"] is False
+    assert "make akshare-trial" in payload["next_actions"][0]
+    assert "dry-run 只证明计划命令可执行" in payload["next_actions"][2]
+
+
+def test_local_api_progress_artifact_advances_after_real_trial(tmp_path: Path) -> None:
+    settings = _complete_progress_settings(tmp_path)
+    trial_path = settings.data_dir / "reports" / "akshare_trial_run.json"
+    trial_path.parent.mkdir(parents=True, exist_ok=True)
+    trial_path.write_text(
+        '{"status": "passed", "passed": true, "real_data_verified": true, "steps": []}\n',
+        encoding="utf-8",
+    )
+
+    payload = load_progress_artifact(settings)
+
+    assert payload["akshare_trial"]["status"] == "passed"
+    assert payload["akshare_trial"]["real_data_verified"] is True
+    assert "真实 AKShare 小规模试跑已通过" in payload["next_actions"][0]
+    assert "AKSHARE_MAX_SYMBOLS" in payload["next_actions"][1]
 
 
 def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:

@@ -114,9 +114,12 @@ def _trial_payload(
     started_counter: float,
 ) -> dict[str, Any]:
     ended_at = datetime.now(UTC)
+    real_data_verified = status == "passed"
     return {
         "status": status,
         "passed": status in {"passed", "dry_run"},
+        "trial_kind": "real_data" if real_data_verified else "dry_run",
+        "real_data_verified": real_data_verified,
         "started_at": started_at.isoformat(),
         "ended_at": ended_at.isoformat(),
         "duration_seconds": round(perf_counter() - started_counter, 6),
@@ -185,6 +188,8 @@ def main() -> int:
 def _print_text(payload: dict[str, Any]) -> None:
     print(f"akshare_trial_status={payload['status']}")
     print(f"passed={str(payload['passed']).lower()}")
+    print(f"trial_kind={payload['trial_kind']}")
+    print(f"real_data_verified={str(payload['real_data_verified']).lower()}")
     for key, value in payload["env"].items():
         print(f"{key}={value}")
     for step in payload["steps"]:

@@ -35,9 +35,16 @@ def build_trial_status(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     steps = payload.get("steps") or []
     failed_step = next((step.get("name") for step in steps if step.get("status") == "failed"), None)
+    real_data_verified = payload.get("real_data_verified")
+    if real_data_verified is None:
+        # 老版本 dry-run 摘要没有该字段；检查脚本必须保守区分预演通过和真实行情已验证。
+        real_data_verified = payload.get("status") == "passed"
     return {
         "status": payload.get("status", "unknown"),
         "passed": payload.get("passed") is True,
+        "trial_kind": payload.get("trial_kind")
+        or ("real_data" if real_data_verified else "dry_run"),
+        "real_data_verified": real_data_verified,
         "path": str(path),
         "started_at": payload.get("started_at"),
         "ended_at": payload.get("ended_at"),
@@ -64,6 +71,8 @@ def main() -> int:
         print(f"akshare_trial_status={payload.get('status')}")
         print(f"passed={str(bool(payload.get('passed'))).lower()}")
         print(f"path={payload.get('path')}")
+        print(f"trial_kind={payload.get('trial_kind')}")
+        print(f"real_data_verified={str(bool(payload.get('real_data_verified'))).lower()}")
         print(f"step_count={payload.get('step_count')}")
         print(f"failed_step={payload.get('failed_step') or '-'}")
         env = payload.get("env") or {}

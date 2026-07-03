@@ -546,6 +546,14 @@ export function TasksPage({
               <Descriptions.Item label="通过">
                 {akshareTrial.passed === undefined ? "-" : String(akshareTrial.passed)}
               </Descriptions.Item>
+              <Descriptions.Item label="真实数据验证">
+                {akshareTrial.real_data_verified === undefined
+                  ? "-"
+                  : akshareTrial.real_data_verified
+                    ? "已验证"
+                    : "未验证，仅预演"}
+              </Descriptions.Item>
+              <Descriptions.Item label="试跑类型">{akshareTrial.trial_kind ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="耗时">
                 {akshareTrial.duration_seconds === undefined
                   ? "-"

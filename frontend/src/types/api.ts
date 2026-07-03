@@ -57,6 +57,8 @@ export interface AkshareTrialStep {
 export interface AkshareTrialRun {
   status: "passed" | "failed" | "dry_run" | "missing";
   passed?: boolean;
+  trial_kind?: "real_data" | "dry_run";
+  real_data_verified?: boolean;
   started_at?: string;
   ended_at?: string;
   duration_seconds?: number;
@@ -153,6 +155,7 @@ export interface ProjectProgress {
   completion_ratio: number;
   current_stage: ProjectProgressStage;
   next_actions: string[];
+  akshare_trial?: Pick<AkshareTrialRun, "status" | "trial_kind" | "real_data_verified" | "path">;
   stages: ProjectProgressStage[];
   disclaimer: string;
 }

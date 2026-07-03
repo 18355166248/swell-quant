@@ -199,6 +199,8 @@ describe("research pages module", () => {
         akshareTrial={{
           status: "dry_run",
           passed: true,
+          trial_kind: "dry_run",
+          real_data_verified: false,
           started_at: "2026-07-03T00:00:00+00:00",
           ended_at: "2026-07-03T00:00:01+00:00",
           duration_seconds: 1,
@@ -219,6 +221,8 @@ describe("research pages module", () => {
     expect(html).toContain("make akshare-trial");
     expect(html).toContain("make akshare-trial-dry-run");
     expect(html).toContain("dry_run");
+    expect(html).toContain("真实数据验证");
+    expect(html).toContain("未验证，仅预演");
     expect(html).toContain("csi800");
     expect(html).toContain("data/reports/akshare_trial_run.json");
     expect(html).toContain("config");

@@ -425,6 +425,12 @@ def load_akshare_universe_artifact(settings: Settings) -> tuple[HTTPStatus, dict
 def load_akshare_trial_artifact(path: Path) -> dict[str, Any]:
     payload = load_json_artifact(path)
     payload.setdefault("artifact_path", str(path))
+    real_data_verified = payload.get("real_data_verified")
+    if real_data_verified is None:
+        # 旧摘要只有 status/passed，API 对外展示必须保守区分 dry-run 与真实行情验证。
+        real_data_verified = payload.get("status") == "passed"
+    payload["real_data_verified"] = real_data_verified
+    payload.setdefault("trial_kind", "real_data" if real_data_verified else "dry_run")
     payload.setdefault("disclaimer", "仅用于研究，不构成投资建议")
     return payload
 
@@ -510,7 +516,8 @@ def load_progress_artifact(settings: Settings) -> dict[str, Any]:
     complete_count = sum(1 for stage in stages if stage["status"] == "complete")
     partial_count = sum(1 for stage in stages if stage["status"] == "partial")
     current_stage = next((stage for stage in stages if stage["status"] != "complete"), stages[-1])
-    next_actions = _build_progress_next_actions(stages)
+    trial_status = _load_latest_trial_status(settings.data_dir)
+    next_actions = _build_progress_next_actions(stages, trial_status)
     return {
         "status": "complete" if complete_count == len(stages) else "in_progress",
         "completed_stage_count": complete_count,
@@ -519,6 +526,7 @@ def load_progress_artifact(settings: Settings) -> dict[str, Any]:
         "completion_ratio": complete_count / len(stages),
         "current_stage": current_stage,
         "next_actions": next_actions,
+        "akshare_trial": trial_status,
         "stages": stages,
         "disclaimer": "仅用于研究，不构成投资建议",
     }
@@ -580,9 +588,41 @@ def _build_progress_stage(
     }
 
 
-def _build_progress_next_actions(stages: list[dict[str, Any]]) -> list[str]:
+def _load_latest_trial_status(data_dir: Path) -> dict[str, Any]:
+    trial_path = data_dir / "reports" / "akshare_trial_run.json"
+    if not trial_path.exists():
+        return {"status": "missing", "real_data_verified": False, "path": str(trial_path)}
+    try:
+        payload = load_akshare_trial_artifact(trial_path)
+    except (OSError, json.JSONDecodeError):
+        return {"status": "invalid", "real_data_verified": False, "path": str(trial_path)}
+    return {
+        "status": payload.get("status", "unknown"),
+        "trial_kind": payload.get("trial_kind"),
+        "real_data_verified": payload.get("real_data_verified") is True,
+        "path": str(trial_path),
+    }
+
+
+def _build_progress_next_actions(
+    stages: list[dict[str, Any]],
+    trial_status: dict[str, Any] | None = None,
+) -> list[str]:
     incomplete_stages = [stage for stage in stages if stage["status"] != "complete"]
     if not incomplete_stages:
+        trial_status = trial_status or {}
+        if trial_status.get("real_data_verified") is True:
+            return [
+                "真实 AKShare 小规模试跑已通过；下一步重点查看 make data-source 的 warning，确认失败标的是否为临时上游问题。",
+                "如需扩大验证范围，可逐步提高 AKSHARE_MAX_SYMBOLS 或拉长 AKSHARE_START_DATE/AKSHARE_END_DATE，但继续保留小步试跑。",
+                "继续通过 make acceptance 和研究看板复核报告、回测和采集摘要；不要把小规模回测解读为可交易收益。",
+            ]
+        if trial_status.get("status") == "dry_run":
+            return [
+                "真实试跑预演已通过；下一步运行 make akshare-trial，用 csi800 股票池做 20 只标的真实 AKShare 小规模试跑。",
+                "真实试跑完成后重点查看 make akshare-trial-status、make data-source、make acceptance 和数据页采集摘要。",
+                "dry-run 只证明计划命令可执行，不代表真实行情源已验证；不要把样例或小规模回测解读为可交易收益。",
+            ]
         return [
             "当前样例离线闭环阶段证据已完整；下一步先运行 make akshare-trial-dry-run，确认真实 AKShare 试跑计划和摘要落盘。",
             "预演无误后运行 make akshare-trial，用 csi800 股票池做 20 只标的真实 AKShare 小规模试跑。",

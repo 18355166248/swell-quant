@@ -439,6 +439,8 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
     assert result.returncode == 0
     assert payload["status"] == "dry_run"
     assert payload["passed"] is True
+    assert payload["trial_kind"] == "dry_run"
+    assert payload["real_data_verified"] is False
     assert payload["artifact_path"] == str(tmp_path / "data" / "reports" / "akshare_trial_run.json")
     assert payload["started_at"]
     assert payload["ended_at"]
@@ -471,6 +473,8 @@ def test_run_akshare_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None
     assert check_result.returncode == 0
     assert trial_status["status"] == "dry_run"
     assert trial_status["passed"] is True
+    assert trial_status["trial_kind"] == "dry_run"
+    assert trial_status["real_data_verified"] is False
     assert trial_status["step_count"] == 6
     assert trial_status["failed_step"] is None
 
