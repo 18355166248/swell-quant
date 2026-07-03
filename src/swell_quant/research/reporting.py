@@ -17,8 +17,9 @@ def build_research_summary(
     predictions: list[PredictionRow],
     backtest: BacktestResult,
     quality: DataQualityReport | None = None,
+    data_metadata: dict[str, Any] | None = None,
 ) -> str:
-    payload = build_research_report_payload(metadata, predictions, backtest, quality)
+    payload = build_research_report_payload(metadata, predictions, backtest, quality, data_metadata)
     return render_research_summary(payload)
 
 
@@ -27,13 +28,16 @@ def build_research_report_payload(
     predictions: list[PredictionRow],
     backtest: BacktestResult,
     quality: DataQualityReport | None = None,
+    data_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sorted_predictions = sorted(predictions, key=lambda row: row.rank)
+    acquisition = _acquisition_payload(data_metadata)
     return {
         "report_id": "sample-research-summary",
         "title": "Swell Quant 离线研究摘要",
         "disclaimer": RESEARCH_DISCLAIMER,
         "data_quality": _quality_payload(quality),
+        "data_acquisition": acquisition,
         "model": {
             "model_version": metadata.model_version,
             "model_type": metadata.model_type,
@@ -88,6 +92,7 @@ def build_research_report_payload(
             f"当前模型类型：{metadata.model_type}，仍处于离线研究验证阶段。",
             "样例数据为本地生成数据，不代表真实 A 股行情。",
             "初始股票池和基准同源，跑赢结果不能解读为跨股票池泛化能力。",
+            *_acquisition_risk_notes(acquisition),
             backtest.disclaimer,
         ],
     }
@@ -104,6 +109,10 @@ def render_research_summary(payload: dict[str, Any]) -> str:
         "## 数据质量",
         "",
         *_build_quality_lines(payload["data_quality"]),
+        "",
+        "## 数据采集",
+        "",
+        *_build_acquisition_lines(payload.get("data_acquisition")),
         "",
         "## 模型",
         "",
@@ -223,6 +232,37 @@ def _quality_payload(quality: DataQualityReport | None) -> dict[str, Any] | None
     }
 
 
+def _acquisition_payload(data_metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+    if data_metadata is None:
+        return None
+    return {
+        "data_source": data_metadata.get("data_source"),
+        "universe": data_metadata.get("universe"),
+        "universe_mode": data_metadata.get("universe_mode"),
+        "resolved_symbol_count": data_metadata.get("resolved_symbol_count"),
+        "selected_symbol_count": data_metadata.get("selected_symbol_count"),
+        "succeeded_symbol_count": data_metadata.get("succeeded_symbol_count"),
+        "failed_symbol_count": data_metadata.get("failed_symbol_count"),
+        "failed_symbols": data_metadata.get("failed_symbols") or [],
+        "max_symbols": data_metadata.get("max_symbols"),
+    }
+
+
+def _acquisition_risk_notes(acquisition: dict[str, Any] | None) -> list[str]:
+    if acquisition is None:
+        return []
+    notes: list[str] = []
+    failed_count = acquisition.get("failed_symbol_count") or 0
+    max_symbols = acquisition.get("max_symbols")
+    if failed_count:
+        notes.append(f"本次数据采集有 {failed_count} 只标的失败，真实数据覆盖不完整。")
+    if max_symbols:
+        notes.append(
+            f"本次 AKShare 采集启用了 {max_symbols} 只标的试跑上限，不代表完整股票池结果。"
+        )
+    return notes
+
+
 def _build_quality_lines(quality: dict[str, Any] | None) -> list[str]:
     if quality is None:
         return ["- 数据质量报告：未提供"]
@@ -240,4 +280,22 @@ def _build_quality_lines(quality: dict[str, Any] | None) -> list[str]:
         )
     else:
         lines.append("- 数据质量检查：通过")
+    return lines
+
+
+def _build_acquisition_lines(acquisition: dict[str, Any] | None) -> list[str]:
+    if acquisition is None:
+        return ["- 数据采集摘要：未提供"]
+
+    lines = [
+        f"- 数据源：{acquisition.get('data_source') or '-'}",
+        f"- 股票池模式：{acquisition.get('universe_mode') or '-'}",
+        f"- 解析标的：{acquisition.get('resolved_symbol_count') or 0}",
+        f"- 选择标的：{acquisition.get('selected_symbol_count') or 0}",
+        f"- 成功标的：{acquisition.get('succeeded_symbol_count') or 0}",
+        f"- 失败标的：{acquisition.get('failed_symbol_count') or 0}",
+        f"- 试跑上限：{acquisition.get('max_symbols') or '未限制'}",
+    ]
+    for failure in acquisition.get("failed_symbols", [])[:5]:
+        lines.append(f"- 采集失败 `{failure.get('symbol')}`：{failure.get('reason')}")
     return lines

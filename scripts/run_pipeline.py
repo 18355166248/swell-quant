@@ -20,6 +20,7 @@ from swell_quant.data.sample_data import (
     SAMPLE_SYMBOLS,
     build_price_data_metadata,
     ensure_sample_prices,
+    read_price_data_metadata,
     read_price_bars_csv,
     write_price_bars_csv,
     write_price_data_metadata,
@@ -257,6 +258,7 @@ def run_report_pipeline(settings: Settings) -> str:
     model_path = settings.data_dir / "models" / LATEST_MODEL_METADATA_FILENAME
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
     quality_path = settings.data_dir / "processed" / "data_quality.json"
+    data_metadata_path = settings.data_dir / "raw" / DATA_SOURCE_METADATA_FILENAME
     backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
     summary_path = settings.data_dir / "reports" / "sample_research_summary.md"
     payload_path = settings.data_dir / "reports" / "sample_research_summary.json"
@@ -267,7 +269,10 @@ def run_report_pipeline(settings: Settings) -> str:
     predictions = read_predictions_csv(latest_prediction_path)
     quality_report = read_quality_report(quality_path)
     backtest = read_backtest_result(backtest_path)
-    payload = build_research_report_payload(metadata, predictions, backtest, quality_report)
+    data_metadata = read_price_data_metadata(data_metadata_path)
+    payload = build_research_report_payload(
+        metadata, predictions, backtest, quality_report, data_metadata
+    )
     summary = render_research_summary(payload)
     write_research_report_payload(payload_path, payload)
     write_research_summary(summary_path, summary)
