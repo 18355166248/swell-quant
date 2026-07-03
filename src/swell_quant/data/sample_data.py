@@ -124,6 +124,8 @@ def build_price_data_metadata(
     update_mode: str = "manual_trigger",
     resolved_symbol_count: int | None = None,
     max_symbols: int | None = None,
+    succeeded_symbols: tuple[str, ...] | None = None,
+    failed_symbols: tuple[dict[str, str], ...] | None = None,
 ) -> dict[str, Any]:
     is_same_source_benchmark = data_source == "sample"
     resolved_universe_mode = universe_mode or ("sample" if data_source == "sample" else "manual")
@@ -138,6 +140,8 @@ def build_price_data_metadata(
         "csi800",
         "hs300_csi500",
     }
+    resolved_succeeded_symbols = succeeded_symbols or symbols
+    resolved_failed_symbols = failed_symbols or ()
     return {
         "data_source": data_source,
         "market": "A_SHARE_DAILY",
@@ -148,6 +152,10 @@ def build_price_data_metadata(
         "selected_symbol_count": len(symbols),
         "resolved_symbol_count": resolved_symbol_count or len(symbols),
         "max_symbols": max_symbols,
+        "succeeded_symbols": list(resolved_succeeded_symbols),
+        "succeeded_symbol_count": len(resolved_succeeded_symbols),
+        "failed_symbols": list(resolved_failed_symbols),
+        "failed_symbol_count": len(resolved_failed_symbols),
         "target_universe": "沪深 300 + 中证 500",
         "target_universe_size": 800,
         "benchmark": benchmark,

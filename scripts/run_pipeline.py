@@ -13,7 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps, write_run_manifest
-from swell_quant.data.akshare_data import resolve_akshare_symbols, write_akshare_prices_csv
+from swell_quant.data.akshare_data import collect_akshare_price_bars, resolve_akshare_symbols
 from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import (
     DATA_SOURCE_METADATA_FILENAME,
@@ -21,6 +21,7 @@ from swell_quant.data.sample_data import (
     build_price_data_metadata,
     ensure_sample_prices,
     read_price_bars_csv,
+    write_price_bars_csv,
     write_price_data_metadata,
 )
 from swell_quant.research.backtest import (
@@ -95,13 +96,13 @@ def run_data_update(settings: Settings) -> str:
             manual_symbols=settings.akshare_symbols,
         )
         symbols = limit_akshare_symbols(resolved_symbols, settings.akshare_max_symbols)
-        write_akshare_prices_csv(
-            sample_path,
+        fetch_result = collect_akshare_price_bars(
             symbols=symbols,
             start_date=settings.akshare_start_date,
             end_date=settings.akshare_end_date,
             benchmark_symbol=settings.akshare_benchmark_symbol,
         )
+        write_price_bars_csv(sample_path, fetch_result.bars)
         write_price_data_metadata(
             metadata_path,
             build_price_data_metadata(
@@ -113,12 +114,19 @@ def run_data_update(settings: Settings) -> str:
                 universe_mode=settings.akshare_universe_mode,
                 resolved_symbol_count=len(resolved_symbols),
                 max_symbols=settings.akshare_max_symbols,
+                succeeded_symbols=fetch_result.succeeded_symbols,
+                failed_symbols=tuple(
+                    {"symbol": failure.symbol, "reason": failure.reason}
+                    for failure in fetch_result.failed_symbols
+                ),
             ),
         )
         source_message = (
             "source=akshare, "
             f"universe_mode={settings.akshare_universe_mode}, "
             f"symbols={len(symbols)}, "
+            f"succeeded={len(fetch_result.succeeded_symbols)}, "
+            f"failed={len(fetch_result.failed_symbols)}, "
             f"resolved_symbols={len(resolved_symbols)}, "
             f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
             f"benchmark={settings.akshare_benchmark_symbol}"

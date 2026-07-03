@@ -321,6 +321,13 @@ export interface DataStatus {
   selected_symbol_count: number;
   resolved_symbol_count: number;
   max_symbols: number | null;
+  succeeded_symbols: string[];
+  succeeded_symbol_count: number;
+  failed_symbols: Array<{
+    symbol: string;
+    reason: string;
+  }>;
+  failed_symbol_count: number;
   target_universe: string;
   target_universe_size: number;
   benchmark: string;

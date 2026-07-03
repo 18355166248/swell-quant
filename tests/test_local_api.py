@@ -372,6 +372,9 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert data_status["selected_symbol_count"] == 2
     assert data_status["resolved_symbol_count"] == 2
     assert data_status["max_symbols"] is None
+    assert data_status["succeeded_symbol_count"] == 2
+    assert data_status["failed_symbol_count"] == 0
+    assert data_status["failed_symbols"] == []
     assert data_status["target_universe"] == "沪深 300 + 中证 500"
     assert data_status["target_universe_size"] == 800
     assert data_status["benchmark"] == "sh000906"

@@ -43,6 +43,10 @@ def test_price_data_metadata_round_trip(tmp_path: Path) -> None:
     assert loaded["selected_symbol_count"] == 2
     assert loaded["resolved_symbol_count"] == 2
     assert loaded["max_symbols"] is None
+    assert loaded["succeeded_symbols"] == ["000001.SZ", "600000.SH"]
+    assert loaded["succeeded_symbol_count"] == 2
+    assert loaded["failed_symbols"] == []
+    assert loaded["failed_symbol_count"] == 0
     assert loaded["benchmark"] == "sh000906"
     assert loaded["universe"] == "akshare_manual"
     assert loaded["universe_mode"] == "manual"
@@ -61,6 +65,8 @@ def test_price_data_metadata_marks_csi800_universe_as_same_source_benchmark() ->
         universe_mode="csi800",
         resolved_symbol_count=800,
         max_symbols=2,
+        succeeded_symbols=("000001.SZ",),
+        failed_symbols=({"symbol": "600000.SH", "reason": "temporary upstream error"},),
     )
 
     assert metadata["universe"] == "akshare_csi800"
@@ -68,5 +74,11 @@ def test_price_data_metadata_marks_csi800_universe_as_same_source_benchmark() ->
     assert metadata["selected_symbol_count"] == 2
     assert metadata["resolved_symbol_count"] == 800
     assert metadata["max_symbols"] == 2
+    assert metadata["succeeded_symbols"] == ["000001.SZ"]
+    assert metadata["succeeded_symbol_count"] == 1
+    assert metadata["failed_symbols"] == [
+        {"symbol": "600000.SH", "reason": "temporary upstream error"}
+    ]
+    assert metadata["failed_symbol_count"] == 1
     assert metadata["benchmark_same_source"] is True
     assert "同源" in metadata["benchmark_note"]

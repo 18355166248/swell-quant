@@ -4,6 +4,7 @@ import pytest
 
 from swell_quant.data.akshare_data import (
     AkshareDependencyError,
+    collect_akshare_price_bars,
     fetch_akshare_price_bars,
     resolve_akshare_symbols,
     write_akshare_prices_csv,
@@ -77,6 +78,15 @@ class FakeAkshare:
         )
 
 
+class PartiallyFailingAkshare(FakeAkshare):
+    def stock_zh_a_hist(
+        self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
+    ) -> FakeFrame:
+        if symbol == "600000":
+            raise RuntimeError("temporary upstream error")
+        return super().stock_zh_a_hist(symbol, period, start_date, end_date, adjust)
+
+
 def test_fetch_akshare_price_bars_maps_daily_rows() -> None:
     bars = fetch_akshare_price_bars(
         symbols=("000001.SZ",),
@@ -91,6 +101,22 @@ def test_fetch_akshare_price_bars_maps_daily_rows() -> None:
     assert bars[0].close == 10.2
     assert bars[0].benchmark_close == 1000.0
     assert bars[1].volume == 23456
+
+
+def test_collect_akshare_price_bars_records_symbol_failures() -> None:
+    result = collect_akshare_price_bars(
+        symbols=("000001.SZ", "600000.SH"),
+        start_date="20240102",
+        end_date="20240103",
+        provider=PartiallyFailingAkshare(),
+    )
+
+    assert len(result.bars) == 2
+    assert result.requested_symbols == ("000001.SZ", "600000.SH")
+    assert result.succeeded_symbols == ("000001.SZ",)
+    assert len(result.failed_symbols) == 1
+    assert result.failed_symbols[0].symbol == "600000.SH"
+    assert "temporary upstream error" in result.failed_symbols[0].reason
 
 
 def test_resolve_akshare_symbols_fetches_csi800_components() -> None:
