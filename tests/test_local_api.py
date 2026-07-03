@@ -338,8 +338,10 @@ def test_local_api_progress_artifact_recommends_akshare_trial_when_complete(
 
     assert payload["status"] == "complete"
     assert payload["next_actions"]
-    assert "make akshare-trial" in payload["next_actions"][0]
-    assert "make data-source" in payload["next_actions"][1]
+    assert "make akshare-trial-dry-run" in payload["next_actions"][0]
+    assert "make akshare-trial" in payload["next_actions"][1]
+    assert "make akshare-trial-status" in payload["next_actions"][2]
+    assert "make data-source" in payload["next_actions"][2]
     assert "不构成投资建议" in payload["disclaimer"]
 
 
