@@ -45,6 +45,29 @@ export interface TaskDetail extends TaskSummary {
   steps: PipelineStep[];
 }
 
+export interface AkshareTrialStep {
+  name: string;
+  command?: string[];
+  status: "planned" | "passed" | "failed";
+  returncode?: number;
+  stdout?: string;
+  stderr?: string;
+}
+
+export interface AkshareTrialRun {
+  status: "passed" | "failed" | "dry_run" | "missing";
+  passed?: boolean;
+  started_at?: string;
+  ended_at?: string;
+  duration_seconds?: number;
+  artifact_path?: string;
+  path?: string;
+  message?: string;
+  env?: Record<string, string>;
+  steps?: AkshareTrialStep[];
+  disclaimer?: string;
+}
+
 export interface AcceptanceCheck {
   key: string;
   name: string;

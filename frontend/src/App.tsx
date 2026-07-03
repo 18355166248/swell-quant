@@ -78,6 +78,11 @@ function App() {
     queryKey: ["tasks", "pipeline-latest"],
     queryFn: () => api.getTaskDetail("pipeline-latest"),
   });
+  const akshareTrialQuery = useQuery({
+    queryKey: ["akshare-trial"],
+    queryFn: api.getAkshareTrial,
+    enabled: activePage === "tasks",
+  });
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
   const akshareUniverseQuery = useQuery({
     queryKey: ["akshare-universe"],
@@ -208,6 +213,7 @@ function App() {
     qualityQuery.isLoading ||
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
+    (activePage === "tasks" && akshareTrialQuery.isLoading) ||
     dataStatusQuery.isLoading ||
     (activePage === "settings" && akshareUniverseQuery.isLoading) ||
     duckdbStorageQuery.isLoading ||
@@ -241,6 +247,7 @@ function App() {
     qualityQuery.isError ||
     tasksQuery.isError ||
     taskDetailQuery.isError ||
+    (activePage === "tasks" && akshareTrialQuery.isError) ||
     dataStatusQuery.isError ||
     duckdbStorageQuery.isError ||
     featuresQuery.isError ||
@@ -299,6 +306,7 @@ function App() {
       <TasksPage
         tasks={tasksQuery.data?.tasks ?? []}
         taskDetail={taskDetailQuery.data}
+        akshareTrial={akshareTrialQuery.data}
         isRunning={runPipelineMutation.isPending}
         onRunTask={(task) => runPipelineMutation.mutate(task)}
       />

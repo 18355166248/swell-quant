@@ -190,6 +190,38 @@ describe("research pages module", () => {
     expect(html).toContain("temporary upstream error");
   });
 
+  it("renders latest AKShare trial summary on the tasks page", () => {
+    const html = renderToStaticMarkup(
+      <TasksPage
+        tasks={[]}
+        isRunning={false}
+        onRunTask={() => undefined}
+        akshareTrial={{
+          status: "dry_run",
+          passed: true,
+          started_at: "2026-07-03T00:00:00+00:00",
+          ended_at: "2026-07-03T00:00:01+00:00",
+          duration_seconds: 1,
+          artifact_path: "data/reports/akshare_trial_run.json",
+          env: {
+            AKSHARE_UNIVERSE_MODE: "csi800",
+            AKSHARE_MAX_SYMBOLS: "20",
+            AKSHARE_START_DATE: "20240102",
+            AKSHARE_END_DATE: "20240131",
+          },
+          steps: [{ name: "config", status: "planned", command: ["python"] }],
+          disclaimer: "仅用于研究，不构成投资建议",
+        }}
+      />,
+    );
+
+    expect(html).toContain("最近真实试跑");
+    expect(html).toContain("dry_run");
+    expect(html).toContain("csi800");
+    expect(html).toContain("data/reports/akshare_trial_run.json");
+    expect(html).toContain("config");
+  });
+
   it("shows API key configuration status without rendering secret values", () => {
     const settings = {
       service: {

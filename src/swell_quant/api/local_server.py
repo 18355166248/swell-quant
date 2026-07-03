@@ -90,6 +90,12 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             status, payload = load_akshare_universe_artifact(self.settings)
             self._send_json(payload, status=status)
             return
+        if route == "/api/akshare/trial":
+            self._send_loader_json(
+                self.data_dir / "reports" / "akshare_trial_run.json",
+                load_akshare_trial_artifact,
+            )
+            return
         if route == "/api/storage/duckdb":
             self._send_json(load_duckdb_storage_artifact(self.duckdb_path, self.data_dir))
             return
@@ -413,6 +419,13 @@ def load_akshare_universe_artifact(settings: Settings) -> tuple[HTTPStatus, dict
         }
     status = HTTPStatus.OK if payload["passed"] else HTTPStatus.UNPROCESSABLE_ENTITY
     return status, payload
+
+
+def load_akshare_trial_artifact(path: Path) -> dict[str, Any]:
+    payload = load_json_artifact(path)
+    payload.setdefault("artifact_path", str(path))
+    payload.setdefault("disclaimer", "仅用于研究，不构成投资建议")
+    return payload
 
 
 def load_artifacts_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]:

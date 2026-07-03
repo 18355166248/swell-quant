@@ -5,6 +5,7 @@ from pathlib import Path
 from swell_quant.api.local_server import (
     load_acceptance_artifact,
     load_akshare_universe_artifact,
+    load_akshare_trial_artifact,
     load_artifacts_artifact,
     load_backtest_artifact,
     load_backtest_route,
@@ -129,6 +130,32 @@ def test_local_api_akshare_universe_artifact_handles_unavailable_provider(
     assert status == HTTPStatus.SERVICE_UNAVAILABLE
     assert payload["status"] == "failed"
     assert payload["error"] == "akshare_universe_unavailable"
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
+def test_local_api_akshare_trial_artifact_reads_latest_trial(tmp_path: Path) -> None:
+    trial_path = tmp_path / "akshare_trial_run.json"
+    trial_path.write_text(
+        """
+        {
+          "status": "dry_run",
+          "passed": true,
+          "started_at": "2026-07-03T00:00:00+00:00",
+          "ended_at": "2026-07-03T00:00:01+00:00",
+          "duration_seconds": 1.0,
+          "env": {"DATA_SOURCE": "akshare", "AKSHARE_MAX_SYMBOLS": "20"},
+          "steps": [{"name": "config", "status": "planned", "command": ["python"]}]
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    payload = load_akshare_trial_artifact(trial_path)
+
+    assert payload["status"] == "dry_run"
+    assert payload["passed"] is True
+    assert payload["artifact_path"] == str(trial_path)
+    assert payload["steps"][0]["name"] == "config"
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 

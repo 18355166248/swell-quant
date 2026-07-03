@@ -1,5 +1,6 @@
 import type {
   AcceptanceStatus,
+  AkshareTrialRun,
   AkshareUniverseStatus,
   ArtifactStatus,
   BacktestList,
@@ -92,6 +93,7 @@ export const api = {
   getTaskDetail: (taskId: string) => requestJson<TaskDetail>(`/api/tasks/${taskId}`),
   getDataStatus: () => requestJson<DataStatus>("/api/data/status"),
   getAkshareUniverse: () => requestJsonLenient<AkshareUniverseStatus>("/api/akshare/universe"),
+  getAkshareTrial: () => requestJsonLenient<AkshareTrialRun>("/api/akshare/trial"),
   getDuckDBStorage: () => requestJson<DuckDBStorageStatus>("/api/storage/duckdb"),
   getDataQuality: () => requestJson<DataQuality>("/api/data-quality"),
   getFeatures: () => requestJson<FeatureSummary>("/api/features"),

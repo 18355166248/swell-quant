@@ -52,6 +52,8 @@ import {
 } from "../utils/tableColumns";
 import type {
   AcceptanceStatus,
+  AkshareTrialRun,
+  AkshareTrialStep,
   AkshareUniverseStatus,
   ArtifactStatus,
   BacktestPoint,
@@ -436,15 +438,18 @@ export function AcceptancePage({
 export function TasksPage({
   tasks,
   taskDetail,
+  akshareTrial,
   onRunTask,
   isRunning,
 }: {
   tasks: TaskSummary[];
   taskDetail?: TaskDetail;
+  akshareTrial?: AkshareTrialRun;
   onRunTask: (task: TaskTrigger) => void;
   isRunning: boolean;
 }) {
   const steps = taskDetail?.steps ?? [];
+  const trialSteps = akshareTrial?.steps ?? [];
   const taskTriggers: Array<{ key: TaskTrigger; label: string }> = [
     { key: "pipeline", label: "完整 pipeline" },
     { key: "data_update", label: "更新数据" },
@@ -519,6 +524,71 @@ export function TasksPage({
           </Card>
         </Col>
       </Row>
+      <Card
+        title="最近真实试跑"
+        extra={
+          <Tag color={preflightStatusColor(akshareTrial?.status)}>
+            {akshareTrial?.status ?? "missing"}
+          </Tag>
+        }
+      >
+        {akshareTrial?.status && akshareTrial.status !== "missing" ? (
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Descriptions column={2} size="small">
+              <Descriptions.Item label="通过">
+                {akshareTrial.passed === undefined ? "-" : String(akshareTrial.passed)}
+              </Descriptions.Item>
+              <Descriptions.Item label="耗时">
+                {akshareTrial.duration_seconds === undefined
+                  ? "-"
+                  : `${akshareTrial.duration_seconds.toFixed(4)}s`}
+              </Descriptions.Item>
+              <Descriptions.Item label="开始时间">{akshareTrial.started_at ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="结束时间">{akshareTrial.ended_at ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="股票池">
+                {akshareTrial.env?.AKSHARE_UNIVERSE_MODE ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="试跑上限">
+                {akshareTrial.env?.AKSHARE_MAX_SYMBOLS ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="日期区间">
+                {akshareTrial.env?.AKSHARE_START_DATE ?? "-"} 至{" "}
+                {akshareTrial.env?.AKSHARE_END_DATE ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="产物路径">
+                {akshareTrial.artifact_path ?? akshareTrial.path ?? "-"}
+              </Descriptions.Item>
+            </Descriptions>
+            {trialSteps.length > 0 ? (
+              <Table<AkshareTrialStep>
+                rowKey={(row) => row.name}
+                size="small"
+                pagination={false}
+                dataSource={trialSteps}
+                columns={[
+                  { title: "步骤", dataIndex: "name" },
+                  {
+                    title: "状态",
+                    dataIndex: "status",
+                    width: 120,
+                    render: (status: string) => (
+                      <Tag color={preflightStatusColor(status)}>{status}</Tag>
+                    ),
+                  },
+                  {
+                    title: "返回码",
+                    dataIndex: "returncode",
+                    width: 100,
+                    render: (value) => value ?? "-",
+                  },
+                ]}
+              />
+            ) : null}
+          </Space>
+        ) : (
+          <Empty description="暂无真实试跑记录" />
+        )}
+      </Card>
     </>
   );
 }
