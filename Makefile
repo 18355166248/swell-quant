@@ -51,4 +51,4 @@ format-check:
 frontend-build:
 	cd frontend && $(NPM) run build
 
-ci-local: lint format-check test config smoke frontend-test frontend-build
+ci-local: lint format-check test config smoke progress frontend-test frontend-build

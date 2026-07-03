@@ -15,9 +15,11 @@ make ci-local
 1. `make lint`：`ruff check .`，检查 Python 静态问题。
 2. `make format-check`：`ruff format --check .`，检查 Python 格式。
 3. `make test`：`python3 -m pytest`，运行后端单元和集成测试。
-4. `make smoke`：运行离线 pipeline，并校验 DuckDB 存储和研究验收门禁。
-5. `make frontend-test`：`npm test`，运行前端单元测试。
-6. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
+4. `make config`：输出配置预检，检查数据源、股票池、日期区间和本地路径。
+5. `make smoke`：运行离线 pipeline，并校验 DuckDB 存储和研究验收门禁。
+6. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
+7. `make frontend-test`：`npm test`，运行前端单元测试。
+8. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
 
 GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 
@@ -26,6 +28,8 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | 命令 | 覆盖范围 |
 | --- | --- |
 | `make pipeline` | 生成样例行情、质量报告、因子、标签、模型、预测、回测、DuckDB 镜像和研究报告。 |
+| `make config` | 校验本地数据源、股票池、AKShare 日期区间、DuckDB 路径和 LLM 配置风险。 |
+| `make progress` | 汇总阶段 0 到阶段 6 的完成度、当前阶段和每阶段证据计数。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
 | `make acceptance` | 校验研究状态里的 pipeline、数据质量、DuckDB、训练样本切分、预测、回测和关键产物完整性门禁，并在状态快照中暴露产物大小与更新时间用于排查。 |
 | `make smoke` | 串联 pipeline、storage 和 acceptance，作为无页面端到端验收入口。 |

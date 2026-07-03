@@ -38,6 +38,9 @@ jobs:
       - name: Run end-to-end smoke test
         run: python scripts/smoke_test.py
 
+      - name: Run progress check
+        run: python scripts/check_progress.py
+
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest
