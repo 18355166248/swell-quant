@@ -606,6 +606,7 @@ def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
         "ai_report_payload": data_dir / "reports" / "sample_ai_research_summary.json",
         "pipeline": data_dir / "reports" / "pipeline_run.json",
         "status": data_dir / "reports" / "research_status.json",
+        "akshare_trial": data_dir / "reports" / "akshare_trial_run.json",
     }
 
 

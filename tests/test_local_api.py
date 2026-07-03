@@ -267,12 +267,16 @@ def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path)
     payload = load_artifacts_artifact(data_dir, duckdb_path)
 
     raw_prices = next(item for item in payload["artifacts"] if item["name"] == "raw_prices")
+    akshare_trial = next(item for item in payload["artifacts"] if item["name"] == "akshare_trial")
     assert payload["status"] == "missing"
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
     assert raw_prices["exists"] is True
     assert raw_prices["size_bytes"] > 0
     assert raw_prices["updated_at"] is not None
+    assert akshare_trial["exists"] is False
+    assert akshare_trial["path"].endswith("akshare_trial_run.json")
     assert "duckdb" in payload["missing"]
+    assert "akshare_trial" in payload["missing"]
 
 
 def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> None:
