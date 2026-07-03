@@ -1,4 +1,4 @@
-.PHONY: help config pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
+.PHONY: help config progress pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
 
 PYTHON ?= python3
 NPM ?= npm
@@ -6,6 +6,7 @@ NPM ?= npm
 help:
 	@printf "Swell Quant local commands:\n"
 	@printf "  make config          Check local configuration preflight\n"
+	@printf "  make progress        Show project stage progress\n"
 	@printf "  make pipeline        Run the offline research pipeline\n"
 	@printf "  make storage         Check DuckDB mirror tables, row counts, and schemas\n"
 	@printf "  make acceptance      Check research acceptance gates\n"
@@ -19,6 +20,9 @@ help:
 
 config:
 	$(PYTHON) scripts/check_config.py
+
+progress:
+	$(PYTHON) scripts/check_progress.py
 
 pipeline:
 	$(PYTHON) scripts/run_pipeline.py

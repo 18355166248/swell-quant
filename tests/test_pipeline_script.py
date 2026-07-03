@@ -185,6 +185,54 @@ def test_check_config_returns_nonzero_for_invalid_settings(tmp_path: Path) -> No
     assert "AKSHARE_SYMBOLS" in payload["message"]
 
 
+def test_check_progress_reports_current_stage(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "DUCKDB_PATH": str(tmp_path / "data" / "duckdb" / "swell_quant.duckdb"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_progress.py")],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "progress_status=in_progress" in result.stdout
+    assert "current_stage=阶段 1：数据采集与存储" in result.stdout
+    assert "stage=stage_0 status=complete" in result.stdout
+
+
+def test_check_progress_json_reports_stage_evidence(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+        "DUCKDB_PATH": str(tmp_path / "data" / "duckdb" / "swell_quant.duckdb"),
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_progress.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["stage_count"] == 8
+    assert payload["current_stage"]["id"] == "stage_1"
+    assert payload["stages"][0]["id"] == "stage_0"
+    assert payload["stages"][0]["status"] == "complete"
+
+
 def test_check_acceptance_returns_nonzero_before_pipeline_runs(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     env = {

@@ -42,6 +42,12 @@ make ci-local
 make config
 ```
 
+查看当前阶段进度：
+
+```bash
+make progress
+```
+
 默认安装不强制包含 LightGBM；需要验证真实模型训练环境时可额外安装：
 
 ```bash
@@ -190,6 +196,8 @@ DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/p
 `python3 scripts/check_storage.py` 会校验 DuckDB 表是否存在、字段是否匹配预期 schema，以及 DuckDB 行数是否和源 CSV 行数一致；状态不是 `healthy` 时返回非零退出码，可作为无页面验收或 CI 门禁。
 
 `python3 scripts/check_config.py` 会输出本地配置预检 JSON；配置非法时返回非零，警告项只提示不阻塞，适合无页面排查。
+
+`python3 scripts/check_progress.py` 会输出阶段 0 到阶段 6 的完成度、当前阶段和每个阶段的证据计数；加 `--json` 可获取完整结构化进度。
 
 `python3 scripts/check_acceptance.py` 会读取 `research_status.json` 中的验收门禁；未通过或尚未生成状态产物时返回非零退出码。
 
