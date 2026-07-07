@@ -13,6 +13,13 @@ from swell_quant.data.akshare_data import (
 from swell_quant.data.sample_data import read_price_bars_csv
 
 
+@pytest.fixture(autouse=True)
+def _clear_proxy_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 采集层的东方财富 fallback 只认专用的 AKSHARE_HTTP_PROXY；默认清空，避免宿主环境残留该变量时
+    # 在只想验证失败记录的用例里误触发真实网络请求，需要 fallback 的用例再显式设置。
+    monkeypatch.delenv("AKSHARE_HTTP_PROXY", raising=False)
+
+
 class FakeFrame:
     def __init__(self, rows: list[dict]) -> None:
         self.rows = rows

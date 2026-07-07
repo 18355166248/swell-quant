@@ -245,13 +245,9 @@ def _eastmoney_secid(symbol: str) -> str:
 
 
 def _eastmoney_proxy_url() -> str | None:
-    return (
-        os.getenv("AKSHARE_HTTP_PROXY")
-        or os.getenv("HTTPS_PROXY")
-        or os.getenv("HTTP_PROXY")
-        or os.getenv("https_proxy")
-        or os.getenv("http_proxy")
-    )
+    # 只认专用的 AKSHARE_HTTP_PROXY 作为 fallback 开关；通用 HTTP(S)_PROXY 常被公司机器或 CI
+    # 全局设置，若也当作触发条件，会在采集偶发失败时静默把数据源切到东方财富，行为不可预期。
+    return os.getenv("AKSHARE_HTTP_PROXY")
 
 
 def _fetch_benchmark_close(
