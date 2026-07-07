@@ -2,11 +2,28 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildEquityOption,
+  buildFeatureImportanceOption,
   buildScoreOption,
   buildStockFactorOption,
   buildStockPriceOption,
 } from "./charts";
-import type { BacktestPoint, Prediction, StockFeature, StockPrices } from "../types/api";
+import type {
+  BacktestPoint,
+  ModelFeatureImportance,
+  Prediction,
+  StockFeature,
+  StockPrices,
+} from "../types/api";
+
+function makeImportance(rank: number): ModelFeatureImportance {
+  return {
+    feature_name: `f${rank}`,
+    rank,
+    importance: 1 / rank,
+    raw_importance: rank,
+    importance_type: "gain",
+  };
+}
 
 describe("chart option builders", () => {
   it("maps equity curve points into portfolio, benchmark, and excess series", () => {
@@ -82,5 +99,32 @@ describe("chart option builders", () => {
     expect(option.xAxis.data).toEqual(["2024-01-08"]);
     expect(option.series.find((series) => series.name === "RSI6")?.data).toEqual([0.75]);
     expect(option.series.find((series) => series.name === "成交量变化")?.data).toEqual([null]);
+  });
+
+  it("renders feature importance as a horizontal bar chart", () => {
+    const option = buildFeatureImportanceOption([makeImportance(1), makeImportance(2)]);
+
+    expect(option.yAxis.type).toBe("category");
+    expect(option.xAxis.type).toBe("value");
+    expect(option.series[0].type).toBe("bar");
+    expect(option.series[0].data).toHaveLength(2);
+  });
+
+  it("truncates feature importance rows to topN keeping the most important", () => {
+    const rows = [5, 3, 1, 4, 2].map(makeImportance);
+
+    const option = buildFeatureImportanceOption(rows, 3);
+
+    expect(option.series[0].data).toHaveLength(3);
+    // 横向条形图从下往上绘制，末位对应 rank 最小（最重要）的特征。
+    expect(option.yAxis.data).toEqual(["f3", "f2", "f1"]);
+    expect(option.yAxis.data[option.yAxis.data.length - 1]).toBe("f1");
+  });
+
+  it("returns a valid option with empty series for no feature importance", () => {
+    const option = buildFeatureImportanceOption([]);
+
+    expect(option.yAxis.data).toEqual([]);
+    expect(option.series[0].data).toEqual([]);
   });
 });

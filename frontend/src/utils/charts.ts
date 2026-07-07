@@ -1,5 +1,6 @@
 import type {
   BacktestPoint,
+  ModelFeatureImportance,
   Prediction,
   StockFeature,
   StockPrices,
@@ -140,6 +141,40 @@ export function buildScoreOption(predictions: Prediction[]) {
         name: "预测分数",
         type: "bar",
         data: predictions.map((row) => row.score),
+        itemStyle: { color: "#1f6feb" },
+      },
+    ],
+  };
+}
+
+export function buildFeatureImportanceOption(
+  rows: ModelFeatureImportance[],
+  topN = 15,
+) {
+  // rank 越小越重要，取前 topN 条；echarts 横向条形图从下往上绘制，
+  // 故再反序，使最重要的因子显示在顶部。
+  const topRows = [...rows]
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, topN)
+    .reverse();
+  return {
+    tooltip: { trigger: "axis" },
+    grid: { top: 16, left: 140, right: 24, bottom: 36 },
+    xAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => value.toFixed(2),
+      },
+    },
+    yAxis: {
+      type: "category",
+      data: topRows.map((row) => row.feature_name),
+    },
+    series: [
+      {
+        name: "特征重要性",
+        type: "bar",
+        data: topRows.map((row) => row.importance),
         itemStyle: { color: "#1f6feb" },
       },
     ],

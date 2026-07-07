@@ -30,6 +30,7 @@ import { PageTitle } from "../components/PageTitle";
 import {
   buildDrawdownOption,
   buildEquityOption,
+  buildFeatureImportanceOption,
   buildRelativeReturnOption,
   buildScoreOption,
   buildStockFactorOption,
@@ -1075,25 +1076,31 @@ export function ModelsPage({
       </Card>
       <Card title="特征重要性">
         {importanceRows.length > 0 ? (
-          <Table
-            rowKey="feature_name"
-            size="middle"
-            dataSource={importanceRows}
-            pagination={false}
-            columns={[
-              { title: "排名", dataIndex: "rank", width: 90, align: "right" },
-              { title: "特征名", dataIndex: "feature_name" },
-              { title: "重要性", dataIndex: "importance", width: 140, align: "right", render: formatNumber },
-              {
-                title: "原始值",
-                dataIndex: "raw_importance",
-                width: 140,
-                align: "right",
-                render: formatNumber,
-              },
-              { title: "类型", dataIndex: "importance_type", width: 160 },
-            ]}
-          />
+          <>
+            <ReactECharts
+              className="large-chart"
+              option={buildFeatureImportanceOption(importanceRows)}
+            />
+            <Table
+              rowKey="feature_name"
+              size="middle"
+              dataSource={importanceRows}
+              pagination={false}
+              columns={[
+                { title: "排名", dataIndex: "rank", width: 90, align: "right" },
+                { title: "特征名", dataIndex: "feature_name" },
+                { title: "重要性", dataIndex: "importance", width: 140, align: "right", render: formatNumber },
+                {
+                  title: "原始值",
+                  dataIndex: "raw_importance",
+                  width: 140,
+                  align: "right",
+                  render: formatNumber,
+                },
+                { title: "类型", dataIndex: "importance_type", width: 160 },
+              ]}
+            />
+          </>
         ) : (
           <Empty description="暂无特征重要性" />
         )}
