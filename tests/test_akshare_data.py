@@ -4,7 +4,6 @@ import pytest
 
 from swell_quant.data.akshare_data import (
     AkshareDependencyError,
-    _fetch_eastmoney_price_rows,
     collect_akshare_price_bars,
     fetch_akshare_price_bars,
     resolve_akshare_symbols,
@@ -111,7 +110,13 @@ def test_fetch_akshare_price_bars_maps_daily_rows() -> None:
     assert bars[1].volume == 23456
 
 
-def test_collect_akshare_price_bars_records_symbol_failures() -> None:
+def test_collect_akshare_price_bars_records_symbol_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "swell_quant.data.akshare_data._fetch_eastmoney_price_rows",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fallback unavailable")),
+    )
     result = collect_akshare_price_bars(
         symbols=("000001.SZ", "600000.SH"),
         start_date="20240102",
@@ -124,17 +129,29 @@ def test_collect_akshare_price_bars_records_symbol_failures() -> None:
     assert result.succeeded_symbols == ("000001.SZ",)
     assert len(result.failed_symbols) == 1
     assert result.failed_symbols[0].symbol == "600000.SH"
-    assert "temporary upstream error" in result.failed_symbols[0].reason
+    assert any(
+        attempt.symbol == "600000.SH"
+        and attempt.source == "akshare"
+        and "temporary upstream error" in (attempt.error or "")
+        for attempt in result.source_attempts
+    )
 
 
-def test_collect_akshare_price_bars_reports_all_failures_when_no_bars() -> None:
+def test_collect_akshare_price_bars_reports_all_failures_when_no_bars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "swell_quant.data.akshare_data._fetch_eastmoney_price_rows",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fallback unavailable")),
+    )
+
     class FailingAkshare(FakeAkshare):
         def stock_zh_a_hist(
             self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
         ) -> FakeFrame:
             raise RuntimeError(f"blocked {symbol}")
 
-    with pytest.raises(ValueError, match="000001.SZ: blocked 000001"):
+    with pytest.raises(ValueError, match="000001.SZ: fallback unavailable"):
         collect_akshare_price_bars(
             symbols=("000001.SZ", "600000.SH"),
             start_date="20240102",
@@ -188,42 +205,30 @@ def test_collect_akshare_price_bars_falls_back_to_eastmoney_proxy(
     assert result.failed_symbols == ()
 
 
-def test_eastmoney_proxy_fallback_retries_transient_disconnect(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class Response:
-        status_code = 200
-
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict:
-            return {"data": {"klines": ["2024-01-02,7.47,7.29,7.50,7.29,1158366,1075742252.45"]}}
-
-    class CurlRequests:
+def test_collect_akshare_price_bars_retries_primary_source() -> None:
+    class FlakyAkshare(FakeAkshare):
         attempts = 0
 
-        @classmethod
-        def get(cls, *args, **kwargs):  # noqa: ANN002, ANN003
-            cls.attempts += 1
-            if cls.attempts == 1:
+        def stock_zh_a_hist(
+            self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            self.attempts += 1
+            if self.attempts == 1:
                 raise RuntimeError("Connection closed abruptly")
-            return Response()
+            return super().stock_zh_a_hist(symbol, period, start_date, end_date, adjust)
 
-    monkeypatch.setattr(
-        "swell_quant.data.akshare_data.importlib.import_module",
-        lambda name: CurlRequests if name == "curl_cffi.requests" else pytest.fail(name),
+    provider = FlakyAkshare()
+    result = collect_akshare_price_bars(
+        symbols=("000001.SZ",),
+        start_date="20240102",
+        end_date="20240103",
+        provider=provider,
     )
 
-    rows = _fetch_eastmoney_price_rows(
-        "000001.SZ",
-        "20240102",
-        "20240103",
-        "http://127.0.0.1:7897",
-    )
-
-    assert CurlRequests.attempts == 2
-    assert rows[0]["日期"] == "2024-01-02"
+    assert provider.attempts == 2
+    assert result.source_attempts[0].source == "akshare"
+    assert result.source_attempts[0].attempts == 2
+    assert result.bars
 
 
 def test_resolve_akshare_symbols_fetches_csi800_components() -> None:

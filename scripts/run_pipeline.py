@@ -31,6 +31,16 @@ from swell_quant.research.backtest import (
     write_backtest_result,
 )
 from swell_quant.research.features import compute_features, read_features_csv, write_features_csv
+from swell_quant.research.funds import (
+    FUND_PROFILES,
+    build_fund_candidates,
+    compute_fund_metrics,
+    generate_sample_funds,
+    write_fund_candidates_csv,
+    write_fund_metrics_csv,
+    write_fund_nav_csv,
+    write_funds_csv,
+)
 from swell_quant.research.labels import compute_labels, read_labels_csv, write_labels_csv
 from swell_quant.research.llm_reporting import (
     DeepSeekProvider,
@@ -120,6 +130,16 @@ def run_data_update(settings: Settings) -> str:
                     {"symbol": failure.symbol, "reason": failure.reason}
                     for failure in fetch_result.failed_symbols
                 ),
+                source_attempts=tuple(
+                    {
+                        "symbol": attempt.symbol,
+                        "source": attempt.source,
+                        "status": attempt.status,
+                        "attempts": attempt.attempts,
+                        "error": attempt.error or "",
+                    }
+                    for attempt in fetch_result.source_attempts
+                ),
             ),
         )
         source_message = (
@@ -140,6 +160,23 @@ def run_data_update(settings: Settings) -> str:
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
     # 数据更新统一落到同一 CSV 契约，后续因子、标签、训练和回测不感知样例数据或 AKShare 来源差异。
     return f"wrote prices to {sample_path} ({source_message}; {backup_message})"
+
+
+def run_fund_research_pipeline(settings: Settings) -> str:
+    funds, navs = generate_sample_funds()
+    funds_path = settings.data_dir / "raw" / "sample_funds.csv"
+    nav_path = settings.data_dir / "raw" / "sample_fund_nav.csv"
+    metrics_path = settings.data_dir / "processed" / "sample_fund_metrics.csv"
+    write_funds_csv(funds_path, funds)
+    write_fund_nav_csv(nav_path, navs)
+    metrics = compute_fund_metrics(funds, navs)
+    write_fund_metrics_csv(metrics_path, metrics)
+    for profile in FUND_PROFILES:
+        write_fund_candidates_csv(
+            settings.data_dir / "processed" / f"sample_fund_candidates_{profile}.csv",
+            build_fund_candidates(metrics, profile=profile),
+        )
+    return f"wrote {len(metrics)} fund metrics and {len(FUND_PROFILES)} candidate views"
 
 
 def limit_akshare_symbols(
@@ -331,6 +368,7 @@ def build_steps(settings: Settings) -> list[PipelineStep]:
     return [
         PipelineStep("prepare_directories", lambda: prepare_directories(settings)),
         PipelineStep("data_update", lambda: run_data_update(settings)),
+        PipelineStep("fund_research", lambda: run_fund_research_pipeline(settings)),
         PipelineStep("data_quality", lambda: run_data_quality_pipeline(settings)),
         PipelineStep("features", lambda: run_feature_pipeline(settings)),
         PipelineStep("labels", lambda: run_label_pipeline(settings)),

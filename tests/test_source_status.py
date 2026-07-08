@@ -34,6 +34,8 @@ def test_data_source_status_passes_for_complete_sample_metadata() -> None:
     assert status["passed"] is True
     assert status["warning_count"] == 0
     assert status["failed_count"] == 0
+    assert status["success_rate"] == 1
+    assert status["quality_level"] == "good"
     assert status["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
@@ -56,7 +58,26 @@ def test_data_source_status_warns_for_partial_akshare_trial() -> None:
     assert status["passed"] is True
     assert status["warning_count"] == 2
     assert status["failed_symbol_count"] == 1
+    assert status["quality_level"] == "good"
     assert status["failed_symbols"][0]["symbol"] == "000001.SZ"
+
+
+def test_data_source_status_fails_for_poor_quality() -> None:
+    status = build_data_source_status_from_metadata(
+        {
+            "data_source": "akshare",
+            "selected_symbol_count": 20,
+            "succeeded_symbol_count": 10,
+            "failed_symbol_count": 10,
+            "success_rate": 0.5,
+            "quality_score": 50,
+            "quality_level": "poor",
+        }
+    )
+
+    assert status["status"] == "failed"
+    assert status["passed"] is False
+    assert "data source quality is poor" in status["failures"][0]
 
 
 def test_data_source_status_fails_when_metadata_is_missing(tmp_path: Path) -> None:

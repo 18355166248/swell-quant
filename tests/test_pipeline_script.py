@@ -96,6 +96,7 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert [step["name"] for step in manifest["steps"]] == [
         "prepare_directories",
         "data_update",
+        "fund_research",
         "data_quality",
         "features",
         "labels",

@@ -154,6 +154,10 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/backtests`
 - `GET /api/backtests/latest`
 - `GET /api/backtests/{backtest_id}`
+- `GET /api/funds`
+- `GET /api/funds/{fund_code}`
+- `GET /api/funds/{fund_code}/nav`
+- `GET /api/funds/candidates?profile=balanced`
 - `GET /api/stocks`
 - `GET /api/stocks/{symbol}`
 - `GET /api/stocks/{symbol}/prices`
@@ -180,6 +184,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 
 `GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
 
+`GET /api/funds`、`GET /api/funds/{fund_code}`、`GET /api/funds/{fund_code}/nav` 和 `GET /api/funds/candidates?profile=balanced` 会返回本地样例基金池、基金指标、净值序列和不同风险视图下的研究候选清单。基金候选只用于研究比较，不构成投资建议。
+
 `GET /api/akshare/universe` 会返回当前 AKShare 股票池解析门禁状态；manual 模式检查手工标的，`csi800` / `hs300_csi500` 模式会尝试解析沪深 300 + 中证 500 成分股，只用于研究链路前置验收。
 
 `GET /api/artifacts` 返回本地研究产物清单、缺失项、文件大小和更新时间，适合无页面排查 pipeline 是否生成了完整可用的结果。
@@ -200,7 +206,7 @@ npm install
 npm run dev
 ```
 
-当前前端包含工作台、验收、数据、任务、模型、预测、回测、单股、报告和设置视图。工作台会展示离线链路验收门禁摘要；验收视图会展示当前门禁检查项，并可直接触发 pipeline；数据视图会展示覆盖范围、质量门禁、DuckDB 表状态、异常明细、因子覆盖和标签覆盖，并区分可训练标签与未成熟标签；任务视图会展示最近 pipeline 的步骤明细，并可触发后端 `POST /api/pipeline/run`；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、单股和报告视图都保留研究用途声明。
+当前前端包含工作台、验收、数据、任务、模型、预测、回测、基金、单股、报告和设置视图。工作台会展示离线链路验收门禁摘要；验收视图会展示当前门禁检查项，并可直接触发 pipeline；数据视图会展示覆盖范围、质量门禁、DuckDB 表状态、异常明细、采集成功率、质量等级、因子覆盖和标签覆盖；任务视图会展示最近 pipeline 的步骤明细、真实试跑状态和最近一次真实通过时间；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；基金视图会展示样例基金池、历史收益、回撤、费用、规模和候选清单；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、基金、单股和报告视图都保留研究用途声明。
 
 前端构建检查：
 

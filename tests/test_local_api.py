@@ -14,6 +14,7 @@ from swell_quant.api.local_server import (
     load_data_status_artifact,
     load_duckdb_storage_artifact,
     load_features_artifact,
+    load_fund_route,
     load_json_artifact,
     load_labels_artifact,
     load_latest_model_artifact,
@@ -43,6 +44,15 @@ from swell_quant.api.local_server import (
     normalize_equity_curve,
     pipeline_status_to_http_status,
     run_pipeline_for_api,
+)
+from swell_quant.research.funds import (
+    build_fund_candidates,
+    compute_fund_metrics,
+    generate_sample_funds,
+    write_fund_candidates_csv,
+    write_fund_metrics_csv,
+    write_fund_nav_csv,
+    write_funds_csv,
 )
 from swell_quant.core.config import Settings
 from swell_quant.data.quality import validate_price_bars, write_quality_report
@@ -1053,6 +1063,38 @@ def test_local_api_stock_route_dispatches(tmp_path: Path) -> None:
     assert missing_list_payload["error"] == "artifact_missing"
 
 
+def test_local_api_fund_routes_return_list_detail_nav_and_candidates(tmp_path: Path) -> None:
+    funds, navs = generate_sample_funds()
+    metrics = compute_fund_metrics(funds, navs)
+    write_funds_csv(tmp_path / "raw" / "sample_funds.csv", funds)
+    write_fund_nav_csv(tmp_path / "raw" / "sample_fund_nav.csv", navs)
+    write_fund_metrics_csv(tmp_path / "processed" / "sample_fund_metrics.csv", metrics)
+    write_fund_candidates_csv(
+        tmp_path / "processed" / "sample_fund_candidates_balanced.csv",
+        build_fund_candidates(metrics, profile="balanced"),
+    )
+
+    list_status, list_payload = load_fund_route("/api/funds", {}, tmp_path)
+    detail_status, detail_payload = load_fund_route("/api/funds/510300", {}, tmp_path)
+    nav_status, nav_payload = load_fund_route("/api/funds/510300/nav", {}, tmp_path)
+    candidates_status, candidates_payload = load_fund_route(
+        "/api/funds/candidates", {"profile": ["balanced"]}, tmp_path
+    )
+    missing_status, missing_payload = load_fund_route("/api/funds/NOPE", {}, tmp_path)
+
+    assert list_status == HTTPStatus.OK
+    assert list_payload["count"] == 4
+    assert detail_status == HTTPStatus.OK
+    assert detail_payload["fund_code"] == "510300"
+    assert nav_status == HTTPStatus.OK
+    assert nav_payload["count"] > 0
+    assert candidates_status == HTTPStatus.OK
+    assert candidates_payload["profile"] == "balanced"
+    assert candidates_payload["candidates"][0]["factor_reasons"]
+    assert missing_status == HTTPStatus.NOT_FOUND
+    assert missing_payload["error"] == "fund_not_found"
+
+
 def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
     payload = run_pipeline_for_api(tmp_path / "data")
 
@@ -1064,6 +1106,7 @@ def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:
     assert [step["name"] for step in payload["steps"]] == [
         "prepare_directories",
         "data_update",
+        "fund_research",
         "data_quality",
         "features",
         "labels",

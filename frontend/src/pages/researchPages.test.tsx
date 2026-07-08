@@ -6,6 +6,7 @@ import {
   BacktestsPage,
   DashboardPage,
   DataPage,
+  FundsPage,
   ModelsPage,
   PredictionsPage,
   ReportsPage,
@@ -30,6 +31,7 @@ describe("research pages module", () => {
     expect(ModelsPage).toBeTypeOf("function");
     expect(PredictionsPage).toBeTypeOf("function");
     expect(BacktestsPage).toBeTypeOf("function");
+    expect(FundsPage).toBeTypeOf("function");
     expect(StocksPage).toBeTypeOf("function");
     expect(ReportsPage).toBeTypeOf("function");
     expect(SettingsPage).toBeTypeOf("function");
@@ -175,6 +177,10 @@ describe("research pages module", () => {
       succeeded_symbol_count: 1,
       failed_symbols: [{ symbol: "600000.SH", reason: "temporary upstream error" }],
       failed_symbol_count: 1,
+      success_rate: 0.5,
+      quality_score: 50,
+      quality_level: "poor",
+      source_attempts: [],
       target_universe: "沪深 300 + 中证 500",
       target_universe_size: 800,
       benchmark: "sh000906",
@@ -200,6 +206,9 @@ describe("research pages module", () => {
 
     expect(html).toContain("采集摘要");
     expect(html).toContain("采集状态：warning");
+    expect(html).toContain("采集成功率");
+    expect(html).toContain("质量等级");
+    expect(html).toContain("poor");
     expect(html).toContain("采集提示");
     expect(html).toContain("AKSHARE_MAX_SYMBOLS trial cap is active: 2");
     expect(html).toContain("失败标的");
@@ -220,6 +229,13 @@ describe("research pages module", () => {
           real_data_verified: false,
           started_at: "2026-07-03T00:00:00+00:00",
           ended_at: "2026-07-03T00:00:01+00:00",
+          last_passed: {
+            status: "passed",
+            passed: true,
+            trial_kind: "real_data",
+            real_data_verified: true,
+            ended_at: "2026-07-02T00:00:01+00:00",
+          },
           duration_seconds: 1,
           artifact_path: "data/reports/akshare_trial_run.json",
           env: {
@@ -240,9 +256,61 @@ describe("research pages module", () => {
     expect(html).toContain("dry_run");
     expect(html).toContain("真实数据验证");
     expect(html).toContain("未验证，仅预演");
+    expect(html).toContain("最近真实通过");
+    expect(html).toContain("2026-07-02T00:00:01+00:00");
     expect(html).toContain("csi800");
     expect(html).toContain("data/reports/akshare_trial_run.json");
     expect(html).toContain("config");
+  });
+
+  it("renders fund candidates and fund metrics", () => {
+    const html = renderToStaticMarkup(
+      <FundsPage
+        profile="balanced"
+        onProfileChange={() => undefined}
+        disclaimer="仅用于研究，不构成投资建议"
+        candidates={[
+          {
+            rank: 1,
+            fund_code: "510300",
+            fund_name: "沪深300ETF样例",
+            fund_type: "宽基指数",
+            profile: "balanced",
+            score: 0.82,
+            score_level: "high",
+            factor_reasons: ["近1年收益 12.00%", "最大回撤 -8.00%"],
+            risk_notes: ["净值波动偏高"],
+          },
+        ]}
+        funds={[
+          {
+            fund_code: "510300",
+            fund_name: "沪深300ETF样例",
+            fund_type: "宽基指数",
+            manager: "指数团队",
+            inception_date: "2012-05-04",
+            aum_billion: 620,
+            management_fee: 0.005,
+            custody_fee: 0.001,
+            total_fee: 0.006,
+            return_1m: 0.01,
+            return_3m: 0.03,
+            return_6m: 0.06,
+            return_1y: 0.12,
+            max_drawdown: -0.08,
+            volatility: 0.16,
+            downside_volatility: 0.1,
+            age_years: 12,
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("基金");
+    expect(html).toContain("候选基金清单");
+    expect(html).toContain("沪深300ETF样例");
+    expect(html).toContain("净值波动偏高");
+    expect(html).toContain("仅用于研究，不构成投资建议");
   });
 
   it("shows API key configuration status without rendering secret values", () => {

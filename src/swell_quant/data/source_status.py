@@ -36,6 +36,14 @@ def build_data_source_status_from_metadata(
     succeeded_symbol_count = int(metadata.get("succeeded_symbol_count") or selected_symbol_count)
     failed_symbol_count = int(metadata.get("failed_symbol_count") or 0)
     max_symbols = metadata.get("max_symbols")
+    if metadata.get("success_rate") is None:
+        success_rate = (
+            succeeded_symbol_count / selected_symbol_count if selected_symbol_count > 0 else 0.0
+        )
+    else:
+        success_rate = float(metadata.get("success_rate") or 0.0)
+    quality_score = float(metadata.get("quality_score") or success_rate * 100)
+    quality_level = metadata.get("quality_level") or _quality_level(success_rate)
     warnings: list[str] = []
     failures: list[str] = []
 
@@ -43,9 +51,15 @@ def build_data_source_status_from_metadata(
         failures.append("selected_symbol_count must be greater than 0")
     if succeeded_symbol_count <= 0:
         failures.append("succeeded_symbol_count must be greater than 0")
+    if quality_level == "poor":
+        failures.append(f"data source quality is poor: success_rate={success_rate:.2%}")
     # AKShare 单标的临时失败很常见，v1 允许用成功标的继续研究，但必须在门禁和报告里显式暴露。
     if failed_symbol_count > 0:
         warnings.append(f"{failed_symbol_count} symbols failed during collection")
+    if quality_level == "usable":
+        warnings.append(
+            f"data source quality is usable but incomplete: success_rate={success_rate:.2%}"
+        )
     if max_symbols is not None:
         warnings.append(f"AKSHARE_MAX_SYMBOLS trial cap is active: {max_symbols}")
 
@@ -64,8 +78,12 @@ def build_data_source_status_from_metadata(
         "resolved_symbol_count": metadata.get("resolved_symbol_count"),
         "succeeded_symbol_count": succeeded_symbol_count,
         "failed_symbol_count": failed_symbol_count,
+        "success_rate": success_rate,
+        "quality_score": quality_score,
+        "quality_level": quality_level,
         "max_symbols": max_symbols,
         "failed_symbols": metadata.get("failed_symbols") or [],
+        "source_attempts": metadata.get("source_attempts") or [],
         "warning_count": len(warnings),
         "warnings": warnings,
         "failed_count": len(failures),
@@ -73,3 +91,11 @@ def build_data_source_status_from_metadata(
         "updated_at": metadata.get("updated_at"),
         "disclaimer": "仅用于研究，不构成投资建议",
     }
+
+
+def _quality_level(success_rate: float) -> str:
+    if success_rate >= 0.95:
+        return "good"
+    if success_rate >= 0.8:
+        return "usable"
+    return "poor"

@@ -126,6 +126,7 @@ def build_price_data_metadata(
     max_symbols: int | None = None,
     succeeded_symbols: tuple[str, ...] | None = None,
     failed_symbols: tuple[dict[str, str], ...] | None = None,
+    source_attempts: tuple[dict[str, Any], ...] | None = None,
 ) -> dict[str, Any]:
     is_same_source_benchmark = data_source == "sample"
     resolved_universe_mode = universe_mode or ("sample" if data_source == "sample" else "manual")
@@ -142,6 +143,14 @@ def build_price_data_metadata(
     }
     resolved_succeeded_symbols = succeeded_symbols or symbols
     resolved_failed_symbols = failed_symbols or ()
+    success_rate = len(resolved_succeeded_symbols) / len(symbols) if symbols else 0.0
+    quality_score = round(success_rate * 100, 2)
+    if success_rate >= 0.95:
+        quality_level = "good"
+    elif success_rate >= 0.8:
+        quality_level = "usable"
+    else:
+        quality_level = "poor"
     return {
         "data_source": data_source,
         "market": "A_SHARE_DAILY",
@@ -156,6 +165,10 @@ def build_price_data_metadata(
         "succeeded_symbol_count": len(resolved_succeeded_symbols),
         "failed_symbols": list(resolved_failed_symbols),
         "failed_symbol_count": len(resolved_failed_symbols),
+        "success_rate": success_rate,
+        "quality_score": quality_score,
+        "quality_level": quality_level,
+        "source_attempts": list(source_attempts or ()),
         "target_universe": "沪深 300 + 中证 500",
         "target_universe_size": 800,
         "benchmark": benchmark,

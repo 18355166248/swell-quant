@@ -66,6 +66,15 @@ export interface AkshareTrialRun {
   path?: string;
   message?: string;
   env?: Record<string, string>;
+  last_passed?: {
+    status: string;
+    passed: boolean;
+    trial_kind?: "real_data" | "dry_run";
+    real_data_verified: boolean;
+    started_at?: string;
+    ended_at?: string;
+    duration_seconds?: number;
+  } | null;
   steps?: AkshareTrialStep[];
   disclaimer?: string;
 }
@@ -100,6 +109,16 @@ export interface DataSourceStatus {
   resolved_symbol_count?: number;
   succeeded_symbol_count: number;
   failed_symbol_count: number;
+  success_rate?: number;
+  quality_score?: number;
+  quality_level?: "good" | "usable" | "poor";
+  source_attempts?: Array<{
+    symbol: string;
+    source: string;
+    status: string;
+    attempts: string | number;
+    error?: string;
+  }>;
   max_symbols?: number | null;
   failed_symbols: Array<{
     symbol: string;
@@ -390,6 +409,16 @@ export interface DataStatus {
     reason: string;
   }>;
   failed_symbol_count: number;
+  success_rate?: number;
+  quality_score?: number;
+  quality_level?: "good" | "usable" | "poor";
+  source_attempts?: Array<{
+    symbol: string;
+    source: string;
+    status: string;
+    attempts: string | number;
+    error?: string;
+  }>;
   target_universe: string;
   target_universe_size: number;
   benchmark: string;
@@ -651,6 +680,64 @@ export interface StockPredictions {
   symbol: string;
   count: number;
   predictions: StockPrediction[];
+  disclaimer: string;
+}
+
+export interface FundSummary {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  manager: string;
+  inception_date: string;
+  aum_billion: number;
+  management_fee: number;
+  custody_fee: number;
+  total_fee: number;
+  return_1m: number;
+  return_3m: number;
+  return_6m: number;
+  return_1y: number;
+  max_drawdown: number;
+  volatility: number;
+  downside_volatility: number;
+  age_years: number;
+  disclaimer?: string;
+}
+
+export interface FundList {
+  count: number;
+  funds: FundSummary[];
+  disclaimer: string;
+}
+
+export interface FundNavPoint {
+  date: string;
+  nav: number;
+}
+
+export interface FundNav {
+  fund_code: string;
+  count: number;
+  nav: FundNavPoint[];
+  disclaimer: string;
+}
+
+export interface FundCandidate {
+  rank: number;
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  profile: "conservative" | "balanced" | "aggressive";
+  score: number;
+  score_level: "high" | "medium" | "low";
+  factor_reasons: string[];
+  risk_notes: string[];
+}
+
+export interface FundCandidates {
+  profile: "conservative" | "balanced" | "aggressive";
+  count: number;
+  candidates: FundCandidate[];
   disclaimer: string;
 }
 

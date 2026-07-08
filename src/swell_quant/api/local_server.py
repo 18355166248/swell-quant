@@ -18,6 +18,11 @@ from swell_quant.data.source_status import build_data_source_status_from_metadat
 from swell_quant.data.universe_check import build_akshare_universe_payload
 from swell_quant.research.backtest import read_backtest_result
 from swell_quant.research.features import read_features_csv
+from swell_quant.research.funds import (
+    FUND_PROFILES,
+    read_fund_candidates_csv,
+    read_fund_metrics_csv,
+)
 from swell_quant.research.labels import read_labels_csv
 from swell_quant.research.modeling import (
     BASELINE_FEATURE_NAMES,
@@ -160,6 +165,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         backtest_response = load_backtest_route(route, self.data_dir)
         if backtest_response is not None:
             status, payload = backtest_response
+            self._send_json(payload, status=status)
+            return
+        fund_response = load_fund_route(route, query, self.data_dir)
+        if fund_response is not None:
+            status, payload = fund_response
             self._send_json(payload, status=status)
             return
         stock_response = load_stock_route(route, self.data_dir)
@@ -800,6 +810,10 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
         "succeeded_symbol_count": metadata["succeeded_symbol_count"],
         "failed_symbols": metadata["failed_symbols"],
         "failed_symbol_count": metadata["failed_symbol_count"],
+        "success_rate": source_status["success_rate"],
+        "quality_score": source_status["quality_score"],
+        "quality_level": source_status["quality_level"],
+        "source_attempts": source_status["source_attempts"],
         "target_universe": metadata["target_universe"],
         "target_universe_size": metadata["target_universe_size"],
         "benchmark": metadata["benchmark"],
@@ -837,6 +851,10 @@ def _default_data_metadata() -> dict[str, Any]:
         "succeeded_symbol_count": 0,
         "failed_symbols": [],
         "failed_symbol_count": 0,
+        "success_rate": 0.0,
+        "quality_score": 0.0,
+        "quality_level": "poor",
+        "source_attempts": [],
         "target_universe": "沪深 300 + 中证 500",
         "target_universe_size": 800,
         "benchmark": "CSI800",
@@ -1354,6 +1372,85 @@ def normalize_equity_curve(rows: list[dict[str, str | float]]) -> list[dict[str,
             }
         )
     return normalized
+
+
+def load_fund_route(
+    route: str, query: dict[str, list[str]], data_dir: Path
+) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route == "/api/funds":
+        path = data_dir / "processed" / "sample_fund_metrics.csv"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_funds_artifact(data_dir)
+    if route == "/api/funds/candidates":
+        profile = (query.get("profile") or ["balanced"])[0]
+        if profile not in FUND_PROFILES:
+            return HTTPStatus.BAD_REQUEST, {
+                "error": "invalid_profile",
+                "message": f"profile must be one of {', '.join(FUND_PROFILES)}",
+                "disclaimer": "仅用于研究，不构成投资建议",
+            }
+        path = data_dir / "processed" / f"sample_fund_candidates_{profile}.csv"
+        if not path.exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        return HTTPStatus.OK, load_fund_candidates_artifact(path, profile)
+
+    prefix = "/api/funds/"
+    if not route.startswith(prefix):
+        return None
+    remainder = route[len(prefix) :]
+    parts = [part for part in remainder.split("/") if part]
+    if not parts:
+        return HTTPStatus.NOT_FOUND, {"error": "not_found", "path": route}
+    fund_code = parts[0]
+    if len(parts) == 1:
+        payload = load_fund_detail_artifact(data_dir, fund_code)
+    elif parts == [fund_code, "nav"]:
+        payload = load_fund_nav_artifact(data_dir / "raw" / "sample_fund_nav.csv", fund_code)
+    else:
+        return HTTPStatus.NOT_FOUND, {"error": "not_found", "path": route}
+    if payload is None:
+        return HTTPStatus.NOT_FOUND, {"error": "fund_not_found", "fund_code": fund_code}
+    return HTTPStatus.OK, payload
+
+
+def load_funds_artifact(data_dir: Path) -> dict[str, Any]:
+    funds = read_fund_metrics_csv(data_dir / "processed" / "sample_fund_metrics.csv")
+    return {
+        "count": len(funds),
+        "funds": funds,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_fund_detail_artifact(data_dir: Path, fund_code: str) -> dict[str, Any] | None:
+    funds = read_fund_metrics_csv(data_dir / "processed" / "sample_fund_metrics.csv")
+    fund = next((row for row in funds if row["fund_code"] == fund_code), None)
+    if fund is None:
+        return None
+    return {**fund, "disclaimer": "仅用于研究，不构成投资建议"}
+
+
+def load_fund_nav_artifact(path: Path, fund_code: str) -> dict[str, Any] | None:
+    rows = [row for row in _read_csv_rows(path) if row["fund_code"] == fund_code]
+    if not rows:
+        return None
+    return {
+        "fund_code": fund_code,
+        "count": len(rows),
+        "nav": [{"date": row["date"], "nav": float(row["nav"])} for row in rows],
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def load_fund_candidates_artifact(path: Path, profile: str) -> dict[str, Any]:
+    candidates = read_fund_candidates_csv(path)
+    return {
+        "profile": profile,
+        "count": len(candidates),
+        "candidates": candidates,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
 
 
 def load_stock_route(route: str, data_dir: Path) -> tuple[HTTPStatus, dict[str, Any]] | None:

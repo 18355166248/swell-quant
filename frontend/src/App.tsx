@@ -16,6 +16,7 @@ import {
   DatabaseOutlined,
   ExperimentOutlined,
   FileTextOutlined,
+  FundProjectionScreenOutlined,
   LineChartOutlined,
   ReloadOutlined,
   SettingOutlined,
@@ -28,6 +29,7 @@ import {
   BacktestsPage,
   DashboardPage,
   DataPage,
+  FundsPage,
   ModelsPage,
   PredictionsPage,
   ReportsPage,
@@ -36,7 +38,7 @@ import {
   TasksPage,
   type PredictionFilters,
 } from "./pages/researchPages";
-import { api, type PredictionQuery } from "./api/client";
+import { api, type FundProfile, type PredictionQuery } from "./api/client";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -49,6 +51,7 @@ type PageKey =
   | "models"
   | "predictions"
   | "backtests"
+  | "funds"
   | "stocks"
   | "reports"
   | "settings";
@@ -61,6 +64,7 @@ function App() {
   const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
   const [selectedReportId, setSelectedReportId] = useState("sample-research-summary");
   const [selectedModelVersion, setSelectedModelVersion] = useState("baseline-rule-v1");
+  const [fundProfile, setFundProfile] = useState<FundProfile>("balanced");
   const [predictionFilters, setPredictionFilters] = useState<PredictionFilters>({
     date: "",
     modelVersion: "",
@@ -152,6 +156,11 @@ function App() {
     queryFn: () => api.getStockPredictions(selectedSymbol),
     enabled: selectedSymbol.length > 0,
   });
+  const fundsQuery = useQuery({ queryKey: ["funds"], queryFn: api.getFunds });
+  const fundCandidatesQuery = useQuery({
+    queryKey: ["funds", "candidates", fundProfile],
+    queryFn: () => api.getFundCandidates(fundProfile),
+  });
 
   const runPipelineMutation = useMutation({
     mutationFn: api.runTask,
@@ -232,6 +241,8 @@ function App() {
     reportsQuery.isLoading ||
     reportDetailQuery.isLoading ||
     stocksQuery.isLoading ||
+    fundsQuery.isLoading ||
+    fundCandidatesQuery.isLoading ||
     settingsQuery.isLoading;
   const isStockLoading =
     stockSummaryQuery.isLoading ||
@@ -265,6 +276,8 @@ function App() {
     reportsQuery.isError ||
     reportDetailQuery.isError ||
     stocksQuery.isError ||
+    fundsQuery.isError ||
+    fundCandidatesQuery.isError ||
     settingsQuery.isError;
 
   const pageContent = {
@@ -351,6 +364,15 @@ function App() {
         isLoading={isStockLoading}
       />
     ),
+    funds: (
+      <FundsPage
+        funds={fundsQuery.data?.funds ?? []}
+        candidates={fundCandidatesQuery.data?.candidates ?? []}
+        profile={fundProfile}
+        onProfileChange={setFundProfile}
+        disclaimer={fundCandidatesQuery.data?.disclaimer ?? fundsQuery.data?.disclaimer}
+      />
+    ),
     reports: (
       <ReportsPage
         reports={reportsQuery.data?.reports ?? []}
@@ -390,6 +412,7 @@ function App() {
             { key: "models", icon: <ExperimentOutlined />, label: "模型" },
             { key: "predictions", icon: <LineChartOutlined />, label: "预测" },
             { key: "backtests", icon: <DatabaseOutlined />, label: "回测" },
+            { key: "funds", icon: <FundProjectionScreenOutlined />, label: "基金" },
             { key: "stocks", icon: <StockOutlined />, label: "单股" },
             { key: "reports", icon: <FileTextOutlined />, label: "报告" },
             { key: "settings", icon: <SettingOutlined />, label: "设置" },

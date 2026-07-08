@@ -8,6 +8,10 @@ import type {
   DataStatus,
   DuckDBStorageStatus,
   FeatureSummary,
+  FundCandidates,
+  FundList,
+  FundNav,
+  FundSummary,
   LabelSummary,
   LatestBacktest,
   LatestModel,
@@ -36,6 +40,8 @@ export interface PredictionQuery {
   modelVersion?: string | null;
   topN?: number | null;
 }
+
+export type FundProfile = "conservative" | "balanced" | "aggressive";
 
 export type TaskTrigger =
   | "pipeline"
@@ -130,6 +136,11 @@ export const api = {
     requestJson<StockFeatures>(`/api/stocks/${symbol}/features`),
   getStockPredictions: (symbol: string) =>
     requestJson<StockPredictions>(`/api/stocks/${symbol}/predictions`),
+  getFunds: () => requestJson<FundList>("/api/funds"),
+  getFund: (fundCode: string) => requestJson<FundSummary>(`/api/funds/${fundCode}`),
+  getFundNav: (fundCode: string) => requestJson<FundNav>(`/api/funds/${fundCode}/nav`),
+  getFundCandidates: (profile: FundProfile = "balanced") =>
+    requestJson<FundCandidates>(`/api/funds/candidates?profile=${profile}`),
   runTask: async (task: TaskTrigger = "pipeline") => {
     // 这里只触发后端任务端点；当前 MVP 由后端统一串完整 pipeline，避免派生产物口径分叉。
     const response = await fetch(`${API_BASE_URL}${TASK_TRIGGER_PATHS[task]}`, {

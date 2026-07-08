@@ -65,6 +65,8 @@ import type {
   DataStatus,
   DuckDBStorageStatus,
   FeatureSummary,
+  FundCandidate,
+  FundSummary,
   LabelSummary,
   LatestBacktest,
   LatestModel,
@@ -555,6 +557,9 @@ export function TasksPage({
                     ? "已验证"
                     : "未验证，仅预演"}
               </Descriptions.Item>
+              <Descriptions.Item label="最近真实通过">
+                {akshareTrial.last_passed?.ended_at ?? "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="试跑类型">{akshareTrial.trial_kind ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="耗时">
                 {akshareTrial.duration_seconds === undefined
@@ -809,6 +814,17 @@ export function DataPage({
               <Descriptions.Item label="选择标的">{dataStatus?.selected_symbol_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="成功标的">{dataStatus?.succeeded_symbol_count ?? 0}</Descriptions.Item>
               <Descriptions.Item label="失败标的">{dataStatus?.failed_symbol_count ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="采集成功率">
+                {dataStatus?.success_rate === undefined ? "-" : formatPercent(dataStatus.success_rate)}
+              </Descriptions.Item>
+              <Descriptions.Item label="质量等级">
+                <Tag color={dataSourceQualityColor(dataStatus?.quality_level)}>
+                  {dataStatus?.quality_level ?? "-"}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="质量分">
+                {dataStatus?.quality_score === undefined ? "-" : formatNumber(dataStatus.quality_score)}
+              </Descriptions.Item>
               <Descriptions.Item label="试跑上限">{dataStatus?.max_symbols ?? "未限制"}</Descriptions.Item>
             </Descriptions>
             {failedSymbols.length > 0 ? (
@@ -1729,6 +1745,128 @@ export function StocksPage({
   );
 }
 
+export function FundsPage({
+  funds,
+  candidates,
+  profile,
+  onProfileChange,
+  disclaimer,
+}: {
+  funds: FundSummary[];
+  candidates: FundCandidate[];
+  profile: "conservative" | "balanced" | "aggressive";
+  onProfileChange: (profile: "conservative" | "balanced" | "aggressive") => void;
+  disclaimer?: string;
+}) {
+  return (
+    <>
+      <PageTitle
+        title="基金"
+        description="比较样例基金的历史收益、回撤、费用和规模，生成研究候选清单。"
+      />
+      <Alert
+        className="page-alert"
+        type="info"
+        showIcon
+        message="研究边界"
+        description={disclaimer ?? "仅用于研究，不构成投资建议"}
+      />
+      <Card className="filter-card" title="候选视图">
+        <Space wrap>
+          <Select
+            value={profile}
+            onChange={onProfileChange}
+            options={[
+              { label: "稳健", value: "conservative" },
+              { label: "均衡", value: "balanced" },
+              { label: "进取", value: "aggressive" },
+            ]}
+          />
+          <Tag color="blue">候选、关注、参考，不代表买入或持有动作</Tag>
+        </Space>
+      </Card>
+      <Card title="候选基金清单">
+        <Table<FundCandidate>
+          rowKey={(row) => `${row.profile}-${row.fund_code}`}
+          size="middle"
+          dataSource={candidates}
+          pagination={false}
+          columns={[
+            { title: "排名", dataIndex: "rank", width: 80 },
+            { title: "基金代码", dataIndex: "fund_code", width: 110 },
+            { title: "基金名称", dataIndex: "fund_name", width: 180 },
+            { title: "类型", dataIndex: "fund_type", width: 110 },
+            {
+              title: "研究分数",
+              dataIndex: "score",
+              align: "right",
+              width: 110,
+              render: (value: number) => formatNumber(value),
+            },
+            {
+              title: "等级",
+              dataIndex: "score_level",
+              width: 90,
+              render: (value: string) => (
+                <Tag color={value === "high" ? "green" : value === "medium" ? "blue" : "default"}>
+                  {value === "high" ? "高" : value === "medium" ? "中" : "低"}
+                </Tag>
+              ),
+            },
+            {
+              title: "指标归因",
+              dataIndex: "factor_reasons",
+              render: (items: string[]) => (
+                <Space size={[4, 4]} wrap>
+                  {items.map((item) => (
+                    <Tag key={item}>{item}</Tag>
+                  ))}
+                </Space>
+              ),
+            },
+            {
+              title: "风险提示",
+              dataIndex: "risk_notes",
+              render: (items: string[]) =>
+                items.length > 0 ? (
+                  <Space size={[4, 4]} wrap>
+                    {items.map((item) => (
+                      <Tag color="warning" key={item}>
+                        {item}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  <Text type="secondary">未触发</Text>
+                ),
+            },
+          ]}
+        />
+      </Card>
+      <Card title="基金池指标">
+        <Table<FundSummary>
+          rowKey={(row) => row.fund_code}
+          size="middle"
+          dataSource={funds}
+          pagination={{ pageSize: 10, hideOnSinglePage: true }}
+          columns={[
+            { title: "基金代码", dataIndex: "fund_code", width: 110 },
+            { title: "基金名称", dataIndex: "fund_name", width: 180 },
+            { title: "类型", dataIndex: "fund_type", width: 110 },
+            { title: "管理人", dataIndex: "manager", width: 120 },
+            { title: "规模(亿)", dataIndex: "aum_billion", align: "right", render: formatNumber },
+            { title: "近1年", dataIndex: "return_1y", align: "right", render: formatPercent },
+            { title: "近6月", dataIndex: "return_6m", align: "right", render: formatPercent },
+            { title: "最大回撤", dataIndex: "max_drawdown", align: "right", render: formatPercent },
+            { title: "波动率", dataIndex: "volatility", align: "right", render: formatPercent },
+            { title: "总费率", dataIndex: "total_fee", align: "right", render: formatPercent },
+          ]}
+        />
+      </Card>
+    </>
+  );
+}
+
 export function ReportsPage({
   reports,
   report,
@@ -1991,6 +2129,19 @@ function watchlistConfidenceColor(level: WatchlistItem["confidenceLevel"]): stri
   }
   if (level === "medium") {
     return "blue";
+  }
+  return "default";
+}
+
+function dataSourceQualityColor(level?: string): string {
+  if (level === "good") {
+    return "green";
+  }
+  if (level === "usable") {
+    return "blue";
+  }
+  if (level === "poor") {
+    return "red";
   }
   return "default";
 }

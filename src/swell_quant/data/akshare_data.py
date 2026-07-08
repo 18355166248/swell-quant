@@ -22,11 +22,21 @@ class AkshareSymbolFailure:
 
 
 @dataclass(frozen=True)
+class AkshareSourceAttempt:
+    symbol: str
+    source: str
+    status: str
+    attempts: int
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class AksharePriceFetchResult:
     bars: list[PriceBar]
     requested_symbols: tuple[str, ...]
     succeeded_symbols: tuple[str, ...]
     failed_symbols: tuple[AkshareSymbolFailure, ...]
+    source_attempts: tuple[AkshareSourceAttempt, ...]
 
 
 CSI800_COMPONENT_INDEXES = ("000300", "000905")
@@ -88,22 +98,13 @@ def collect_akshare_price_bars(
     bars: list[PriceBar] = []
     succeeded_symbols: list[str] = []
     failed_symbols: list[AkshareSymbolFailure] = []
+    source_attempts: list[AkshareSourceAttempt] = []
     for symbol in symbols:
         try:
-            try:
-                frame = akshare.stock_zh_a_hist(
-                    symbol=_akshare_stock_symbol(symbol),
-                    period="daily",
-                    start_date=start_date,
-                    end_date=end_date,
-                    adjust="qfq",
-                )
-            except Exception:
-                proxy_url = _eastmoney_proxy_url()
-                if not proxy_url:
-                    raise
-                # 当前 AKShare 个股日线底层走 requests，部分代理链路会被东方财富断开；配置代理时用 curl_cffi 只兜底原始行情读取。
-                frame = _fetch_eastmoney_price_rows(symbol, start_date, end_date, proxy_url)
+            frame, attempts = _fetch_symbol_price_frame(
+                akshare, symbol, start_date=start_date, end_date=end_date
+            )
+            source_attempts.extend(attempts)
             symbol_bars: list[PriceBar] = []
             for row in _iter_rows(frame):
                 trade_date = _parse_trade_date(_value(row, "日期", "date"))
@@ -134,6 +135,8 @@ def collect_akshare_price_bars(
                     )
                 )
         except Exception as error:  # noqa: BLE001 - 单只股票失败应记录并继续采集其它标的。
+            if isinstance(error, _PriceFrameFetchError):
+                source_attempts.extend(error.attempts)
             failed_symbols.append(AkshareSymbolFailure(symbol=symbol, reason=str(error)))
     if not bars:
         # 真实行情源失败时必须保留单标的原因，否则 pipeline 只能看到“无数据”的二次症状，排查不到上游接口或网络问题。
@@ -147,6 +150,7 @@ def collect_akshare_price_bars(
         requested_symbols=symbols,
         succeeded_symbols=tuple(succeeded_symbols),
         failed_symbols=tuple(failed_symbols),
+        source_attempts=tuple(source_attempts),
     )
 
 
@@ -177,11 +181,110 @@ def _load_akshare() -> Any:
         ) from error
 
 
+@dataclass(frozen=True)
+class _PriceFrameFetchError(RuntimeError):
+    symbol: str
+    attempts: tuple[AkshareSourceAttempt, ...]
+
+    def __str__(self) -> str:
+        errors = [attempt.error for attempt in self.attempts if attempt.error]
+        return errors[-1] if errors else f"all price sources failed for {self.symbol}"
+
+
+def _fetch_symbol_price_frame(
+    provider: Any,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+) -> tuple[Any, list[AkshareSourceAttempt]]:
+    attempts: list[AkshareSourceAttempt] = []
+
+    def fetch_akshare() -> Any:
+        return provider.stock_zh_a_hist(
+            symbol=_akshare_stock_symbol(symbol),
+            period="daily",
+            start_date=start_date,
+            end_date=end_date,
+            adjust="qfq",
+        )
+
+    try:
+        frame, attempt = _run_price_source(
+            symbol=symbol,
+            source="akshare",
+            fetcher=fetch_akshare,
+        )
+        attempts.append(attempt)
+        return frame, attempts
+    except Exception as error:  # noqa: BLE001 - 失败会进入下一行情源，原始原因写入 attempts。
+        attempts.append(_failed_attempt(symbol, "akshare", error))
+
+    try:
+        frame, attempt = _run_price_source(
+            symbol=symbol,
+            source="eastmoney_direct",
+            fetcher=lambda: _fetch_eastmoney_price_rows(symbol, start_date, end_date, None),
+        )
+        attempts.append(attempt)
+        return frame, attempts
+    except Exception as error:  # noqa: BLE001 - 直连失败后才尝试专用代理 fallback。
+        attempts.append(_failed_attempt(symbol, "eastmoney_direct", error))
+
+    proxy_url = _eastmoney_proxy_url()
+    if proxy_url:
+        try:
+            frame, attempt = _run_price_source(
+                symbol=symbol,
+                source="eastmoney_proxy",
+                fetcher=lambda: _fetch_eastmoney_price_rows(
+                    symbol, start_date, end_date, proxy_url
+                ),
+            )
+            attempts.append(attempt)
+            return frame, attempts
+        except Exception as error:  # noqa: BLE001 - 全部失败时由调用方记录单标的失败。
+            attempts.append(_failed_attempt(symbol, "eastmoney_proxy", error))
+
+    raise _PriceFrameFetchError(symbol=symbol, attempts=tuple(attempts))
+
+
+def _run_price_source(
+    *,
+    symbol: str,
+    source: str,
+    fetcher: Any,
+) -> tuple[Any, AkshareSourceAttempt]:
+    last_error: Exception | None = None
+    for attempt_index in range(3):
+        try:
+            return fetcher(), AkshareSourceAttempt(
+                symbol=symbol,
+                source=source,
+                status="passed",
+                attempts=attempt_index + 1,
+            )
+        except Exception as error:  # noqa: BLE001 - 上游数据源错误需要按源重试并保留最后一次原因。
+            last_error = error
+            if attempt_index < 2:
+                sleep(0.25 * (2**attempt_index))
+    raise last_error or RuntimeError(f"{source} failed")
+
+
+def _failed_attempt(symbol: str, source: str, error: Exception) -> AkshareSourceAttempt:
+    return AkshareSourceAttempt(
+        symbol=symbol,
+        source=source,
+        status="failed",
+        attempts=3,
+        error=str(error),
+    )
+
+
 def _fetch_eastmoney_price_rows(
     symbol: str,
     start_date: str,
     end_date: str,
-    proxy_url: str,
+    proxy_url: str | None,
 ) -> list[dict[str, Any]]:
     try:
         curl_requests = importlib.import_module("curl_cffi.requests")
@@ -200,23 +303,17 @@ def _fetch_eastmoney_price_rows(
         "beg": start_date,
         "end": end_date,
     }
-    last_error: Exception | None = None
-    for attempt in range(3):
-        try:
-            response = curl_requests.get(
-                "https://push2his.eastmoney.com/api/qt/stock/kline/get",
-                params=params,
-                proxy=proxy_url,
-                timeout=30,
-                impersonate="chrome",
-            )
-            break
-        except Exception as error:  # noqa: BLE001 - 上游偶发断连需要保留最后一次原始错误。
-            last_error = error
-            if attempt < 2:
-                sleep(0.25 * (attempt + 1))
-    else:
-        raise last_error or RuntimeError("Eastmoney fallback request failed")
+    request_kwargs = {
+        "params": params,
+        "timeout": 30,
+        "impersonate": "chrome",
+    }
+    if proxy_url:
+        request_kwargs["proxy"] = proxy_url
+    response = curl_requests.get(
+        "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+        **request_kwargs,
+    )
     response.raise_for_status()
     payload = response.json()
     klines = ((payload.get("data") or {}).get("klines")) or []
