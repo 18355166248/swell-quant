@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -107,51 +108,70 @@ def run_data_update(settings: Settings) -> str:
             manual_symbols=settings.akshare_symbols,
         )
         symbols = limit_akshare_symbols(resolved_symbols, settings.akshare_max_symbols)
-        fetch_result = collect_akshare_price_bars(
-            symbols=symbols,
-            start_date=settings.akshare_start_date,
-            end_date=settings.akshare_end_date,
-            benchmark_symbol=settings.akshare_benchmark_symbol,
-        )
-        write_price_bars_csv(sample_path, fetch_result.bars)
-        write_price_data_metadata(
-            metadata_path,
-            build_price_data_metadata(
-                data_source="akshare",
+        try:
+            fetch_result = collect_akshare_price_bars(
                 symbols=symbols,
                 start_date=settings.akshare_start_date,
                 end_date=settings.akshare_end_date,
-                benchmark=settings.akshare_benchmark_symbol,
-                universe_mode=settings.akshare_universe_mode,
-                resolved_symbol_count=len(resolved_symbols),
-                max_symbols=settings.akshare_max_symbols,
-                succeeded_symbols=fetch_result.succeeded_symbols,
-                failed_symbols=tuple(
-                    {"symbol": failure.symbol, "reason": failure.reason}
-                    for failure in fetch_result.failed_symbols
+                benchmark_symbol=settings.akshare_benchmark_symbol,
+            )
+        except Exception as error:
+            cached_metadata = _usable_akshare_cache_metadata(sample_path, metadata_path, settings)
+            if cached_metadata is None:
+                raise
+            # 真实行情源全量断连时允许复用上一次质量可用缓存，保证研究看板仍可生成预测；
+            # metadata 显式标记 cached_fallback，避免把缓存结果误认为本次实时采集成功。
+            cached_metadata["update_mode"] = "cached_fallback"
+            cached_metadata["fallback_reason"] = str(error)
+            write_price_data_metadata(metadata_path, cached_metadata)
+            source_message = (
+                "source=akshare, cache_fallback=true, "
+                f"symbols={cached_metadata.get('selected_symbol_count')}, "
+                f"succeeded={cached_metadata.get('succeeded_symbol_count')}, "
+                f"failed={cached_metadata.get('failed_symbol_count')}, "
+                f"range={cached_metadata.get('start_date')}-{cached_metadata.get('end_date')}, "
+                f"benchmark={cached_metadata.get('benchmark')}"
+            )
+        else:
+            write_price_bars_csv(sample_path, fetch_result.bars)
+            write_price_data_metadata(
+                metadata_path,
+                build_price_data_metadata(
+                    data_source="akshare",
+                    symbols=symbols,
+                    start_date=settings.akshare_start_date,
+                    end_date=settings.akshare_end_date,
+                    benchmark=settings.akshare_benchmark_symbol,
+                    universe_mode=settings.akshare_universe_mode,
+                    resolved_symbol_count=len(resolved_symbols),
+                    max_symbols=settings.akshare_max_symbols,
+                    succeeded_symbols=fetch_result.succeeded_symbols,
+                    failed_symbols=tuple(
+                        {"symbol": failure.symbol, "reason": failure.reason}
+                        for failure in fetch_result.failed_symbols
+                    ),
+                    source_attempts=tuple(
+                        {
+                            "symbol": attempt.symbol,
+                            "source": attempt.source,
+                            "status": attempt.status,
+                            "attempts": attempt.attempts,
+                            "error": attempt.error or "",
+                        }
+                        for attempt in fetch_result.source_attempts
+                    ),
                 ),
-                source_attempts=tuple(
-                    {
-                        "symbol": attempt.symbol,
-                        "source": attempt.source,
-                        "status": attempt.status,
-                        "attempts": attempt.attempts,
-                        "error": attempt.error or "",
-                    }
-                    for attempt in fetch_result.source_attempts
-                ),
-            ),
-        )
-        source_message = (
-            "source=akshare, "
-            f"universe_mode={settings.akshare_universe_mode}, "
-            f"symbols={len(symbols)}, "
-            f"succeeded={len(fetch_result.succeeded_symbols)}, "
-            f"failed={len(fetch_result.failed_symbols)}, "
-            f"resolved_symbols={len(resolved_symbols)}, "
-            f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
-            f"benchmark={settings.akshare_benchmark_symbol}"
-        )
+            )
+            source_message = (
+                "source=akshare, "
+                f"universe_mode={settings.akshare_universe_mode}, "
+                f"symbols={len(symbols)}, "
+                f"succeeded={len(fetch_result.succeeded_symbols)}, "
+                f"failed={len(fetch_result.failed_symbols)}, "
+                f"resolved_symbols={len(resolved_symbols)}, "
+                f"range={settings.akshare_start_date}-{settings.akshare_end_date}, "
+                f"benchmark={settings.akshare_benchmark_symbol}"
+            )
     else:
         raise ValueError(f"unsupported DATA_SOURCE: {settings.data_source}")
     backup_path = backup_duckdb(
@@ -160,6 +180,27 @@ def run_data_update(settings: Settings) -> str:
     backup_message = f"backup={backup_path}" if backup_path else "backup=skipped_missing_duckdb"
     # 数据更新统一落到同一 CSV 契约，后续因子、标签、训练和回测不感知样例数据或 AKShare 来源差异。
     return f"wrote prices to {sample_path} ({source_message}; {backup_message})"
+
+
+def _usable_akshare_cache_metadata(
+    sample_path: Path,
+    metadata_path: Path,
+    settings: Settings,
+) -> dict[str, Any] | None:
+    if not sample_path.exists() or not metadata_path.exists():
+        return None
+    metadata = read_price_data_metadata(metadata_path)
+    if metadata.get("data_source") != "akshare":
+        return None
+    if metadata.get("start_date") != settings.akshare_start_date:
+        return None
+    if metadata.get("end_date") != settings.akshare_end_date:
+        return None
+    if float(metadata.get("success_rate") or 0.0) < 0.8:
+        return None
+    if not read_price_bars_csv(sample_path):
+        return None
+    return dict(metadata)
 
 
 def run_fund_research_pipeline(settings: Settings) -> str:

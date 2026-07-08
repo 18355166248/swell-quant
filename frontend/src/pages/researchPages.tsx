@@ -1347,6 +1347,11 @@ export function PredictionsPage({
                   ),
               },
               {
+                title: "历史回看",
+                dataIndex: "history",
+                render: (_value, row) => renderCandidateHistory(row),
+              },
+              {
                 title: "研究备注",
                 dataIndex: "research_notes",
                 render: (_value, row) => (
@@ -2158,6 +2163,21 @@ function watchlistConfidenceColor(level: ResearchCandidate["confidence_level"]):
     return "blue";
   }
   return "default";
+}
+
+function renderCandidateHistory(row: ResearchCandidate) {
+  const history = row.history;
+  if (!history || history.sample_count <= 0) {
+    return <Text type="secondary">暂无成熟样本</Text>;
+  }
+  return (
+    <Space direction="vertical" size={2}>
+      <Text>历史样本 {history.sample_count}</Text>
+      <Text type="secondary">跑赢率 {formatPercent(history.outperform_rate ?? undefined)}</Text>
+      <Text type="secondary">均值 {formatPercent(history.average_future_5d_return ?? undefined)}</Text>
+      <Text type="secondary">最新信号 {history.latest_signal_date ?? "-"}</Text>
+    </Space>
+  );
 }
 
 function dataSourceQualityColor(level?: string): string {

@@ -6,9 +6,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from scripts import run_akshare_trial as akshare_trial_script
-from scripts.run_pipeline import limit_akshare_symbols
+from scripts.run_pipeline import limit_akshare_symbols, run_data_update
 from scripts.run_akshare_trial import TrialStep, write_trial_artifacts
 from swell_quant.core.config import Settings
+from swell_quant.data.sample_data import (
+    build_price_data_metadata,
+    generate_sample_bars,
+    write_price_bars_csv,
+    write_price_data_metadata,
+)
 from swell_quant.data.universe_check import build_akshare_universe_payload
 
 
@@ -35,6 +41,51 @@ def test_limit_akshare_symbols_only_applies_explicit_trial_cap() -> None:
 
     assert limit_akshare_symbols(symbols, None) == symbols
     assert limit_akshare_symbols(symbols, 2) == ("000001.SZ", "000002.SZ")
+
+
+def test_run_data_update_reuses_usable_akshare_cache_when_live_fetch_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    raw_dir = data_dir / "raw"
+    symbols = ("000001.SZ", "000002.SZ", "600000.SH")
+    write_price_bars_csv(raw_dir / "sample_prices.csv", generate_sample_bars(days=8))
+    write_price_data_metadata(
+        raw_dir / "data_source.json",
+        build_price_data_metadata(
+            data_source="akshare",
+            symbols=symbols,
+            start_date="20240102",
+            end_date="20240109",
+            benchmark="sh000906",
+            universe_mode="manual",
+            succeeded_symbols=symbols,
+        ),
+    )
+    settings = Settings(
+        data_dir=data_dir,
+        duckdb_path=data_dir / "duckdb" / "swell_quant.duckdb",
+        data_source="akshare",
+        akshare_universe_mode="manual",
+        akshare_symbols=symbols,
+        akshare_start_date="20240102",
+        akshare_end_date="20240109",
+    )
+    monkeypatch.setattr("scripts.run_pipeline.resolve_akshare_symbols", lambda **_kwargs: symbols)
+    monkeypatch.setattr(
+        "scripts.run_pipeline.collect_akshare_price_bars",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("live source unavailable")),
+    )
+
+    message = run_data_update(settings)
+    metadata = json.loads((raw_dir / "data_source.json").read_text(encoding="utf-8"))
+
+    assert "cache_fallback=true" in message
+    assert metadata["data_source"] == "akshare"
+    assert metadata["update_mode"] == "cached_fallback"
+    assert metadata["fallback_reason"] == "live source unavailable"
+    assert metadata["succeeded_symbol_count"] == 3
 
 
 def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:

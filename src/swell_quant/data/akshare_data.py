@@ -105,25 +105,7 @@ def collect_akshare_price_bars(
                 akshare, symbol, start_date=start_date, end_date=end_date
             )
             source_attempts.extend(attempts)
-            symbol_bars: list[PriceBar] = []
-            for row in _iter_rows(frame):
-                trade_date = _parse_trade_date(_value(row, "日期", "date"))
-                benchmark_close = benchmark_by_date.get(trade_date)
-                if benchmark_close is None:
-                    continue
-                # AKShare 返回前复权日频行情；这里只做字段标准化和基准对齐，不在采集层计算因子或标签。
-                symbol_bars.append(
-                    PriceBar(
-                        symbol=symbol,
-                        trade_date=trade_date,
-                        open=float(_value(row, "开盘", "open")),
-                        high=float(_value(row, "最高", "high")),
-                        low=float(_value(row, "最低", "low")),
-                        close=float(_value(row, "收盘", "close")),
-                        volume=int(float(_value(row, "成交量", "volume"))),
-                        benchmark_close=benchmark_close,
-                    )
-                )
+            symbol_bars = _price_bars_from_frame(symbol, frame, benchmark_by_date)
             if symbol_bars:
                 bars.extend(symbol_bars)
                 succeeded_symbols.append(symbol)
@@ -138,6 +120,33 @@ def collect_akshare_price_bars(
             if isinstance(error, _PriceFrameFetchError):
                 source_attempts.extend(error.attempts)
             failed_symbols.append(AkshareSymbolFailure(symbol=symbol, reason=str(error)))
+    if bars and failed_symbols:
+        retry_failures: list[AkshareSymbolFailure] = []
+        for failure in failed_symbols:
+            symbol = failure.symbol
+            try:
+                # 整批采集常见失败是短暂网络断连；第一轮结束后只对失败标的补采一次，
+                # 既提高真实试跑成功率，也避免无限重试拖垮本地研究链路。
+                frame, attempts = _fetch_symbol_price_frame(
+                    akshare, symbol, start_date=start_date, end_date=end_date
+                )
+                source_attempts.extend(attempts)
+                symbol_bars = _price_bars_from_frame(symbol, frame, benchmark_by_date)
+                if symbol_bars:
+                    bars.extend(symbol_bars)
+                    succeeded_symbols.append(symbol)
+                else:
+                    retry_failures.append(
+                        AkshareSymbolFailure(
+                            symbol=symbol,
+                            reason="no_rows_after_benchmark_alignment",
+                        )
+                    )
+            except Exception as error:  # noqa: BLE001 - 补采仍失败时保留最终错误，供门禁和页面展示。
+                if isinstance(error, _PriceFrameFetchError):
+                    source_attempts.extend(error.attempts)
+                retry_failures.append(AkshareSymbolFailure(symbol=symbol, reason=str(error)))
+        failed_symbols = retry_failures
     if not bars:
         # 真实行情源失败时必须保留单标的原因，否则 pipeline 只能看到“无数据”的二次症状，排查不到上游接口或网络问题。
         failure_summary = "; ".join(
@@ -152,6 +161,33 @@ def collect_akshare_price_bars(
         failed_symbols=tuple(failed_symbols),
         source_attempts=tuple(source_attempts),
     )
+
+
+def _price_bars_from_frame(
+    symbol: str,
+    frame: Any,
+    benchmark_by_date: dict[date, float],
+) -> list[PriceBar]:
+    symbol_bars: list[PriceBar] = []
+    for row in _iter_rows(frame):
+        trade_date = _parse_trade_date(_value(row, "日期", "date"))
+        benchmark_close = benchmark_by_date.get(trade_date)
+        if benchmark_close is None:
+            continue
+        # AKShare 返回前复权日频行情；这里只做字段标准化和基准对齐，不在采集层计算因子或标签。
+        symbol_bars.append(
+            PriceBar(
+                symbol=symbol,
+                trade_date=trade_date,
+                open=float(_value(row, "开盘", "open")),
+                high=float(_value(row, "最高", "high")),
+                low=float(_value(row, "最低", "low")),
+                close=float(_value(row, "收盘", "close")),
+                volume=int(float(_value(row, "成交量", "volume"))),
+                benchmark_close=benchmark_close,
+            )
+        )
+    return symbol_bars
 
 
 def write_akshare_prices_csv(

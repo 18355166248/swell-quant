@@ -9,6 +9,8 @@ __pycache__/
 *.egg-info/
 frontend/node_modules/
 frontend/dist/
+.api-server.*.log
+.frontend-server.*.log
 
 # Research data and generated artifacts stay local.
 data/raw/*

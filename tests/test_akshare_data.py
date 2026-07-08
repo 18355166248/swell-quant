@@ -231,6 +231,61 @@ def test_collect_akshare_price_bars_retries_primary_source() -> None:
     assert result.bars
 
 
+def test_collect_akshare_price_bars_refetches_failed_symbols_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("swell_quant.data.akshare_data.sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        "swell_quant.data.akshare_data._fetch_eastmoney_price_rows",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fallback unavailable")),
+    )
+
+    class BatchFlakyAkshare(FakeAkshare):
+        attempts_by_symbol: dict[str, int]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts_by_symbol = {}
+
+        def stock_zh_a_hist(
+            self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            self.attempts_by_symbol[symbol] = self.attempts_by_symbol.get(symbol, 0) + 1
+            if symbol == "600000" and self.attempts_by_symbol[symbol] <= 3:
+                raise RuntimeError("Connection closed abruptly")
+            if symbol == "600000":
+                return FakeFrame(
+                    [
+                        {
+                            "日期": "2024-01-02",
+                            "开盘": 8.0,
+                            "最高": 8.2,
+                            "最低": 7.8,
+                            "收盘": 8.1,
+                            "成交量": 10000,
+                        }
+                    ]
+                )
+            return super().stock_zh_a_hist(symbol, period, start_date, end_date, adjust)
+
+    provider = BatchFlakyAkshare()
+
+    result = collect_akshare_price_bars(
+        symbols=("000001.SZ", "600000.SH"),
+        start_date="20240102",
+        end_date="20240103",
+        provider=provider,
+    )
+
+    assert result.succeeded_symbols == ("000001.SZ", "600000.SH")
+    assert result.failed_symbols == ()
+    assert provider.attempts_by_symbol["600000"] == 4
+    assert any(
+        attempt.symbol == "600000.SH" and attempt.status == "passed" and attempt.attempts == 1
+        for attempt in result.source_attempts
+    )
+
+
 def test_resolve_akshare_symbols_fetches_csi800_components() -> None:
     provider = FakeAkshare()
 

@@ -304,6 +304,17 @@ export interface ResearchCandidateRiskHint {
   label: string;
 }
 
+export interface ResearchCandidateHistory {
+  sample_count: number;
+  outperform_count: number;
+  outperform_rate: number | null;
+  average_future_5d_return: number | null;
+  best_future_5d_return: number | null;
+  worst_future_5d_return: number | null;
+  latest_signal_date: string | null;
+  note: string;
+}
+
 export interface ResearchCandidate {
   rank: number;
   symbol: string;
@@ -314,6 +325,7 @@ export interface ResearchCandidate {
   confidence_level: "high" | "medium" | "low";
   factors: ResearchCandidateFactor[];
   risk_hints: ResearchCandidateRiskHint[];
+  history: ResearchCandidateHistory;
   research_notes: string[];
 }
 

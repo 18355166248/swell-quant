@@ -4,6 +4,7 @@ from datetime import date
 from typing import Any
 
 from swell_quant.research.features import FeatureRow
+from swell_quant.research.labels import LabelRow
 from swell_quant.research.modeling import PredictionRow
 
 
@@ -22,6 +23,8 @@ FACTOR_LABELS = {
 def build_research_candidates(
     predictions: list[PredictionRow],
     features: list[FeatureRow] | None = None,
+    historical_predictions: list[PredictionRow] | None = None,
+    labels: list[LabelRow] | None = None,
     top_n: int = 10,
 ) -> dict[str, Any]:
     if not predictions:
@@ -40,6 +43,12 @@ def build_research_candidates(
         feature = feature_by_key.get((row.symbol, row.trade_date))
         factors = _factor_tags(row, feature)
         risk_hints = _risk_hints(row)
+        history = _historical_review(
+            row,
+            historical_predictions=historical_predictions or [],
+            labels=labels or [],
+            top_n=top_n,
+        )
         candidates.append(
             {
                 "rank": row.rank,
@@ -51,6 +60,7 @@ def build_research_candidates(
                 "confidence_level": confidence_level,
                 "factors": factors,
                 "risk_hints": risk_hints,
+                "history": history,
                 "research_notes": _research_notes(confidence_level, factors, risk_hints),
             }
         )
@@ -106,6 +116,62 @@ def _normalized_rsi(value: float | None) -> float | None:
     if value is None:
         return None
     return (value - 50.0) / 100.0
+
+
+def _historical_review(
+    candidate: PredictionRow,
+    historical_predictions: list[PredictionRow],
+    labels: list[LabelRow],
+    top_n: int,
+) -> dict[str, Any]:
+    label_by_key = {
+        (row.symbol, row.trade_date): row
+        for row in labels
+        if row.future_5d_return is not None and row.outperform_benchmark_5d is not None
+    }
+    mature_rows: list[tuple[PredictionRow, LabelRow]] = []
+    for row in historical_predictions:
+        label = label_by_key.get((row.symbol, row.trade_date))
+        # 历史回看只统计候选日期之前且标签已成熟的样本，避免把当前信号或未到期未来收益混入结果。
+        if (
+            row.symbol == candidate.symbol
+            and row.trade_date < candidate.trade_date
+            and row.rank <= top_n
+            and label is not None
+        ):
+            mature_rows.append((row, label))
+
+    if not mature_rows:
+        return _empty_history()
+
+    returns = [label.future_5d_return for _, label in mature_rows]
+    assert all(value is not None for value in returns)
+    numeric_returns = [float(value) for value in returns if value is not None]
+    outperform_count = sum(int(label.outperform_benchmark_5d or 0) for _, label in mature_rows)
+    latest_signal_date = max(row.trade_date for row, _ in mature_rows)
+    return {
+        "sample_count": len(mature_rows),
+        "outperform_count": outperform_count,
+        "outperform_rate": round(outperform_count / len(mature_rows), 6),
+        "average_future_5d_return": round(sum(numeric_returns) / len(numeric_returns), 6),
+        "best_future_5d_return": round(max(numeric_returns), 6),
+        "worst_future_5d_return": round(min(numeric_returns), 6),
+        "latest_signal_date": latest_signal_date.isoformat(),
+        "note": "历史回看仅统计已成熟标签，不代表未来表现",
+    }
+
+
+def _empty_history() -> dict[str, Any]:
+    return {
+        "sample_count": 0,
+        "outperform_count": 0,
+        "outperform_rate": None,
+        "average_future_5d_return": None,
+        "best_future_5d_return": None,
+        "worst_future_5d_return": None,
+        "latest_signal_date": None,
+        "note": "历史回看仅统计已成熟标签，不代表未来表现",
+    }
 
 
 def _risk_hints(row: PredictionRow) -> list[dict[str, str]]:

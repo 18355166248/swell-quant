@@ -74,6 +74,16 @@ describe("research pages module", () => {
           { code: "momentum_5d", name: "5日动量", value: 0.03, direction: "up" },
         ],
         risk_hints: [],
+        history: {
+          sample_count: 2,
+          outperform_count: 1,
+          outperform_rate: 0.5,
+          average_future_5d_return: 0.015,
+          best_future_5d_return: 0.05,
+          worst_future_5d_return: -0.02,
+          latest_signal_date: "2024-01-20",
+          note: "历史回看仅统计已成熟标签，不代表未来表现",
+        },
         research_notes: [
           "模型分数在当日候选池中处于高相对位置",
           "主要正向因子：5日动量",
@@ -95,6 +105,16 @@ describe("research pages module", () => {
           { code: "limit_move", label: "接近涨跌停幅度" },
           { code: "volume_spike", label: "成交量异动" },
         ],
+        history: {
+          sample_count: 0,
+          outperform_count: 0,
+          outperform_rate: null,
+          average_future_5d_return: null,
+          best_future_5d_return: null,
+          worst_future_5d_return: null,
+          latest_signal_date: null,
+          note: "历史回看仅统计已成熟标签，不代表未来表现",
+        },
         research_notes: [
           "模型分数在当日候选池中处于低相对位置",
           "已触发风险提示，需先复核交易约束和数据质量",
@@ -127,6 +147,11 @@ describe("research pages module", () => {
     expect(html).toContain("清单由后端研究候选 API 生成，仅用于研究，不构成投资建议");
     expect(html).toContain("研究备注");
     expect(html).toContain("主要正向因子：5日动量");
+    expect(html).toContain("历史回看");
+    expect(html).toContain("历史样本 2");
+    expect(html).toContain("跑赢率 50.00%");
+    expect(html).toContain("均值 1.50%");
+    expect(html).toContain("暂无成熟样本");
     expect(html).toContain("启发式风险");
     expect(html).toContain("接近涨跌停幅度");
     expect(html).toContain("成交量异动");

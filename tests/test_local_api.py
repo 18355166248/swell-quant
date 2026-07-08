@@ -1,5 +1,6 @@
 import json
 import threading
+from datetime import date
 from http import HTTPStatus
 from pathlib import Path
 
@@ -68,8 +69,9 @@ from swell_quant.data.sample_data import (
 )
 from swell_quant.research.backtest import run_top_n_backtest, write_backtest_result
 from swell_quant.research.features import compute_features, write_features_csv
-from swell_quant.research.labels import compute_labels, write_labels_csv
+from swell_quant.research.labels import LabelRow, compute_labels, write_labels_csv
 from swell_quant.research.modeling import (
+    PredictionRow,
     build_training_samples,
     generate_historical_predictions,
     generate_predictions,
@@ -109,10 +111,16 @@ def test_local_api_research_candidates_artifact_combines_predictions_and_feature
     data_dir = tmp_path / "data"
     bars = generate_sample_bars(days=10)
     features = compute_features(bars)
+    labels = compute_labels(bars)
     write_features_csv(data_dir / "processed" / "sample_features.csv", features)
+    write_labels_csv(data_dir / "processed" / "sample_labels.csv", labels)
     write_predictions_csv(
         data_dir / "processed" / "latest_predictions.csv",
         generate_predictions(features),
+    )
+    write_predictions_csv(
+        data_dir / "processed" / "historical_predictions.csv",
+        generate_historical_predictions(features),
     )
 
     payload = load_research_candidates_artifact(data_dir, {"top_n": ["2"]})
@@ -127,11 +135,73 @@ def test_local_api_research_candidates_artifact_combines_predictions_and_feature
     assert payload["candidates"][0]["rank"] == 1
     assert payload["candidates"][0]["confidence_level"] in {"high", "medium", "low"}
     assert payload["candidates"][0]["factors"]
+    assert "history" in payload["candidates"][0]
+    assert payload["candidates"][0]["history"]["sample_count"] >= 0
+    assert payload["candidates"][0]["history"]["note"] == "历史回看仅统计已成熟标签，不代表未来表现"
     assert payload["candidates"][0]["research_notes"]
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
     assert route_response is not None
     assert route_response[0] == HTTPStatus.OK
     assert route_response[1]["count"] == 2
+
+
+def test_local_api_research_candidates_artifact_reads_historical_review(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    write_predictions_csv(
+        data_dir / "processed" / "latest_predictions.csv",
+        [
+            PredictionRow(
+                symbol="000001.SZ",
+                trade_date=date(2024, 1, 31),
+                model_version="baseline-rule-v1",
+                score=0.9,
+                rank=1,
+                return_1d=0.01,
+                momentum_5d=0.03,
+                volume_change_1d=0.2,
+            )
+        ],
+    )
+    write_predictions_csv(
+        data_dir / "processed" / "historical_predictions.csv",
+        [
+            PredictionRow(
+                symbol="000001.SZ",
+                trade_date=date(2024, 1, 10),
+                model_version="baseline-rule-v1",
+                score=0.6,
+                rank=1,
+                return_1d=0.01,
+                momentum_5d=0.03,
+                volume_change_1d=0.2,
+            ),
+            PredictionRow(
+                symbol="000001.SZ",
+                trade_date=date(2024, 1, 20),
+                model_version="baseline-rule-v1",
+                score=0.7,
+                rank=1,
+                return_1d=0.01,
+                momentum_5d=0.03,
+                volume_change_1d=0.2,
+            ),
+        ],
+    )
+    write_labels_csv(
+        data_dir / "processed" / "sample_labels.csv",
+        [
+            LabelRow("000001.SZ", date(2024, 1, 10), 0.04, 0.01, 1),
+            LabelRow("000001.SZ", date(2024, 1, 20), -0.02, 0.01, 0),
+        ],
+    )
+
+    payload = load_research_candidates_artifact(data_dir, {"top_n": ["1"]})
+
+    assert payload["candidates"][0]["history"]["sample_count"] == 2
+    assert payload["candidates"][0]["history"]["average_future_5d_return"] == 0.01
+    assert payload["candidates"][0]["history"]["outperform_rate"] == 0.5
 
 
 def test_local_api_akshare_universe_artifact_reports_manual_symbols(tmp_path: Path) -> None:

@@ -1215,9 +1215,24 @@ def load_research_candidates_artifact(
     top_n = 10 if top_n_value is None else max(0, int(top_n_value))
     predictions = read_predictions_csv(data_dir / "processed" / "latest_predictions.csv")
     features_path = data_dir / "processed" / "sample_features.csv"
+    historical_predictions_path = data_dir / "processed" / "historical_predictions.csv"
+    labels_path = data_dir / "processed" / "sample_labels.csv"
     # 候选建议必须以模型预测为主；因子文件缺失时仍返回候选，但归因会降级到预测 CSV 自带字段。
     features = read_features_csv(features_path) if features_path.exists() else []
-    payload = build_research_candidates(predictions, features=features, top_n=top_n)
+    # 历史回看依赖已落盘的历史预测和成熟标签，缺任一文件时保守返回空统计，不阻断最新候选展示。
+    historical_predictions = (
+        read_predictions_csv(historical_predictions_path)
+        if historical_predictions_path.exists()
+        else []
+    )
+    labels = read_labels_csv(labels_path) if labels_path.exists() else []
+    payload = build_research_candidates(
+        predictions,
+        features=features,
+        historical_predictions=historical_predictions,
+        labels=labels,
+        top_n=top_n,
+    )
     payload["filters"] = {"top_n": top_n}
     return payload
 
