@@ -40,7 +40,8 @@ def build_trial_status(path: Path) -> dict[str, Any]:
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     steps = payload.get("steps") or []
-    failed_step = next((step.get("name") for step in steps if step.get("status") == "failed"), None)
+    failed_step_payload = next((step for step in steps if step.get("status") == "failed"), None)
+    failed_step = failed_step_payload.get("name") if failed_step_payload else None
     real_data_verified = payload.get("real_data_verified")
     if real_data_verified is None:
         # 老版本 dry-run 摘要没有该字段；检查脚本必须保守区分预演通过和真实行情已验证。
@@ -59,9 +60,26 @@ def build_trial_status(path: Path) -> dict[str, Any]:
         "env": payload.get("env") or {},
         "step_count": len(steps),
         "failed_step": failed_step,
+        "failed_step_summary": _build_failed_step_summary(failed_step_payload),
         "steps": steps,
         "disclaimer": payload.get("disclaimer", "仅用于研究，不构成投资建议"),
     }
+
+
+def _build_failed_step_summary(step: dict[str, Any] | None) -> dict[str, Any] | None:
+    if step is None:
+        return None
+    return {
+        "name": step.get("name"),
+        "returncode": step.get("returncode"),
+        "stdout_tail": _text_tail(step.get("stdout") or ""),
+        "stderr_tail": _text_tail(step.get("stderr") or ""),
+    }
+
+
+def _text_tail(value: str, max_lines: int = 8) -> str:
+    lines = value.rstrip().splitlines()
+    return "\n".join(lines[-max_lines:])
 
 
 def _load_last_passed_summary(path: Path) -> dict[str, Any] | None:

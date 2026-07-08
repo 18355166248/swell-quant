@@ -17,6 +17,7 @@ from swell_quant.data.sample_data import DATA_SOURCE_METADATA_FILENAME, read_pri
 from swell_quant.data.source_status import build_data_source_status_from_metadata
 from swell_quant.data.universe_check import build_akshare_universe_payload
 from swell_quant.research.backtest import read_backtest_result
+from swell_quant.research.candidates import build_research_candidates
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.funds import (
     FUND_PROFILES,
@@ -150,6 +151,11 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
                 self.data_dir / "processed" / "latest_predictions.csv",
                 load_latest_predictions_artifact,
             )
+            return
+        candidate_response = load_research_candidate_route(route, query, self.data_dir)
+        if candidate_response is not None:
+            status, payload = candidate_response
+            self._send_json(payload, status=status)
             return
         prediction_response = load_prediction_route(route, query, self.data_dir)
         if prediction_response is not None:
@@ -619,12 +625,20 @@ def _load_latest_trial_status(data_dir: Path) -> dict[str, Any]:
             "last_passed": last_passed,
         }
     latest_real_data_verified = payload.get("real_data_verified") is True
+    steps = payload.get("steps") or []
+    failed_step_payload = next(
+        (step for step in steps if step.get("status") == "failed"),
+        None,
+    )
+    failed_step = failed_step_payload.get("name") if failed_step_payload else None
     # latest 记录当前网络状态，last_passed 记录历史成功证据；两者分离避免短暂上游失败抹掉验收进度。
     return {
         "status": payload.get("status", "unknown"),
         "trial_kind": payload.get("trial_kind"),
         "real_data_verified": latest_real_data_verified or last_passed is not None,
         "latest_real_data_verified": latest_real_data_verified,
+        "failed_step": failed_step,
+        "failed_step_summary": _build_trial_failed_step_summary(failed_step_payload),
         "path": str(trial_path),
         "last_passed": last_passed,
     }
@@ -650,6 +664,22 @@ def _load_last_passed_trial_summary(path: Path) -> dict[str, Any] | None:
     }
 
 
+def _build_trial_failed_step_summary(step: dict[str, Any] | None) -> dict[str, Any] | None:
+    if step is None:
+        return None
+    return {
+        "name": step.get("name"),
+        "returncode": step.get("returncode"),
+        "stdout_tail": _tail_text(step.get("stdout") or ""),
+        "stderr_tail": _tail_text(step.get("stderr") or ""),
+    }
+
+
+def _tail_text(value: str, max_lines: int = 8) -> str:
+    lines = value.rstrip().splitlines()
+    return "\n".join(lines[-max_lines:])
+
+
 def _build_progress_next_actions(
     stages: list[dict[str, Any]],
     trial_status: dict[str, Any] | None = None,
@@ -662,6 +692,13 @@ def _build_progress_next_actions(
                 "真实 AKShare 小规模试跑已通过；下一步重点查看 make data-source 的 warning，确认失败标的是否为临时上游问题。",
                 "如需扩大验证范围，可逐步提高 AKSHARE_MAX_SYMBOLS 或拉长 AKSHARE_START_DATE/AKSHARE_END_DATE，但继续保留小步试跑。",
                 "继续通过 make acceptance 和研究看板复核报告、回测和采集摘要；不要把小规模回测解读为可交易收益。",
+            ]
+        if trial_status.get("status") == "failed" and trial_status.get("trial_kind") == "real_data":
+            failed_step = trial_status.get("failed_step") or "unknown"
+            return [
+                f"真实 AKShare 试跑失败，失败步骤为 {failed_step}；先查看 make akshare-trial-status 的失败摘要，判断是否为上游网络或代理临时问题。",
+                "修复网络或代理后重新运行 make akshare-trial；如持续失败，先降低 AKSHARE_MAX_SYMBOLS 做更小范围复核。",
+                "失败期间不要把最新真实试跑视为已验证；继续保留样例离线闭环作为研究功能回归基线。",
             ]
         if trial_status.get("status") == "dry_run":
             return [
@@ -1153,6 +1190,35 @@ def load_predictions_artifact(path: Path, query: dict[str, list[str]]) -> dict[s
     # 前端筛选项来自同一份历史预测文件，避免 UI 可选日期/模型版本和实际查询口径分叉。
     payload["available_dates"] = sorted({row.trade_date.isoformat() for row in rows}, reverse=True)
     payload["model_versions"] = sorted({row.model_version for row in rows})
+    return payload
+
+
+def load_research_candidate_route(
+    route: str,
+    query: dict[str, list[str]],
+    data_dir: Path,
+) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    if route != "/api/research-candidates/latest":
+        return None
+    predictions_path = data_dir / "processed" / "latest_predictions.csv"
+    if not predictions_path.exists():
+        return HTTPStatus.NOT_FOUND, missing_artifact_payload(predictions_path)
+    return HTTPStatus.OK, load_research_candidates_artifact(data_dir, query)
+
+
+def load_research_candidates_artifact(
+    data_dir: Path,
+    query: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    query = query or {}
+    top_n_value = _first_query_value(query, "top_n")
+    top_n = 10 if top_n_value is None else max(0, int(top_n_value))
+    predictions = read_predictions_csv(data_dir / "processed" / "latest_predictions.csv")
+    features_path = data_dir / "processed" / "sample_features.csv"
+    # 候选建议必须以模型预测为主；因子文件缺失时仍返回候选，但归因会降级到预测 CSV 自带字段。
+    features = read_features_csv(features_path) if features_path.exists() else []
+    payload = build_research_candidates(predictions, features=features, top_n=top_n)
+    payload["filters"] = {"top_n": top_n}
     return payload
 
 

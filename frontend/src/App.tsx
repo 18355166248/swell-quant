@@ -118,6 +118,10 @@ function App() {
     queryKey: ["predictions", "list", predictionQueryParams],
     queryFn: () => api.getPredictions(predictionQueryParams),
   });
+  const researchCandidatesQuery = useQuery({
+    queryKey: ["research-candidates", predictionFilters.topN],
+    queryFn: () => api.getResearchCandidates({ topN: predictionFilters.topN }),
+  });
   const backtestQuery = useQuery({
     queryKey: ["backtest", "latest"],
     queryFn: api.getLatestBacktest,
@@ -237,6 +241,7 @@ function App() {
     backtestDetailQuery.isLoading ||
     backtestQuery.isLoading ||
     predictionsListQuery.isLoading ||
+    researchCandidatesQuery.isLoading ||
     reportQuery.isLoading ||
     reportsQuery.isLoading ||
     reportDetailQuery.isLoading ||
@@ -272,6 +277,7 @@ function App() {
     backtestDetailQuery.isError ||
     backtestQuery.isError ||
     predictionsListQuery.isError ||
+    researchCandidatesQuery.isError ||
     reportQuery.isError ||
     reportsQuery.isError ||
     reportDetailQuery.isError ||
@@ -336,6 +342,7 @@ function App() {
     predictions: (
       <PredictionsPage
         predictions={predictionRows}
+        candidates={researchCandidatesQuery.data?.candidates ?? []}
         filters={predictionFilters}
         appliedFilters={predictionsListQuery.data?.filters}
         dateOptions={predictionDateOptions}

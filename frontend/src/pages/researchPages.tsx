@@ -51,7 +51,6 @@ import {
   buildPredictionColumns,
   buildTaskSummaryColumns,
 } from "../utils/tableColumns";
-import { buildWatchlist, type WatchlistItem } from "../utils/watchlist";
 import type {
   AcceptanceStatus,
   AkshareTrialRun,
@@ -77,6 +76,7 @@ import type {
   ProjectProgress,
   ProjectProgressStage,
   Prediction,
+  ResearchCandidate,
   RejectedTrade,
   ReportDetail,
   ReportSummary,
@@ -1219,6 +1219,7 @@ export function ModelsPage({
 
 export function PredictionsPage({
   predictions,
+  candidates,
   filters,
   appliedFilters,
   dateOptions,
@@ -1226,14 +1227,13 @@ export function PredictionsPage({
   onFiltersChange,
 }: {
   predictions: Prediction[];
+  candidates: ResearchCandidate[];
   filters: PredictionFilters;
   appliedFilters?: LatestPredictions["filters"];
   dateOptions: string[];
   modelOptions: string[];
   onFiltersChange: (filters: PredictionFilters) => void;
 }) {
-  const watchlist = buildWatchlist(predictions, appliedFilters?.top_n ?? filters.topN);
-
   return (
     <>
       <PageTitle
@@ -1278,16 +1278,16 @@ export function PredictionsPage({
           <Tag color="blue">Top N：{appliedFilters?.top_n ?? filters.topN}</Tag>
         </Space>
       </Card>
-      {watchlist.length > 0 ? (
+      {candidates.length > 0 ? (
         <Card title="研究参考清单">
           <Paragraph type="secondary">
-            清单基于模型预测分数的相对强弱，仅用于研究，不构成投资建议。风险提示为启发式，不替代停牌、涨跌停或基金适配性的精确判定。
+            清单由后端研究候选 API 生成，仅用于研究，不构成投资建议。风险提示为启发式，不替代停牌、涨跌停或交易约束的精确判定。
           </Paragraph>
-          <Table<WatchlistItem>
+          <Table<ResearchCandidate>
             rowKey={(row) => `${row.rank}-${row.symbol}`}
             size="small"
             pagination={false}
-            dataSource={watchlist}
+            dataSource={candidates}
             columns={[
               { title: "排名", dataIndex: "rank", width: 80 },
               { title: "候选代码", dataIndex: "symbol", width: 130 },
@@ -1304,8 +1304,8 @@ export function PredictionsPage({
                 width: 150,
                 render: (_value: number, row) => (
                   <Space size={6}>
-                    <Tag color={watchlistConfidenceColor(row.confidenceLevel)}>
-                      {watchlistConfidenceLabel(row.confidenceLevel)}
+                    <Tag color={watchlistConfidenceColor(row.confidence_level)}>
+                      {watchlistConfidenceLabel(row.confidence_level)}
                     </Tag>
                     <Text type="secondary">{formatPercent(row.confidence)}</Text>
                   </Space>
@@ -1332,11 +1332,11 @@ export function PredictionsPage({
               },
               {
                 title: "启发式风险",
-                dataIndex: "riskHints",
+                dataIndex: "risk_hints",
                 render: (_value, row) =>
-                  row.riskHints.length > 0 ? (
+                  row.risk_hints.length > 0 ? (
                     <Space size={[4, 4]} wrap>
-                      {row.riskHints.map((hint) => (
+                      {row.risk_hints.map((hint) => (
                         <Tag color="warning" key={`${row.symbol}-${hint.code}`}>
                           {hint.label}
                         </Tag>
@@ -1345,6 +1345,19 @@ export function PredictionsPage({
                   ) : (
                     <Text type="secondary">未触发</Text>
                   ),
+              },
+              {
+                title: "研究备注",
+                dataIndex: "research_notes",
+                render: (_value, row) => (
+                  <Space direction="vertical" size={2}>
+                    {row.research_notes.map((note) => (
+                      <Text type="secondary" key={`${row.symbol}-${note}`}>
+                        {note}
+                      </Text>
+                    ))}
+                  </Space>
+                ),
               },
             ]}
           />
@@ -2127,7 +2140,7 @@ export function SettingsPage({
   );
 }
 
-function watchlistConfidenceLabel(level: WatchlistItem["confidenceLevel"]): string {
+function watchlistConfidenceLabel(level: ResearchCandidate["confidence_level"]): string {
   if (level === "high") {
     return "高";
   }
@@ -2137,7 +2150,7 @@ function watchlistConfidenceLabel(level: WatchlistItem["confidenceLevel"]): stri
   return "低";
 }
 
-function watchlistConfidenceColor(level: WatchlistItem["confidenceLevel"]): string {
+function watchlistConfidenceColor(level: ResearchCandidate["confidence_level"]): string {
   if (level === "high") {
     return "green";
   }

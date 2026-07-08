@@ -600,3 +600,53 @@ def test_check_akshare_trial_returns_nonzero_before_trial_runs(tmp_path: Path) -
 
     assert result.returncode == 1
     assert "akshare_trial_status=missing" in result.stdout
+
+
+def test_check_akshare_trial_summarizes_failed_step(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+    trial_path = tmp_path / "data" / "reports" / "akshare_trial_run.json"
+    trial_path.parent.mkdir(parents=True, exist_ok=True)
+    trial_path.write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "passed": False,
+                "trial_kind": "real_data",
+                "real_data_verified": False,
+                "steps": [
+                    {"name": "pipeline", "status": "passed", "stdout": "ok"},
+                    {
+                        "name": "data_source",
+                        "status": "failed",
+                        "stdout": (
+                            "data_source_status=failed\n"
+                            "failure=data source quality is poor: success_rate=70.00%\n"
+                        ),
+                        "stderr": "",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_akshare_trial.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 1
+    assert payload["failed_step"] == "data_source"
+    assert payload["failed_step_summary"]["name"] == "data_source"
+    assert "success_rate=70.00%" in payload["failed_step_summary"]["stdout_tail"]

@@ -292,6 +292,40 @@ export interface LatestPredictions {
   };
 }
 
+export interface ResearchCandidateFactor {
+  code: string;
+  name: string;
+  value: number;
+  direction: "up" | "down";
+}
+
+export interface ResearchCandidateRiskHint {
+  code: string;
+  label: string;
+}
+
+export interface ResearchCandidate {
+  rank: number;
+  symbol: string;
+  date: string;
+  model_version: string;
+  score: number;
+  confidence: number;
+  confidence_level: "high" | "medium" | "low";
+  factors: ResearchCandidateFactor[];
+  risk_hints: ResearchCandidateRiskHint[];
+  research_notes: string[];
+}
+
+export interface ResearchCandidates {
+  count: number;
+  candidates: ResearchCandidate[];
+  filters?: {
+    top_n: number;
+  };
+  disclaimer: string;
+}
+
 export interface BacktestPoint {
   date: string;
   signal_date: string;

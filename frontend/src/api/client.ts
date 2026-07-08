@@ -20,6 +20,7 @@ import type {
   ModelList,
   PipelineRun,
   ProjectProgress,
+  ResearchCandidates,
   ReportDetail,
   ReportList,
   ResearchStatus,
@@ -122,6 +123,14 @@ export const api = {
     }
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     return requestJson<LatestPredictions>(`/api/predictions${suffix}`);
+  },
+  getResearchCandidates: (query: Pick<PredictionQuery, "topN"> = {}) => {
+    const params = new URLSearchParams();
+    if (query.topN !== null && query.topN !== undefined) {
+      params.set("top_n", String(query.topN));
+    }
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return requestJson<ResearchCandidates>(`/api/research-candidates/latest${suffix}`);
   },
   getLatestBacktest: () => requestJson<LatestBacktest>("/api/backtest/latest"),
   getBacktests: () => requestJson<BacktestList>("/api/backtests"),

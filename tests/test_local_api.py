@@ -1,3 +1,4 @@
+import json
 import threading
 from http import HTTPStatus
 from pathlib import Path
@@ -25,6 +26,8 @@ from swell_quant.api.local_server import (
     load_prediction_route,
     load_predictions_artifact,
     load_progress_artifact,
+    load_research_candidates_artifact,
+    load_research_candidate_route,
     load_report_artifact,
     load_report_route,
     load_reports_artifact,
@@ -98,6 +101,37 @@ def test_local_api_artifact_loaders_read_status_pipeline_and_report(tmp_path: Pa
     assert load_json_artifact(status_path)["pipeline"]["status"] == "success"
     assert load_json_artifact(pipeline_path)["step_count"] == 8
     assert "不构成投资建议" in load_text_artifact(report_path)
+
+
+def test_local_api_research_candidates_artifact_combines_predictions_and_features(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    bars = generate_sample_bars(days=10)
+    features = compute_features(bars)
+    write_features_csv(data_dir / "processed" / "sample_features.csv", features)
+    write_predictions_csv(
+        data_dir / "processed" / "latest_predictions.csv",
+        generate_predictions(features),
+    )
+
+    payload = load_research_candidates_artifact(data_dir, {"top_n": ["2"]})
+    route_response = load_research_candidate_route(
+        "/api/research-candidates/latest",
+        {"top_n": ["2"]},
+        data_dir,
+    )
+
+    assert payload["count"] == 2
+    assert payload["filters"] == {"top_n": 2}
+    assert payload["candidates"][0]["rank"] == 1
+    assert payload["candidates"][0]["confidence_level"] in {"high", "medium", "low"}
+    assert payload["candidates"][0]["factors"]
+    assert payload["candidates"][0]["research_notes"]
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+    assert route_response is not None
+    assert route_response[0] == HTTPStatus.OK
+    assert route_response[1]["count"] == 2
 
 
 def test_local_api_akshare_universe_artifact_reports_manual_symbols(tmp_path: Path) -> None:
@@ -419,6 +453,41 @@ def test_local_api_progress_uses_last_passed_trial_when_latest_failed(tmp_path: 
     assert payload["akshare_trial"]["real_data_verified"] is True
     assert payload["akshare_trial"]["last_passed"]["status"] == "passed"
     assert "真实 AKShare 小规模试跑已通过" in payload["next_actions"][0]
+
+
+def test_local_api_progress_reports_failed_real_trial_next_action(tmp_path: Path) -> None:
+    settings = _complete_progress_settings(tmp_path)
+    reports_dir = settings.data_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    (reports_dir / "akshare_trial_run.json").write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "passed": False,
+                "trial_kind": "real_data",
+                "real_data_verified": False,
+                "steps": [
+                    {"name": "config", "status": "passed"},
+                    {
+                        "name": "pipeline",
+                        "status": "failed",
+                        "stdout": "failed data_update: Connection closed abruptly",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = load_progress_artifact(settings)
+
+    assert payload["akshare_trial"]["status"] == "failed"
+    assert payload["akshare_trial"]["failed_step"] == "pipeline"
+    assert "真实 AKShare 试跑失败" in payload["next_actions"][0]
+    assert "pipeline" in payload["next_actions"][0]
+    assert any("make akshare-trial-status" in action for action in payload["next_actions"])
 
 
 def test_local_api_task_artifacts_wrap_pipeline_manifest(tmp_path: Path) -> None:

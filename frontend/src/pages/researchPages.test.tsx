@@ -20,6 +20,7 @@ import type {
   LocalSettings,
   Prediction,
   ProjectProgress,
+  ResearchCandidates,
 } from "../types/api";
 
 describe("research pages module", () => {
@@ -60,10 +61,51 @@ describe("research pages module", () => {
         volume_change_1d: 2.4,
       },
     ];
+    const candidates: ResearchCandidates["candidates"] = [
+      {
+        rank: 1,
+        symbol: "000300.SH",
+        date: "2024-01-08",
+        model_version: "baseline-rule-v1",
+        score: 0.42,
+        confidence: 1,
+        confidence_level: "high",
+        factors: [
+          { code: "momentum_5d", name: "5日动量", value: 0.03, direction: "up" },
+        ],
+        risk_hints: [],
+        research_notes: [
+          "模型分数在当日候选池中处于高相对位置",
+          "主要正向因子：5日动量",
+          "未触发启发式风险提示，仍需人工复核数据质量和交易约束",
+        ],
+      },
+      {
+        rank: 2,
+        symbol: "000905.SH",
+        date: "2024-01-08",
+        model_version: "baseline-rule-v1",
+        score: 0.12,
+        confidence: 0,
+        confidence_level: "low",
+        factors: [
+          { code: "volume_change_1d", name: "成交量变化", value: 2.4, direction: "up" },
+        ],
+        risk_hints: [
+          { code: "limit_move", label: "接近涨跌停幅度" },
+          { code: "volume_spike", label: "成交量异动" },
+        ],
+        research_notes: [
+          "模型分数在当日候选池中处于低相对位置",
+          "已触发风险提示，需先复核交易约束和数据质量",
+        ],
+      },
+    ];
 
     const html = renderToStaticMarkup(
       <PredictionsPage
         predictions={predictions}
+        candidates={candidates}
         filters={{ date: "", modelVersion: "", topN: 10 }}
         dateOptions={["2024-01-08"]}
         modelOptions={["baseline-rule-v1"]}
@@ -82,7 +124,9 @@ describe("research pages module", () => {
     expect(html).toContain("研究参考清单");
     expect(html).toContain("候选代码");
     expect(html).toContain("相对置信度");
-    expect(html).toContain("清单基于模型预测分数的相对强弱，仅用于研究，不构成投资建议");
+    expect(html).toContain("清单由后端研究候选 API 生成，仅用于研究，不构成投资建议");
+    expect(html).toContain("研究备注");
+    expect(html).toContain("主要正向因子：5日动量");
     expect(html).toContain("启发式风险");
     expect(html).toContain("接近涨跌停幅度");
     expect(html).toContain("成交量异动");

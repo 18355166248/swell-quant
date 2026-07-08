@@ -150,6 +150,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/models/{model_version}`
 - `GET /api/predictions`
 - `GET /api/predictions/latest`
+- `GET /api/research-candidates/latest`
 - `GET /api/backtest/latest`
 - `GET /api/backtests`
 - `GET /api/backtests/latest`
@@ -175,6 +176,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `POST /api/reports/generate`
 
 `GET /api/predictions` 支持 `date`、`model_version` 和 `top_n` 查询参数，用于复现指定交易日和模型版本下的 Top N 预测排名；响应中会返回 `available_dates` 和 `model_versions` 供页面筛选。
+
+`GET /api/research-candidates/latest` 会基于最新预测和同日因子生成研究候选清单，返回相对置信度、因子归因、启发式风险和研究备注。该接口只用于研究参考，不输出买入、卖出、仓位、目标价或收益承诺。
 
 `GET /api/backtests/{backtest_id}` 会返回手续费率、成交价口径、持有期、调仓规则和标准化 `equity_curve`；曲线包含信号日、成交日、组合收益、基准收益、组合净值、基准净值和超额净值，便于核对回测口径。
 
@@ -206,7 +209,7 @@ npm install
 npm run dev
 ```
 
-当前前端包含工作台、验收、数据、任务、模型、预测、回测、基金、单股、报告和设置视图。工作台会展示离线链路验收门禁摘要；验收视图会展示当前门禁检查项，并可直接触发 pipeline；数据视图会展示覆盖范围、质量门禁、DuckDB 表状态、异常明细、采集成功率、质量等级、因子覆盖和标签覆盖；任务视图会展示最近 pipeline 的步骤明细、真实试跑状态和最近一次真实通过时间；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；基金视图会展示样例基金池、历史收益、回撤、费用、规模和候选清单；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、基金、单股和报告视图都保留研究用途声明。
+当前前端包含工作台、验收、数据、任务、模型、预测、回测、基金、单股、报告和设置视图。工作台会展示离线链路验收门禁摘要；验收视图会展示当前门禁检查项，并可直接触发 pipeline；数据视图会展示覆盖范围、质量门禁、DuckDB 表状态、异常明细、采集成功率、质量等级、因子覆盖和标签覆盖；任务视图会展示最近 pipeline 的步骤明细、真实试跑状态和最近一次真实通过时间；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；预测视图会展示后端研究候选清单、相对置信度、因子归因、风险提示和研究备注；基金视图会展示样例基金池、历史收益、回撤、费用、规模和候选清单；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、基金、单股和报告视图都保留研究用途声明。
 
 前端构建检查：
 
