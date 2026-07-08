@@ -1,6 +1,6 @@
 .PHONY: help config progress akshare-universe akshare-trial akshare-trial-dry-run akshare-trial-status data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
 
-PYTHON ?= python3
+PYTHON ?= python
 NPM ?= npm
 
 help:

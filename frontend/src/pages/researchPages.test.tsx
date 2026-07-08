@@ -47,6 +47,16 @@ describe("research pages module", () => {
         momentum_5d: 0.03,
         volume_change_1d: 0.02,
       },
+      {
+        rank: 2,
+        symbol: "000905.SH",
+        date: "2024-01-08",
+        model_version: "baseline-rule-v1",
+        score: 0.12,
+        return_1d: 0.096,
+        momentum_5d: -0.01,
+        volume_change_1d: 2.4,
+      },
     ];
 
     const html = renderToStaticMarkup(
@@ -64,6 +74,13 @@ describe("research pages module", () => {
     expect(html).toContain("代码");
     expect(html).toContain("预测分数");
     expect(html).toContain("成交量变化");
+    expect(html).toContain("研究参考清单");
+    expect(html).toContain("候选代码");
+    expect(html).toContain("相对置信度");
+    expect(html).toContain("清单基于模型预测分数的相对强弱，仅用于研究，不构成投资建议");
+    expect(html).toContain("启发式风险");
+    expect(html).toContain("接近涨跌停幅度");
+    expect(html).toContain("成交量异动");
   });
 
   it("renders project stage progress on the dashboard", () => {

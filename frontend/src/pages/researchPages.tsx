@@ -51,6 +51,7 @@ import {
   buildPredictionColumns,
   buildTaskSummaryColumns,
 } from "../utils/tableColumns";
+import { buildWatchlist, type WatchlistItem } from "../utils/watchlist";
 import type {
   AcceptanceStatus,
   AkshareTrialRun,
@@ -1215,6 +1216,8 @@ export function PredictionsPage({
   modelOptions: string[];
   onFiltersChange: (filters: PredictionFilters) => void;
 }) {
+  const watchlist = buildWatchlist(predictions, appliedFilters?.top_n ?? filters.topN);
+
   return (
     <>
       <PageTitle
@@ -1252,6 +1255,78 @@ export function PredictionsPage({
           <Tag color="blue">Top N：{appliedFilters?.top_n ?? filters.topN}</Tag>
         </Space>
       </Card>
+      {watchlist.length > 0 ? (
+        <Card title="研究参考清单">
+          <Paragraph type="secondary">
+            清单基于模型预测分数的相对强弱，仅用于研究，不构成投资建议。风险提示为启发式，不替代停牌、涨跌停或基金适配性的精确判定。
+          </Paragraph>
+          <Table<WatchlistItem>
+            rowKey={(row) => `${row.rank}-${row.symbol}`}
+            size="small"
+            pagination={false}
+            dataSource={watchlist}
+            columns={[
+              { title: "排名", dataIndex: "rank", width: 80 },
+              { title: "候选代码", dataIndex: "symbol", width: 130 },
+              {
+                title: "预测分数",
+                dataIndex: "score",
+                align: "right",
+                width: 120,
+                render: (value: number) => formatNumber(value),
+              },
+              {
+                title: "相对置信度",
+                dataIndex: "confidence",
+                width: 150,
+                render: (_value: number, row) => (
+                  <Space size={6}>
+                    <Tag color={watchlistConfidenceColor(row.confidenceLevel)}>
+                      {watchlistConfidenceLabel(row.confidenceLevel)}
+                    </Tag>
+                    <Text type="secondary">{formatPercent(row.confidence)}</Text>
+                  </Space>
+                ),
+              },
+              {
+                title: "因子归因",
+                dataIndex: "factors",
+                render: (_value, row) =>
+                  row.factors.length > 0 ? (
+                    <Space size={[4, 4]} wrap>
+                      {row.factors.map((factor) => (
+                        <Tag
+                          color={factor.direction === "up" ? "green" : "red"}
+                          key={`${row.symbol}-${factor.name}`}
+                        >
+                          {factor.name} {formatPercent(factor.value)}
+                        </Tag>
+                      ))}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">暂无因子</Text>
+                  ),
+              },
+              {
+                title: "启发式风险",
+                dataIndex: "riskHints",
+                render: (_value, row) =>
+                  row.riskHints.length > 0 ? (
+                    <Space size={[4, 4]} wrap>
+                      {row.riskHints.map((hint) => (
+                        <Tag color="warning" key={`${row.symbol}-${hint.code}`}>
+                          {hint.label}
+                        </Tag>
+                      ))}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">未触发</Text>
+                  ),
+              },
+            ]}
+          />
+        </Card>
+      ) : null}
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={9}>
           <Card title="预测分数分布">
@@ -1898,4 +1973,24 @@ export function SettingsPage({
       />
     </>
   );
+}
+
+function watchlistConfidenceLabel(level: WatchlistItem["confidenceLevel"]): string {
+  if (level === "high") {
+    return "高";
+  }
+  if (level === "medium") {
+    return "中";
+  }
+  return "低";
+}
+
+function watchlistConfidenceColor(level: WatchlistItem["confidenceLevel"]): string {
+  if (level === "high") {
+    return "green";
+  }
+  if (level === "medium") {
+    return "blue";
+  }
+  return "default";
 }
