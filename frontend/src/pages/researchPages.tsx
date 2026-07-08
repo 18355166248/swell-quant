@@ -1240,6 +1240,13 @@ export function PredictionsPage({
         title="预测"
         description="按交易日、模型版本和 Top N 查询预测排名。预测分数仅用于研究，不构成投资建议。"
       />
+      <Alert
+        className="page-alert"
+        type="warning"
+        showIcon
+        message="当前输出不是投资建议"
+        description="系统只提供候选清单、相对分数、因子归因和风险提示，不输出买入、卖出、持仓比例、目标价或保证收益。进入可用研究阶段前，还需要真实数据稳定、样本外验证、回测复核和人工确认交易约束。"
+      />
       <Card className="filter-card" title="筛选条件">
         <Space wrap>
           <Select
@@ -1370,7 +1377,7 @@ export function PredictionsPage({
         type="info"
         showIcon
         message="研究口径"
-        description="当前 baseline 使用动量、短期收益和成交量变化构造可复现预测分数；后续真实模型接入后仍需展示模型版本、数据日期和停牌涨跌停处理。"
+        description="当前 baseline 使用动量、短期收益和成交量变化构造可复现预测分数；后续真实模型接入后仍需展示模型版本、数据日期、停牌涨跌停处理和人工复核结论。"
       />
     </>
   );
@@ -1769,7 +1776,14 @@ export function FundsPage({
         type="info"
         showIcon
         message="研究边界"
-        description={disclaimer ?? "仅用于研究，不构成投资建议"}
+        description={`${disclaimer ?? "仅用于研究，不构成投资建议"}。基金页当前只给出候选基金清单、收益/回撤/费用/规模对比和风险提示，不给出申购、赎回、定投金额或仓位建议。`}
+      />
+      <Alert
+        className="page-alert"
+        type="warning"
+        showIcon
+        message="基金候选状态"
+        description="第一版使用本地样例基金数据验证指标链路；真实基金数据源、费用口径、基金合同限制和个人风险偏好完成接入前，只能作为研究框架和人工筛选输入。"
       />
       <Card className="filter-card" title="候选视图">
         <Space wrap>

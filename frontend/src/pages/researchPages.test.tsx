@@ -72,6 +72,9 @@ describe("research pages module", () => {
     );
 
     expect(html).toContain("预测分数仅用于研究，不构成投资建议");
+    expect(html).toContain("当前输出不是投资建议");
+    expect(html).toContain("不输出买入、卖出、持仓比例、目标价或保证收益");
+    expect(html).toContain("真实数据稳定、样本外验证、回测复核和人工确认交易约束");
     expect(html).toContain("排名");
     expect(html).toContain("代码");
     expect(html).toContain("预测分数");
@@ -311,6 +314,9 @@ describe("research pages module", () => {
     expect(html).toContain("沪深300ETF样例");
     expect(html).toContain("净值波动偏高");
     expect(html).toContain("仅用于研究，不构成投资建议");
+    expect(html).toContain("不给出申购、赎回、定投金额或仓位建议");
+    expect(html).toContain("基金候选状态");
+    expect(html).toContain("真实基金数据源、费用口径、基金合同限制和个人风险偏好完成接入前");
   });
 
   it("shows API key configuration status without rendering secret values", () => {
