@@ -1234,6 +1234,9 @@ def test_local_api_fund_routes_return_list_detail_nav_and_candidates(tmp_path: P
     assert candidates_status == HTTPStatus.OK
     assert candidates_payload["profile"] == "balanced"
     assert candidates_payload["candidates"][0]["factor_reasons"]
+    assert candidates_payload["candidates"][0]["verification_status"] in {"ready", "review", "block"}
+    assert candidates_payload["candidates"][0]["verification_checks"]
+    assert candidates_payload["candidates"][0]["verification_blockers"]
     assert missing_status == HTTPStatus.NOT_FOUND
     assert missing_payload["error"] == "fund_not_found"
 

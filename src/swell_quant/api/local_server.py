@@ -21,6 +21,7 @@ from swell_quant.research.candidates import build_research_candidates
 from swell_quant.research.features import read_features_csv
 from swell_quant.research.funds import (
     FUND_PROFILES,
+    build_fund_verification,
     read_fund_candidates_csv,
     read_fund_metrics_csv,
 )
@@ -1570,6 +1571,24 @@ def load_fund_nav_artifact(path: Path, fund_code: str) -> dict[str, Any] | None:
 
 def load_fund_candidates_artifact(path: Path, profile: str) -> dict[str, Any]:
     candidates = read_fund_candidates_csv(path)
+    metrics_path = path.parent / "sample_fund_metrics.csv"
+    metrics_by_code = (
+        {row["fund_code"]: row for row in read_fund_metrics_csv(metrics_path)}
+        if metrics_path.exists()
+        else {}
+    )
+    for candidate in candidates:
+        if candidate.get("verification_checks") and candidate.get("verification_blockers"):
+            continue
+        metric = metrics_by_code.get(candidate["fund_code"])
+        if metric is None:
+            continue
+        # 兼容旧候选 CSV：页面可以马上展示买前验证项，不要求用户先重新跑 pipeline。
+        verification = build_fund_verification(metric)
+        candidate["verification_status"] = verification["status"]
+        candidate["verification_label"] = verification["label"]
+        candidate["verification_checks"] = verification["checks"]
+        candidate["verification_blockers"] = verification["blockers"]
     return {
         "profile": profile,
         "count": len(candidates),

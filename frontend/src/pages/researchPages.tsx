@@ -1904,6 +1904,28 @@ export function FundsPage({
                   <Text type="secondary">未触发</Text>
                 ),
             },
+            {
+              title: "买前验证",
+              dataIndex: "verification_status",
+              width: 260,
+              render: (_, row) => (
+                <Space direction="vertical" size={4}>
+                  <Tag color={fundVerificationColor(row.verification_status ?? "review")}>
+                    {row.verification_label ?? "需补充验证"}
+                  </Tag>
+                  {(row.verification_checks ?? []).slice(0, 2).map((item) => (
+                    <Text type="secondary" key={item}>
+                      {item}
+                    </Text>
+                  ))}
+                  {(row.verification_blockers ?? []).slice(0, 2).map((item) => (
+                    <Text type="danger" key={item}>
+                      {item}
+                    </Text>
+                  ))}
+                </Space>
+              ),
+            },
           ]}
         />
       </Card>
@@ -2217,6 +2239,16 @@ function researchActionColor(status: ResearchCandidate["research_action"]["statu
     return "orange";
   }
   return "default";
+}
+
+function fundVerificationColor(status: FundCandidate["verification_status"]): string {
+  if (status === "ready") {
+    return "green";
+  }
+  if (status === "review") {
+    return "orange";
+  }
+  return "red";
 }
 
 function renderCandidateHistory(row: ResearchCandidate) {

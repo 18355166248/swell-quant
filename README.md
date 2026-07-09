@@ -188,7 +188,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 
 `GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
 
-`GET /api/funds`、`GET /api/funds/{fund_code}`、`GET /api/funds/{fund_code}/nav` 和 `GET /api/funds/candidates?profile=balanced` 会返回本地样例基金池、基金指标、净值序列和不同风险视图下的研究候选清单。基金候选只用于研究比较，不构成投资建议。
+`GET /api/funds`、`GET /api/funds/{fund_code}`、`GET /api/funds/{fund_code}/nav` 和 `GET /api/funds/candidates?profile=balanced` 会返回本地样例基金池、基金指标、净值序列和不同风险视图下的研究候选清单。基金候选会附带买前验证状态、检查项和阻塞项，用于提示还需要复核的数据材料、费用口径、基金合同限制和个人风险偏好；它只用于研究比较，不构成投资建议。
 
 `GET /api/akshare/universe` 会返回当前 AKShare 股票池解析门禁状态；manual 模式检查手工标的，`csi800` / `hs300_csi500` 模式会尝试解析沪深 300 + 中证 500 成分股，只用于研究链路前置验收。
 

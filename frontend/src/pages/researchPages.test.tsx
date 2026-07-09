@@ -372,6 +372,10 @@ describe("research pages module", () => {
             score_level: "high",
             factor_reasons: ["近1年收益 12.00%", "最大回撤 -8.00%"],
             risk_notes: ["净值波动偏高"],
+            verification_status: "block",
+            verification_label: "暂不适合决策",
+            verification_checks: ["历史净值覆盖 12.0 年", "最大回撤 -8.00%"],
+            verification_blockers: ["当前为样例基金数据，不能作为真实申购依据"],
           },
         ]}
         funds={[
@@ -406,6 +410,9 @@ describe("research pages module", () => {
     expect(html).toContain("不给出申购、赎回、定投金额或仓位建议");
     expect(html).toContain("基金候选状态");
     expect(html).toContain("真实基金数据源、费用口径、基金合同限制和个人风险偏好完成接入前");
+    expect(html).toContain("买前验证");
+    expect(html).toContain("暂不适合决策");
+    expect(html).toContain("当前为样例基金数据，不能作为真实申购依据");
   });
 
   it("shows API key configuration status without rendering secret values", () => {

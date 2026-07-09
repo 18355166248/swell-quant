@@ -793,6 +793,10 @@ export interface FundCandidate {
   score_level: "high" | "medium" | "low";
   factor_reasons: string[];
   risk_notes: string[];
+  verification_status: "ready" | "review" | "block";
+  verification_label: string;
+  verification_checks: string[];
+  verification_blockers: string[];
 }
 
 export interface FundCandidates {

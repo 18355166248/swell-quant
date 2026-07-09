@@ -87,6 +87,18 @@ curl "http://127.0.0.1:8765/api/research-candidates/latest?top_n=10"
 - `candidates[].history`：同标的历史成熟样本回看，不代表未来表现。
 - `disclaimer`：研究用途声明。
 
+查看基金候选和买前验证项：
+
+```bash
+curl "http://127.0.0.1:8765/api/funds/candidates?profile=balanced"
+```
+
+重点字段：
+
+- `candidates[].verification_label`：`可进入人工复核`、`需补充验证` 或 `暂不适合决策`。
+- `candidates[].verification_checks`：收益、回撤、波动、费用、规模等检查摘要。
+- `candidates[].verification_blockers`：样例数据、基金合同、费用口径、个人风险偏好等待补充问题。
+
 ## 4. 启动前端看板
 
 另开一个终端：

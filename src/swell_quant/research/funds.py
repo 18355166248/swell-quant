@@ -63,6 +63,10 @@ class FundCandidate:
     score_level: str
     factor_reasons: tuple[str, ...]
     risk_notes: tuple[str, ...]
+    verification_status: str
+    verification_label: str
+    verification_checks: tuple[str, ...]
+    verification_blockers: tuple[str, ...]
 
 
 def generate_sample_funds() -> tuple[list[FundInfo], list[FundNav]]:
@@ -242,20 +246,39 @@ def build_fund_candidates(
 
     scores = {metric.fund_code: _candidate_score(metric, metrics, profile) for metric in metrics}
     ranked = sorted(metrics, key=lambda metric: scores[metric.fund_code], reverse=True)
-    return [
-        FundCandidate(
-            rank=index + 1,
-            fund_code=metric.fund_code,
-            fund_name=metric.fund_name,
-            fund_type=metric.fund_type,
-            profile=profile,
-            score=round(scores[metric.fund_code], 4),
-            score_level=_score_level(scores[metric.fund_code]),
-            factor_reasons=tuple(_factor_reasons(metric, profile)),
-            risk_notes=tuple(_risk_notes(metric)),
+    candidates: list[FundCandidate] = []
+    for index, metric in enumerate(ranked):
+        verification = build_fund_verification(metric)
+        candidates.append(
+            FundCandidate(
+                rank=index + 1,
+                fund_code=metric.fund_code,
+                fund_name=metric.fund_name,
+                fund_type=metric.fund_type,
+                profile=profile,
+                score=round(scores[metric.fund_code], 4),
+                score_level=_score_level(scores[metric.fund_code]),
+                factor_reasons=tuple(_factor_reasons(metric, profile)),
+                risk_notes=tuple(_risk_notes(metric)),
+                verification_status=verification["status"],
+                verification_label=verification["label"],
+                verification_checks=tuple(verification["checks"]),
+                verification_blockers=tuple(verification["blockers"]),
+            )
         )
-        for index, metric in enumerate(ranked)
-    ]
+    return candidates
+
+
+def build_fund_verification(metric: FundMetrics | dict[str, Any]) -> dict[str, Any]:
+    """生成买前验证摘要；只判断研究材料是否足够，不给出申购、赎回或仓位建议。"""
+    blockers = _verification_blockers(metric)
+    status = _verification_status(metric, blockers)
+    return {
+        "status": status,
+        "label": _verification_label(status),
+        "checks": _verification_checks(metric),
+        "blockers": blockers,
+    }
 
 
 def write_fund_metrics_csv(path: Path, metrics: list[FundMetrics]) -> Path:
@@ -285,6 +308,10 @@ def write_fund_candidates_csv(path: Path, candidates: list[FundCandidate]) -> Pa
                     "score_level": candidate.score_level,
                     "factor_reasons": "|".join(candidate.factor_reasons),
                     "risk_notes": "|".join(candidate.risk_notes),
+                    "verification_status": candidate.verification_status,
+                    "verification_label": candidate.verification_label,
+                    "verification_checks": "|".join(candidate.verification_checks),
+                    "verification_blockers": "|".join(candidate.verification_blockers),
                 }
             )
     return path
@@ -308,6 +335,10 @@ def read_fund_candidates_csv(path: Path) -> list[dict[str, Any]]:
                 "score_level": row["score_level"],
                 "factor_reasons": _split_pipe(row["factor_reasons"]),
                 "risk_notes": _split_pipe(row["risk_notes"]),
+                "verification_status": row.get("verification_status") or "review",
+                "verification_label": row.get("verification_label") or "需补充验证",
+                "verification_checks": _split_pipe(row.get("verification_checks", "")),
+                "verification_blockers": _split_pipe(row.get("verification_blockers", "")),
             }
             for row in csv.DictReader(file)
         ]
@@ -399,17 +430,72 @@ def _factor_reasons(metric: FundMetrics, profile: str) -> list[str]:
     return reasons[:4]
 
 
-def _risk_notes(metric: FundMetrics) -> list[str]:
+def _risk_notes(metric: FundMetrics | dict[str, Any]) -> list[str]:
     notes: list[str] = []
-    if abs(metric.max_drawdown) >= 0.15:
+    if abs(_metric_value(metric, "max_drawdown")) >= 0.15:
         notes.append("历史回撤偏高")
-    if metric.volatility >= 0.18:
+    if _metric_value(metric, "volatility") >= 0.18:
         notes.append("净值波动偏高")
-    if metric.aum_billion < 20:
+    if _metric_value(metric, "aum_billion") < 20:
         notes.append("规模偏小")
-    if metric.total_fee >= 0.015:
+    if _metric_value(metric, "total_fee") >= 0.015:
         notes.append("费用偏高")
     return notes
+
+
+def _verification_status(metric: FundMetrics | dict[str, Any], blockers: list[str]) -> str:
+    if any("缺少" in blocker or "样例" in blocker for blocker in blockers):
+        return "block"
+    if blockers or _risk_notes(metric):
+        return "review"
+    return "ready"
+
+
+def _verification_label(status: str) -> str:
+    if status == "ready":
+        return "可进入人工复核"
+    if status == "block":
+        return "暂不适合决策"
+    return "需补充验证"
+
+
+def _verification_checks(metric: FundMetrics | dict[str, Any]) -> list[str]:
+    checks = [
+        f"历史净值覆盖 {_metric_value(metric, 'age_years'):.1f} 年",
+        f"最大回撤 {_metric_value(metric, 'max_drawdown'):.2%}",
+        f"年化波动 {_metric_value(metric, 'volatility'):.2%}",
+        f"总费率 {_metric_value(metric, 'total_fee'):.2%}",
+        f"规模 {_metric_value(metric, 'aum_billion'):.1f} 亿",
+    ]
+    if not _risk_notes(metric):
+        checks.append("未触发规模、费用、回撤或波动阈值风险")
+    return checks
+
+
+def _verification_blockers(metric: FundMetrics | dict[str, Any]) -> list[str]:
+    blockers = [
+        "当前为样例基金数据，不能作为真实申购依据",
+        "缺少最新基金合同、招募说明书和定期报告复核",
+        "缺少真实费用口径、申购赎回限制和销售服务费复核",
+        "缺少个人风险承受能力、资金期限和流动性需求输入",
+    ]
+    if _metric_value(metric, "age_years") < 3:
+        blockers.append("历史净值少于 3 年，无法验证完整市场周期")
+    if abs(_metric_value(metric, "max_drawdown")) >= 0.15:
+        blockers.append("历史最大回撤偏高，需要确认能否承受")
+    if _metric_value(metric, "volatility") >= 0.18:
+        blockers.append("年化波动偏高，需要确认风险等级匹配")
+    if _metric_value(metric, "aum_billion") < 20:
+        blockers.append("基金规模偏小，需要复核清盘和流动性风险")
+    if _metric_value(metric, "total_fee") >= 0.015:
+        blockers.append("总费率偏高，需要比较同类低费率替代品")
+    return blockers
+
+
+def _metric_value(metric: FundMetrics | dict[str, Any], field: str) -> float:
+    if isinstance(metric, dict):
+        return float(metric[field])
+    return float(getattr(metric, field))
 
 
 def _fund_metrics_row(metric: FundMetrics) -> dict[str, Any]:
