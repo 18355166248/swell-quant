@@ -23,7 +23,7 @@ import {
   StockOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   AcceptancePage,
   BacktestsPage,
@@ -38,7 +38,7 @@ import {
   TasksPage,
   type PredictionFilters,
 } from "./pages/researchPages";
-import { api, type FundProfile, type PredictionQuery } from "./api/client";
+import { api, type FundProfile, type PredictionQuery, type TaskTrigger } from "./api/client";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -92,6 +92,42 @@ export function resetScrollContainer(container: Pick<HTMLElement, "scrollTo" | "
     return;
   }
   container.scrollTop = 0;
+}
+
+export async function invalidateResearchTaskQueries(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  task: TaskTrigger,
+) {
+  const queryKeys: unknown[][] = [
+    ["status"],
+    ["acceptance"],
+    ["artifacts"],
+    ["progress"],
+    ["pipeline"],
+    ["tasks"],
+    ["data-status"],
+    ["duckdb-storage"],
+    ["data-quality"],
+    ["features"],
+    ["labels"],
+    ["training-samples"],
+    ["predictions"],
+    ["research-candidates"],
+    ["backtest"],
+    ["backtests"],
+    ["report"],
+    ["reports"],
+    ["daily-brief"],
+  ];
+
+  if (task === "akshare_trial" || task === "akshare_trial_dry_run") {
+    queryKeys.push(["akshare-trial"], ["akshare-universe"]);
+  }
+  if (task === "fund_trial" || task === "fund_trial_dry_run") {
+    queryKeys.push(["fund-trial"], ["funds"], ["funds", "candidates"]);
+  }
+
+  await Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
 function App() {
@@ -230,13 +266,13 @@ function App() {
 
   const runPipelineMutation = useMutation({
     mutationFn: api.runTask,
-    onSuccess: async (payload) => {
+    onSuccess: async (payload, task) => {
       if (payload.status === "busy") {
         messageApi.warning(`${payload.requested_task ?? "pipeline"} 正在运行，请稍后刷新。`);
         return;
       }
       messageApi.success(`${payload.requested_task ?? "pipeline"} 已完成，本地研究产物已刷新。`);
-      await queryClient.invalidateQueries();
+      await invalidateResearchTaskQueries(queryClient, task ?? "pipeline");
     },
     onError: (error) => {
       messageApi.error(`pipeline 执行失败：${error.message}`);

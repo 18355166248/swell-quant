@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { pageFromPath, pathForPage, resetScrollContainer } from "./App";
+import {
+  invalidateResearchTaskQueries,
+  pageFromPath,
+  pathForPage,
+  resetScrollContainer,
+} from "./App";
 
 describe("app routes", () => {
   it("maps menu pages to stable browser paths", () => {
@@ -37,5 +42,39 @@ describe("scroll reset", () => {
     resetScrollContainer(container as HTMLElement);
 
     expect(container.scrollTop).toBe(0);
+  });
+});
+
+describe("task refresh strategy", () => {
+  it("refreshes daily brief and fund trial data after fund trial dry-run", async () => {
+    const invalidated: unknown[] = [];
+    const queryClient = {
+      invalidateQueries: (filters: unknown) => {
+        invalidated.push(filters);
+        return Promise.resolve();
+      },
+    };
+
+    await invalidateResearchTaskQueries(queryClient, "fund_trial_dry_run");
+
+    expect(invalidated).toContainEqual({ queryKey: ["daily-brief"] });
+    expect(invalidated).toContainEqual({ queryKey: ["fund-trial"] });
+    expect(invalidated).toContainEqual({ queryKey: ["funds", "candidates"] });
+  });
+
+  it("refreshes daily brief and AKShare trial data after stock trial dry-run", async () => {
+    const invalidated: unknown[] = [];
+    const queryClient = {
+      invalidateQueries: (filters: unknown) => {
+        invalidated.push(filters);
+        return Promise.resolve();
+      },
+    };
+
+    await invalidateResearchTaskQueries(queryClient, "akshare_trial_dry_run");
+
+    expect(invalidated).toContainEqual({ queryKey: ["daily-brief"] });
+    expect(invalidated).toContainEqual({ queryKey: ["akshare-trial"] });
+    expect(invalidated).toContainEqual({ queryKey: ["akshare-universe"] });
   });
 });
