@@ -2,7 +2,7 @@ html,
 body,
 #root {
   width: 100%;
-  min-width: 1180px;
+  min-width: 0;
   height: 100%;
   margin: 0;
   background: #f3f5f8;
@@ -70,12 +70,35 @@ body,
   overflow-x: hidden;
 }
 
+.content .ant-spin-nested-loading,
+.content .ant-spin-container {
+  min-width: 0;
+}
+
+/* 页面主体由多个 Card/Row 顺序组成，统一外层节奏，避免卡片互相贴边或被长内容撑乱。 */
+.content .ant-spin-container > :not(:last-child) {
+  margin-bottom: 16px;
+}
+
+.content .ant-spin-container > .ant-row {
+  align-items: stretch;
+}
+
+.content .ant-spin-container > .ant-row > .ant-col {
+  display: flex;
+  min-width: 0;
+}
+
+.content .ant-spin-container > .ant-row > .ant-col > .ant-card {
+  flex: 1;
+  width: 100%;
+}
+
 .page-title {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
 }
 
 .page-title h2 {
@@ -159,5 +182,40 @@ body,
 }
 
 .ant-card {
+  min-width: 0;
   border-radius: 8px;
+}
+
+.ant-card-body {
+  min-width: 0;
+}
+
+.ant-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ant-table {
+  min-width: 720px;
+}
+
+.ant-descriptions,
+.ant-descriptions-item-content,
+.ant-statistic,
+.ant-statistic-content,
+.ant-typography {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    height: auto;
+    min-height: 56px;
+    padding: 10px 16px;
+  }
+
+  .content {
+    padding: 16px;
+  }
 }
