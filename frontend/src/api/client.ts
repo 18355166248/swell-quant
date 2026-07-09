@@ -33,6 +33,7 @@ import type {
   StockSummary,
   TaskDetail,
   TaskList,
+  TaskTrigger,
   TrainingSamplesSummary,
 } from "../types/api";
 
@@ -46,13 +47,7 @@ export interface PredictionQuery {
 
 export type FundProfile = "conservative" | "balanced" | "aggressive";
 
-export type TaskTrigger =
-  | "pipeline"
-  | "data_update"
-  | "model_train"
-  | "prediction_run"
-  | "backtest_run"
-  | "report_generate";
+export type { TaskTrigger };
 
 const TASK_TRIGGER_PATHS: Record<TaskTrigger, string> = {
   pipeline: "/api/pipeline/run",

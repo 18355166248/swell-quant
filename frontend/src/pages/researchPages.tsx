@@ -2451,6 +2451,8 @@ export function ReportsPage({
   fundSource,
   qualityIssues,
   dailyBrief,
+  isRunning,
+  onRunTask,
 }: {
   reports: ReportSummary[];
   report?: ReportDetail;
@@ -2463,6 +2465,8 @@ export function ReportsPage({
   fundSource?: FundSourceSummary;
   qualityIssues: DataQualityIssue[];
   dailyBrief?: DailyBrief;
+  isRunning?: boolean;
+  onRunTask?: (task: TaskTrigger) => void;
 }) {
   const riskItems = [
     ...(report?.structured?.risk_notes ?? []),
@@ -2510,6 +2514,7 @@ export function ReportsPage({
       fundSource,
       qualityIssues,
     });
+  const briefNextActions = dailyBrief?.next_actions ?? [];
 
   return (
     <>
@@ -2566,6 +2571,43 @@ export function ReportsPage({
           </Col>
         </Row>
         <Divider />
+        {briefNextActions.length > 0 ? (
+          <>
+            <Title level={5}>下一步动作</Title>
+            <Row gutter={[12, 12]}>
+              {briefNextActions.map((action) => {
+                const task = action.task;
+                return (
+                  <Col xs={24} md={12} xl={8} key={action.id}>
+                    <Card size="small">
+                      <Space direction="vertical" size={8} className="full-width">
+                        <Space wrap>
+                          <Text strong>{action.label}</Text>
+                          <Tag color={task ? "blue" : "default"}>
+                            {task ? "可触发任务" : "人工复核"}
+                          </Tag>
+                        </Space>
+                        <Text type="secondary">{action.description}</Text>
+                        {task ? (
+                          <Button
+                            size="small"
+                            type="primary"
+                            loading={isRunning}
+                            disabled={!onRunTask}
+                            onClick={() => onRunTask?.(task)}
+                          >
+                            执行
+                          </Button>
+                        ) : null}
+                      </Space>
+                    </Card>
+                  </Col>
+                );
+              })}
+            </Row>
+            <Divider />
+          </>
+        ) : null}
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={8}>
             <Title level={5}>股票研究候选</Title>

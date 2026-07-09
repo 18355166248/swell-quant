@@ -497,6 +497,8 @@ function App() {
         fundSource={fundCandidatesQuery.data?.source ?? fundsQuery.data?.source}
         qualityIssues={quality?.issues ?? []}
         dailyBrief={dailyBriefQuery.data}
+        isRunning={runPipelineMutation.isPending}
+        onRunTask={(task) => runPipelineMutation.mutate(task)}
       />
     ),
     settings: (

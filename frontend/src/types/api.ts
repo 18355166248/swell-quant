@@ -45,6 +45,14 @@ export interface TaskDetail extends TaskSummary {
   steps: PipelineStep[];
 }
 
+export type TaskTrigger =
+  | "pipeline"
+  | "data_update"
+  | "model_train"
+  | "prediction_run"
+  | "backtest_run"
+  | "report_generate";
+
 export interface DataTrialStep {
   name: string;
   command?: string[];
@@ -866,6 +874,12 @@ export interface DailyBrief {
     optional_missing: string[];
   };
   review_items: string[];
+  next_actions: Array<{
+    id: string;
+    label: string;
+    description: string;
+    task: TaskTrigger | null;
+  }>;
   access_issues: Array<{
     name: string;
     message: string;

@@ -925,6 +925,20 @@ describe("research pages module", () => {
             optional_missing: [],
           },
           review_items: ["API 简报复核项", "基金页当前使用样例数据"],
+          next_actions: [
+            {
+              id: "refresh_data",
+              label: "刷新数据并重跑研究链路",
+              description: "行情数据过期，先刷新数据产物。",
+              task: "data_update",
+            },
+            {
+              id: "fund_trial",
+              label: "运行基金真实数据试跑",
+              description: "基金候选仍是样例数据，真实研究前先执行 make fund-trial。",
+              task: null,
+            },
+          ],
           access_issues: [{ name: "fund_candidates", message: "missing fund candidates" }],
           disclaimer: "仅用于研究，不构成投资建议",
         }}
@@ -941,6 +955,9 @@ describe("research pages module", () => {
     expect(html).toContain("partial");
     expect(html).toContain("简报部分产物缺失");
     expect(html).toContain("API 简报复核项");
+    expect(html).toContain("下一步动作");
+    expect(html).toContain("刷新数据并重跑研究链路");
+    expect(html).toContain("执行");
     expect(html).toContain("基金页当前使用样例数据");
   });
 

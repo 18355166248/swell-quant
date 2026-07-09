@@ -947,6 +947,13 @@ def load_daily_brief_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, An
         issues=issues,
     )
     artifact_summary = artifact_status or {}
+    next_actions = build_daily_brief_next_actions(
+        data_status=data_status,
+        acceptance=acceptance,
+        artifact_status=artifact_summary,
+        fund_source=(fund_candidates or {}).get("source"),
+        issues=issues,
+    )
     return {
         "status": "partial" if issues or artifact_summary.get("status") == "missing" else "ready",
         "data": {
@@ -974,6 +981,7 @@ def load_daily_brief_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, An
             "optional_missing": artifact_summary.get("optional_missing", []),
         },
         "review_items": review_items,
+        "next_actions": next_actions,
         "access_issues": issues,
         "disclaimer": "仅用于研究，不构成投资建议",
     }
@@ -1008,6 +1016,76 @@ def build_daily_brief_review_items(
     if not items:
         items.append("当前无明显阻塞项，仍需人工复核研究假设和交易约束")
     return items
+
+
+def build_daily_brief_next_actions(
+    *,
+    data_status: dict[str, Any] | None,
+    acceptance: dict[str, Any],
+    artifact_status: dict[str, Any],
+    fund_source: dict[str, Any] | None,
+    issues: list[dict[str, str]],
+) -> list[dict[str, str | None]]:
+    actions: list[dict[str, str | None]] = []
+    freshness = (data_status or {}).get("freshness") or {}
+
+    if freshness.get("status") in {"missing", "invalid", "stale"}:
+        actions.append(
+            {
+                "id": "refresh_data",
+                "label": "刷新数据并重跑研究链路",
+                "description": freshness.get("message")
+                or "行情数据日期缺失或过期，先刷新数据产物。",
+                "task": "data_update",
+            }
+        )
+    if acceptance.get("passed") is False:
+        actions.append(
+            {
+                "id": "rerun_pipeline",
+                "label": "重跑完整 pipeline",
+                "description": f"验收门禁失败 {acceptance.get('failed_count', 0)} 项，需重新生成一致口径产物。",
+                "task": "pipeline",
+            }
+        )
+    if artifact_status.get("status") == "missing":
+        missing = ", ".join(artifact_status.get("missing", [])[:3]) or "关键产物"
+        actions.append(
+            {
+                "id": "repair_artifacts",
+                "label": "补齐关键研究产物",
+                "description": f"当前缺失 {missing}，运行 pipeline 后再复查数据源健康中心。",
+                "task": "pipeline",
+            }
+        )
+    if fund_source and fund_source.get("source_kind") == "sample":
+        actions.append(
+            {
+                "id": "fund_trial",
+                "label": "运行基金真实数据试跑",
+                "description": "基金候选仍是样例数据，真实研究前先执行 make fund-trial。",
+                "task": None,
+            }
+        )
+    if issues:
+        actions.append(
+            {
+                "id": "inspect_health",
+                "label": "查看数据源健康中心",
+                "description": f"简报有 {len(issues)} 类产物读取失败，先定位缺失文件或解析错误。",
+                "task": None,
+            }
+        )
+    if not actions:
+        actions.append(
+            {
+                "id": "refresh_report",
+                "label": "重新生成研究报告",
+                "description": "当前结构化产物可读，可重新生成报告并人工复核结论边界。",
+                "task": "report_generate",
+            }
+        )
+    return actions
 
 
 def build_data_freshness(end_date: str | None, *, today: date | None = None) -> dict[str, Any]:

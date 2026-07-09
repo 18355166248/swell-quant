@@ -160,6 +160,8 @@ def test_local_api_daily_brief_returns_partial_when_artifacts_missing(tmp_path: 
     assert payload["status"] == "partial"
     assert payload["stocks"]["action_summary"] == {"focus": 0, "review": 0, "defer": 0}
     assert payload["review_items"]
+    assert payload["next_actions"]
+    assert payload["next_actions"][0]["id"] in {"repair_artifacts", "inspect_health"}
     assert payload["access_issues"]
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
