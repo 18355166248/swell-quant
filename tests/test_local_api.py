@@ -15,6 +15,7 @@ from swell_quant.api.local_server import (
     load_backtests_artifact,
     load_data_quality_artifact,
     load_data_status_artifact,
+    load_daily_brief_artifact,
     load_duckdb_storage_artifact,
     load_features_artifact,
     load_fund_trial_artifact,
@@ -149,6 +150,18 @@ def test_local_api_research_candidates_artifact_combines_predictions_and_feature
     assert route_response is not None
     assert route_response[0] == HTTPStatus.OK
     assert route_response[1]["count"] == 2
+
+
+def test_local_api_daily_brief_returns_partial_when_artifacts_missing(tmp_path: Path) -> None:
+    payload = load_daily_brief_artifact(
+        tmp_path / "data", tmp_path / "data" / "processed" / "missing.duckdb"
+    )
+
+    assert payload["status"] == "partial"
+    assert payload["stocks"]["action_summary"] == {"focus": 0, "review": 0, "defer": 0}
+    assert payload["review_items"]
+    assert payload["access_issues"]
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
 def test_local_api_research_candidates_artifact_reads_historical_review(

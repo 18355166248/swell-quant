@@ -103,6 +103,20 @@ curl "http://127.0.0.1:8765/api/research-candidates/latest?top_n=10"
 - `candidates[].history`：同标的历史成熟样本回看，不代表未来表现。
 - `disclaimer`：研究用途声明。
 
+查看每日研究简报：
+
+```bash
+curl "http://127.0.0.1:8765/api/daily-brief"
+```
+
+重点字段：
+
+- `status`：`ready` 表示简报依赖产物基本可读，`partial` 表示有缺失或关键产物不完整。
+- `stocks.action_summary`：股票候选在 `可关注 / 需复核 / 暂缓观察` 三层中的数量。
+- `funds.source.source_kind`：基金候选来自真实试跑产物还是样例数据。
+- `review_items`：当天优先复核的问题清单。
+- `access_issues`：简报读取失败的产物或原因。
+
 查看基金候选和买前验证项：
 
 ```bash

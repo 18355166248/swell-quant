@@ -186,6 +186,11 @@ function App() {
     queryFn: () => api.getReportDetail(selectedReportId),
     enabled: selectedReportId.length > 0,
   });
+  const dailyBriefQuery = useQuery({
+    queryKey: ["daily-brief"],
+    queryFn: api.getDailyBrief,
+    enabled: activePage === "reports",
+  });
   const stocksQuery = useQuery({ queryKey: ["stocks"], queryFn: api.getStocks });
   const stockSummaryQuery = useQuery({
     queryKey: ["stocks", selectedSymbol, "summary"],
@@ -328,6 +333,7 @@ function App() {
     reportQuery.isLoading ||
     reportsQuery.isLoading ||
     reportDetailQuery.isLoading ||
+    (activePage === "reports" && dailyBriefQuery.isLoading) ||
     stocksQuery.isLoading ||
     fundsQuery.isLoading ||
     fundCandidatesQuery.isLoading ||
@@ -367,6 +373,7 @@ function App() {
     reportQuery.isError ||
     reportsQuery.isError ||
     reportDetailQuery.isError ||
+    (activePage === "reports" && dailyBriefQuery.isError) ||
     stocksQuery.isError ||
     fundsQuery.isError ||
     fundCandidatesQuery.isError ||
@@ -489,6 +496,7 @@ function App() {
         fundCandidates={fundCandidatesQuery.data?.candidates ?? []}
         fundSource={fundCandidatesQuery.data?.source ?? fundsQuery.data?.source}
         qualityIssues={quality?.issues ?? []}
+        dailyBrief={dailyBriefQuery.data}
       />
     ),
     settings: (

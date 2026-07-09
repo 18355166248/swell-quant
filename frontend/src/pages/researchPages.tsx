@@ -59,6 +59,7 @@ import type {
   ArtifactStatus,
   BacktestPoint,
   BacktestSummary,
+  DailyBrief,
   DataTrialRun,
   DataTrialStep,
   DataFreshness,
@@ -2449,6 +2450,7 @@ export function ReportsPage({
   fundCandidates,
   fundSource,
   qualityIssues,
+  dailyBrief,
 }: {
   reports: ReportSummary[];
   report?: ReportDetail;
@@ -2460,6 +2462,7 @@ export function ReportsPage({
   fundCandidates: FundCandidate[];
   fundSource?: FundSourceSummary;
   qualityIssues: DataQualityIssue[];
+  dailyBrief?: DailyBrief;
 }) {
   const riskItems = [
     ...(report?.structured?.risk_notes ?? []),
@@ -2484,37 +2487,81 @@ export function ReportsPage({
   const deferCandidates = researchCandidates.filter(
     (candidate) => candidate.research_action.status === "defer",
   );
+  const briefActionSummary = dailyBrief?.stocks.action_summary ?? {
+    focus: focusCandidates.length,
+    review: reviewCandidates.length,
+    defer: deferCandidates.length,
+  };
+  const briefStockCandidates = dailyBrief?.stocks.candidates ?? researchCandidates.slice(0, 5);
+  const briefFundCandidates = dailyBrief?.funds.candidates ?? fundCandidates.slice(0, 5);
+  const briefFundSource = dailyBrief?.funds.source ?? fundSource;
+  const briefFreshness = dailyBrief?.data.freshness ?? dataStatus?.freshness;
+  const briefAcceptance = dailyBrief?.acceptance ?? {
+    status: status?.acceptance.status ?? "unknown",
+    passed: status?.acceptance.passed ?? null,
+    failed_count: status?.acceptance.failed_count ?? 0,
+  };
+  const briefReviewItems =
+    dailyBrief?.review_items ??
+    buildDailyBriefReviewItems({
+      dataStatus,
+      status,
+      researchCandidates,
+      fundSource,
+      qualityIssues,
+    });
 
   return (
     <>
       <PageTitle title="报告" description="展示离线研究报告和结构化风险提示。" />
-      <Card title="每日研究简报">
+      <Card
+        title="每日研究简报"
+        extra={
+          <Tag color={dailyBrief?.status === "ready" ? "green" : "orange"}>
+            {dailyBrief?.status ?? "local"}
+          </Tag>
+        }
+      >
         <Paragraph type="secondary">
           简报只汇总现有研究产物、门禁和候选分层，不构成投资建议，也不输出买入、卖出、仓位或目标价。
         </Paragraph>
+        {dailyBrief?.access_issues.length ? (
+          <Alert
+            className="page-alert"
+            type="warning"
+            showIcon
+            message="简报部分产物缺失"
+            description={dailyBrief.access_issues
+              .map((issue) => `${issue.name}: ${issue.message}`)
+              .join("；")}
+          />
+        ) : null}
         <Row gutter={[16, 16]}>
           <Col xs={24} md={12} xl={6}>
             <Card size="small">
-              <Statistic title="数据新鲜度" value={dataStatus?.freshness?.label ?? "待确认"} />
-              <Text type="secondary">{dataStatus?.freshness?.message ?? "-"}</Text>
+              <Statistic title="数据新鲜度" value={briefFreshness?.label ?? "待确认"} />
+              <Text type="secondary">{briefFreshness?.message ?? "-"}</Text>
             </Card>
           </Col>
           <Col xs={24} md={12} xl={6}>
             <Card size="small">
-              <Statistic title="研究动作" value={`${focusCandidates.length}/${reviewCandidates.length}/${deferCandidates.length}`} />
+              <Statistic
+                title="研究动作"
+                value={`${briefActionSummary.focus}/${briefActionSummary.review}/${briefActionSummary.defer}`}
+              />
               <Text type="secondary">可关注 / 需复核 / 暂缓观察</Text>
             </Card>
           </Col>
           <Col xs={24} md={12} xl={6}>
             <Card size="small">
-              <Statistic title="基金候选" value={fundCandidates.length} />
-              <Text type="secondary">{fundSource?.source_label ?? "来源待确认"}</Text>
+              <Statistic title="基金候选" value={dailyBrief?.funds.candidate_count ?? fundCandidates.length} />
+              <Text type="secondary">{briefFundSource?.source_label ?? "来源待确认"}</Text>
             </Card>
           </Col>
           <Col xs={24} md={12} xl={6}>
             <Card size="small">
-              <Statistic title="验收门禁" value={status?.acceptance.status ?? "unknown"} />
-              <Text type="secondary">失败项 {status?.acceptance.failed_count ?? 0}</Text>
+              <Statistic title="验收门禁" value={briefAcceptance.status} />
+              <Text type="secondary">失败项 {briefAcceptance.failed_count}</Text>
             </Card>
           </Col>
         </Row>
@@ -2522,9 +2569,9 @@ export function ReportsPage({
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={8}>
             <Title level={5}>股票研究候选</Title>
-            {researchCandidates.length > 0 ? (
+            {briefStockCandidates.length > 0 ? (
               <Space direction="vertical" size={6} className="full-width">
-                {researchCandidates.slice(0, 5).map((candidate) => (
+                {briefStockCandidates.map((candidate) => (
                   <Text key={`${candidate.rank}-${candidate.symbol}`}>
                     {candidate.rank}. {candidate.symbol_name || candidate.symbol}：
                     <Tag color={researchActionColor(candidate.research_action.status)}>
@@ -2539,9 +2586,9 @@ export function ReportsPage({
           </Col>
           <Col xs={24} xl={8}>
             <Title level={5}>基金研究候选</Title>
-            {fundCandidates.length > 0 ? (
+            {briefFundCandidates.length > 0 ? (
               <Space direction="vertical" size={6} className="full-width">
-                {fundCandidates.slice(0, 5).map((candidate) => (
+                {briefFundCandidates.map((candidate) => (
                   <Text key={`${candidate.rank}-${candidate.fund_code}`}>
                     {candidate.rank}. {candidate.fund_name}：
                     <Tag color={fundVerificationColor(candidate.verification_status)}>
@@ -2557,13 +2604,7 @@ export function ReportsPage({
           <Col xs={24} xl={8}>
             <Title level={5}>今日复核重点</Title>
             <Space direction="vertical" size={6} className="full-width">
-              {buildDailyBriefReviewItems({
-                dataStatus,
-                status,
-                researchCandidates,
-                fundSource,
-                qualityIssues,
-              }).map((item) => (
+              {briefReviewItems.map((item) => (
                 <Text type="secondary" key={item}>{item}</Text>
               ))}
             </Space>

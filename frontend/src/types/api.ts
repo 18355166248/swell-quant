@@ -839,6 +839,40 @@ export interface FundCandidates {
   disclaimer: string;
 }
 
+export interface DailyBrief {
+  status: "ready" | "partial";
+  data: {
+    freshness?: DataFreshness | null;
+    data_source_status: string;
+    quality_issue_count: number;
+  };
+  acceptance: {
+    status: string;
+    passed: boolean | null;
+    failed_count: number;
+  };
+  stocks: {
+    action_summary: Record<"focus" | "review" | "defer", number>;
+    candidates: ResearchCandidate[];
+  };
+  funds: {
+    source?: FundSourceSummary | null;
+    candidate_count: number;
+    candidates: FundCandidate[];
+  };
+  artifacts: {
+    status: string;
+    missing: string[];
+    optional_missing: string[];
+  };
+  review_items: string[];
+  access_issues: Array<{
+    name: string;
+    message: string;
+  }>;
+  disclaimer: string;
+}
+
 export interface SettingsArtifact {
   name: string;
   path: string;

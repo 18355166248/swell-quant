@@ -74,6 +74,9 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         if route == "/api/artifacts":
             self._send_json(load_artifacts_artifact(self.data_dir, self.duckdb_path))
             return
+        if route == "/api/daily-brief":
+            self._send_json(load_daily_brief_artifact(self.data_dir, self.duckdb_path))
+            return
         if route == "/api/progress":
             self._send_json(load_progress_artifact(self.settings))
             return
@@ -892,6 +895,119 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
         "issue_count": quality["issue_count"],
         "disclaimer": "仅用于研究，不构成投资建议",
     }
+
+
+def load_daily_brief_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]:
+    issues: list[dict[str, str]] = []
+
+    def try_load(name: str, loader: Any) -> Any | None:
+        try:
+            return loader()
+        except Exception as error:  # noqa: BLE001 - 简报需要在部分产物缺失时继续给出可读风险摘要。
+            issues.append({"name": name, "message": str(error)})
+            return None
+
+    data_status = try_load(
+        "data_status",
+        lambda: load_data_status_artifact(data_dir / "processed" / "data_quality.json"),
+    )
+    status = try_load(
+        "research_status",
+        lambda: load_json_artifact(data_dir / "reports" / "research_status.json"),
+    )
+    research_candidates = try_load(
+        "research_candidates",
+        lambda: load_research_candidates_artifact(data_dir, {"top_n": ["10"]}),
+    )
+    fund_candidates = try_load(
+        "fund_candidates",
+        lambda: load_fund_candidates_artifact(data_dir, "balanced"),
+    )
+    artifact_status = try_load(
+        "artifacts",
+        lambda: load_artifacts_artifact(data_dir, duckdb_path),
+    )
+
+    stock_candidates = (research_candidates or {}).get("candidates", [])
+    fund_rows = (fund_candidates or {}).get("candidates", [])
+    action_summary = {"focus": 0, "review": 0, "defer": 0}
+    for row in stock_candidates:
+        # 兼容旧版候选产物：没有研究动作字段时按暂缓观察计入，避免日报接口因历史 JSON 失效。
+        action_status = (row.get("research_action") or {}).get("status", "defer")
+        if action_status in action_summary:
+            action_summary[action_status] += 1
+    acceptance = (status or {}).get("acceptance", {})
+    quality_issue_count = (data_status or {}).get("issue_count", 0)
+    review_items = build_daily_brief_review_items(
+        data_status=data_status,
+        acceptance=acceptance,
+        stock_candidates=stock_candidates,
+        fund_source=(fund_candidates or {}).get("source"),
+        quality_issue_count=quality_issue_count,
+        issues=issues,
+    )
+    artifact_summary = artifact_status or {}
+    return {
+        "status": "partial" if issues or artifact_summary.get("status") == "missing" else "ready",
+        "data": {
+            "freshness": (data_status or {}).get("freshness"),
+            "data_source_status": (data_status or {}).get("data_source_status", "missing"),
+            "quality_issue_count": quality_issue_count,
+        },
+        "acceptance": {
+            "status": acceptance.get("status", "missing"),
+            "passed": acceptance.get("passed"),
+            "failed_count": acceptance.get("failed_count", 0),
+        },
+        "stocks": {
+            "action_summary": action_summary,
+            "candidates": stock_candidates[:5],
+        },
+        "funds": {
+            "source": (fund_candidates or {}).get("source"),
+            "candidate_count": len(fund_rows),
+            "candidates": fund_rows[:5],
+        },
+        "artifacts": {
+            "status": artifact_summary.get("status", "missing"),
+            "missing": artifact_summary.get("missing", []),
+            "optional_missing": artifact_summary.get("optional_missing", []),
+        },
+        "review_items": review_items,
+        "access_issues": issues,
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def build_daily_brief_review_items(
+    *,
+    data_status: dict[str, Any] | None,
+    acceptance: dict[str, Any],
+    stock_candidates: list[dict[str, Any]],
+    fund_source: dict[str, Any] | None,
+    quality_issue_count: int,
+    issues: list[dict[str, str]],
+) -> list[str]:
+    items: list[str] = []
+    freshness = (data_status or {}).get("freshness") or {}
+    if freshness.get("status") == "stale":
+        items.append(f"先更新行情数据：{freshness.get('message')}")
+    if acceptance.get("passed") is False:
+        items.append(f"验收门禁未通过：失败 {acceptance.get('failed_count', 0)} 项")
+    if quality_issue_count > 0:
+        items.append(f"数据质量问题 {quality_issue_count} 个，先复核异常数据")
+    blocked_count = sum(
+        1 for row in stock_candidates if (row.get("research_action") or {}).get("blockers")
+    )
+    if blocked_count > 0:
+        items.append(f"股票候选存在 {blocked_count} 个阻塞项，先处理需复核/暂缓观察原因")
+    if fund_source and fund_source.get("source_kind") == "sample":
+        items.append("基金页当前使用样例数据，真实研究前先运行基金真实试跑")
+    if issues:
+        items.append(f"简报有 {len(issues)} 类产物读取失败，先检查数据源健康中心")
+    if not items:
+        items.append("当前无明显阻塞项，仍需人工复核研究假设和交易约束")
+    return items
 
 
 def build_data_freshness(end_date: str | None, *, today: date | None = None) -> dict[str, Any]:

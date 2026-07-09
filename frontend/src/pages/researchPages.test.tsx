@@ -835,6 +835,99 @@ describe("research pages module", () => {
         qualityIssues={[
           { code: "missing", severity: "warning", message: "缺失价格", symbol: "000300.SH", date: "2024-01-03" },
         ]}
+        dailyBrief={{
+          status: "partial",
+          data: {
+            freshness: dataStatus.freshness,
+            data_source_status: "passed",
+            quality_issue_count: 1,
+          },
+          acceptance: {
+            status: "failed",
+            passed: false,
+            failed_count: 1,
+          },
+          stocks: {
+            action_summary: { focus: 1, review: 0, defer: 0 },
+            candidates: [
+              {
+                rank: 1,
+                symbol: "000300.SH",
+                symbol_name: "沪深300样例",
+                date: "2024-01-31",
+                model_version: "baseline-rule-v1",
+                score: 0.8,
+                confidence: 1,
+                confidence_level: "high",
+                factors: [],
+                risk_hints: [],
+                history: {
+                  sample_count: 1,
+                  outperform_count: 1,
+                  outperform_rate: 1,
+                  average_future_5d_return: 0.01,
+                  best_future_5d_return: 0.01,
+                  worst_future_5d_return: 0.01,
+                  latest_signal_date: "2024-01-20",
+                  note: "历史回看",
+                },
+                research_action: {
+                  status: "focus",
+                  label: "可关注",
+                  reasons: ["模型分数处于当日高相对位置"],
+                  blockers: [],
+                },
+                research_notes: [],
+              },
+            ],
+          },
+          funds: {
+            source: {
+              source_kind: "sample",
+              source_label: "本地样例基金数据",
+              metrics_path: "data/processed/sample_fund_metrics.csv",
+              candidates_path: "data/processed/sample_fund_candidates_balanced.csv",
+              nav_path: "data/raw/sample_fund_nav.csv",
+              warning: "样例",
+              fund_count: 1,
+              latest_nav_date: "2024-12-31",
+              freshness: {
+                status: "stale",
+                label: "数据过期",
+                as_of_date: "2024-12-31",
+                today: "2026-07-09",
+                lag_days: 555,
+                message: "最新数据到 2024-12-31，距今天 555 天。",
+              },
+            },
+            candidate_count: 1,
+            candidates: [
+              {
+                rank: 1,
+                fund_code: "510300",
+                fund_name: "沪深300ETF样例",
+                fund_type: "宽基指数",
+                profile: "balanced",
+                score: 0.8,
+                score_level: "high",
+                factor_reasons: [],
+                risk_notes: [],
+                verification_status: "block",
+                verification_label: "暂不适合决策",
+                verification_checks: [],
+                verification_blockers: ["样例数据"],
+              },
+            ],
+          },
+          artifacts: {
+            status: "missing",
+            missing: ["duckdb"],
+            optional_missing: [],
+          },
+          review_items: ["API 简报复核项", "基金页当前使用样例数据"],
+          access_issues: [{ name: "fund_candidates", message: "missing fund candidates" }],
+          disclaimer: "仅用于研究，不构成投资建议",
+        }}
       />,
     );
 
@@ -845,7 +938,9 @@ describe("research pages module", () => {
     expect(html).toContain("今日复核重点");
     expect(html).toContain("沪深300样例");
     expect(html).toContain("沪深300ETF样例");
-    expect(html).toContain("先更新行情数据");
+    expect(html).toContain("partial");
+    expect(html).toContain("简报部分产物缺失");
+    expect(html).toContain("API 简报复核项");
     expect(html).toContain("基金页当前使用样例数据");
   });
 
