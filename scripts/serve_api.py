@@ -29,7 +29,8 @@ def main() -> int:
         "/api/data/status /api/akshare/universe /api/storage/duckdb /api/features /api/labels /api/models "
         "/api/models/latest /api/tasks /api/predictions /api/backtests /api/stocks "
         "/api/reports /api/pipeline POST:/api/data/update POST:/api/models/train "
-        "POST:/api/predictions/run POST:/api/backtests/run POST:/api/reports/generate"
+        "POST:/api/predictions/run POST:/api/backtests/run POST:/api/reports/generate "
+        "POST:/api/funds/trial/run"
     )
     try:
         server.serve_forever()

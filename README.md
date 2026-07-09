@@ -181,6 +181,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/reports/latest`
 - `GET /api/reports/{report_id}`
 - `GET /api/daily-brief`
+- `POST /api/funds/trial/run`
 - `POST /api/pipeline/run`
 - `POST /api/data/update`
 - `POST /api/models/train`
@@ -207,6 +208,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 如果 `data/processed/akshare_fund_metrics.csv`、`data/processed/akshare_fund_candidates_{profile}.csv` 和 `data/raw/akshare_fund_nav.csv` 同时存在，基金接口会优先展示真实试跑产物；否则自动回退样例数据，并在 `source.source_kind`、`source.warning` 和 `source.freshness` 中说明来源和新鲜度。
 
 `GET /api/funds/trial` 会返回最近一次基金真实数据试跑摘要，包含基金代码、日期区间、成功/失败数量、错误原因和最近真实通过记录。该接口只展示数据源可用性，不输出申购、赎回、仓位或收益承诺。
+
+`POST /api/funds/trial/run` 会同步触发一次基金真实数据试跑，写入 `data/reports/fund_trial_run.json`，并在成功时刷新真实基金指标和候选产物；可追加 `?dry_run=true` 只验证计划和写摘要。该接口只采集公开研究数据，不新增交易、下单、券商或账户能力。
 
 `GET /api/akshare/universe` 会返回当前 AKShare 股票池解析门禁状态；manual 模式检查手工标的，`csi800` / `hs300_csi500` 模式会尝试解析沪深 300 + 中证 500 成分股，只用于研究链路前置验收。
 

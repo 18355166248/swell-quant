@@ -936,7 +936,7 @@ describe("research pages module", () => {
               id: "fund_trial",
               label: "运行基金真实数据试跑",
               description: "基金候选仍是样例数据，真实研究前先执行 make fund-trial。",
-              task: null,
+              task: "fund_trial",
             },
           ],
           access_issues: [{ name: "fund_candidates", message: "missing fund candidates" }],

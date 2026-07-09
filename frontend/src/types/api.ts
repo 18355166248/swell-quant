@@ -51,7 +51,8 @@ export type TaskTrigger =
   | "model_train"
   | "prediction_run"
   | "backtest_run"
-  | "report_generate";
+  | "report_generate"
+  | "fund_trial";
 
 export interface DataTrialStep {
   name: string;

@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 import csv
 import importlib.util
+import os
 import threading
 from datetime import date
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -47,6 +49,7 @@ TASK_TRIGGER_ROUTES = {
     "/api/backtests/run": "backtest_run",
     "/api/reports/generate": "report_generate",
 }
+FUND_TRIAL_RUN_ROUTE = "/api/funds/trial/run"
 
 
 class ResearchApiHandler(BaseHTTPRequestHandler):
@@ -209,13 +212,23 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
         self._send_json({"error": "not_found", "path": route}, status=HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
-        route = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        route = parsed.path
+        query = parse_qs(parsed.query)
         if route in TASK_TRIGGER_ROUTES:
             payload = run_pipeline_for_api(
                 self.settings,
                 requested_task=TASK_TRIGGER_ROUTES[route],
             )
             status = pipeline_status_to_http_status(payload["status"])
+            self._send_json(payload, status=status)
+            return
+        if route == FUND_TRIAL_RUN_ROUTE:
+            payload = run_fund_trial_for_api(
+                self.settings,
+                dry_run=_truthy_query_flag(query.get("dry_run", ["false"])[0]),
+            )
+            status = task_run_status_to_http_status(payload["status"])
             self._send_json(payload, status=status)
             return
 
@@ -287,6 +300,18 @@ def pipeline_status_to_http_status(status: str) -> HTTPStatus:
     return HTTPStatus.INTERNAL_SERVER_ERROR
 
 
+def task_run_status_to_http_status(status: str) -> HTTPStatus:
+    if status in {"success", "passed", "dry_run"}:
+        return HTTPStatus.OK
+    if status == "busy":
+        return HTTPStatus.CONFLICT
+    return HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def _truthy_query_flag(value: str) -> bool:
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
 def run_pipeline_for_api(
     settings: Settings | Path,
     lock: threading.Lock | None = None,
@@ -340,6 +365,86 @@ def _run_pipeline_for_api_unlocked(settings: Settings, requested_task: str) -> d
             for result in results
         ],
     }
+
+
+def run_fund_trial_for_api(
+    settings: Settings | Path,
+    lock: threading.Lock | None = None,
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    resolved_settings = (
+        Settings(
+            data_dir=settings,
+            duckdb_path=settings / "duckdb" / "swell_quant.duckdb",
+        )
+        if isinstance(settings, Path)
+        else settings
+    )
+    run_lock = _PIPELINE_RUN_LOCK if lock is None else lock
+    # 基金真实试跑会写 raw/processed/reports 产物，和 pipeline 共用锁避免并发覆盖。
+    if not run_lock.acquire(blocking=False):
+        return {
+            "status": "busy",
+            "requested_task": "fund_trial",
+            "error": "pipeline_already_running",
+            "message": "another data task is already running; retry after it finishes",
+        }
+
+    try:
+        return _run_fund_trial_for_api_unlocked(resolved_settings, dry_run=dry_run)
+    except Exception as error:  # noqa: BLE001 - API 需要把配置/依赖错误结构化返回给前端排查。
+        return {
+            "status": "failed",
+            "requested_task": "fund_trial",
+            "execution_mode": "fund_trial_dry_run" if dry_run else "fund_real_data_trial",
+            "passed": False,
+            "trial_kind": "dry_run" if dry_run else "real_data",
+            "real_data_verified": False,
+            "error": str(error),
+            "message": str(error),
+            "disclaimer": "仅用于研究，不构成投资建议",
+        }
+    finally:
+        run_lock.release()
+
+
+def _run_fund_trial_for_api_unlocked(settings: Settings, *, dry_run: bool) -> dict[str, Any]:
+    fund_trial_runner = _load_fund_trial_runner()
+    args = SimpleNamespace(
+        dry_run=dry_run,
+        fund_codes=_parse_fund_trial_codes(os.getenv("FUND_SYMBOLS", "510300,159915,110022")),
+        start_date=os.getenv("FUND_START_DATE", "20250101"),
+        end_date=os.getenv("FUND_END_DATE", "20260708"),
+        data_dir=settings.data_dir,
+    )
+    payload = fund_trial_runner.run_trial(args)
+    fund_trial_runner.write_trial_artifacts(Path(payload["artifact_path"]), payload)
+    payload["requested_task"] = "fund_trial"
+    payload["execution_mode"] = "fund_trial_dry_run" if dry_run else "fund_real_data_trial"
+    payload.setdefault(
+        "message",
+        "fund trial finished; review /api/funds/trial and fund candidate source freshness",
+    )
+    return payload
+
+
+def _parse_fund_trial_codes(value: str) -> tuple[str, ...]:
+    codes = tuple(item.strip() for item in value.split(",") if item.strip())
+    invalid = [code for code in codes if not (len(code) == 6 and code.isdigit())]
+    if invalid or not codes:
+        raise ValueError(f"FUND_SYMBOLS must contain 6-digit fund codes; invalid={invalid}")
+    return codes
+
+
+def _load_fund_trial_runner() -> Any:
+    script_path = Path(__file__).resolve().parents[3] / "scripts" / "run_fund_trial.py"
+    spec = importlib.util.spec_from_file_location("swell_quant_fund_trial_runner", script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"unable to load fund trial runner from {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _load_pipeline_runner() -> Any:
@@ -1064,7 +1169,7 @@ def build_daily_brief_next_actions(
                 "id": "fund_trial",
                 "label": "运行基金真实数据试跑",
                 "description": "基金候选仍是样例数据，真实研究前先执行 make fund-trial。",
-                "task": None,
+                "task": "fund_trial",
             }
         )
     if issues:
