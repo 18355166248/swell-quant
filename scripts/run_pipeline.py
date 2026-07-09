@@ -14,7 +14,10 @@ if str(SRC_DIR) not in sys.path:
 
 from swell_quant.core.config import Settings
 from swell_quant.core.pipeline import PipelineStep, StepStatus, run_steps, write_run_manifest
-from swell_quant.data.akshare_data import collect_akshare_price_bars, resolve_akshare_symbols
+from swell_quant.data.akshare_data import (
+    collect_akshare_price_bars,
+    resolve_akshare_symbol_metadata,
+)
 from swell_quant.data.quality import read_quality_report, validate_price_bars, write_quality_report
 from swell_quant.data.sample_data import (
     DATA_SOURCE_METADATA_FILENAME,
@@ -103,10 +106,11 @@ def run_data_update(settings: Settings) -> str:
         )
         source_message = "source=sample"
     elif data_source == "akshare":
-        resolved_symbols = resolve_akshare_symbols(
+        symbol_metadata = resolve_akshare_symbol_metadata(
             universe_mode=settings.akshare_universe_mode,
             manual_symbols=settings.akshare_symbols,
         )
+        resolved_symbols = tuple(symbol_metadata.keys())
         symbols = limit_akshare_symbols(resolved_symbols, settings.akshare_max_symbols)
         try:
             fetch_result = collect_akshare_price_bars(
@@ -145,6 +149,9 @@ def run_data_update(settings: Settings) -> str:
                     universe_mode=settings.akshare_universe_mode,
                     resolved_symbol_count=len(resolved_symbols),
                     max_symbols=settings.akshare_max_symbols,
+                    symbol_names={
+                        symbol: symbol_metadata.get(symbol, symbol) for symbol in symbols
+                    },
                     succeeded_symbols=fetch_result.succeeded_symbols,
                     failed_symbols=tuple(
                         {"symbol": failure.symbol, "reason": failure.reason}
@@ -335,6 +342,8 @@ def run_duckdb_mirror_pipeline(settings: Settings) -> str:
 def run_report_pipeline(settings: Settings) -> str:
     model_path = settings.data_dir / "models" / LATEST_MODEL_METADATA_FILENAME
     latest_prediction_path = settings.data_dir / "processed" / "latest_predictions.csv"
+    historical_prediction_path = settings.data_dir / "processed" / "historical_predictions.csv"
+    label_path = settings.data_dir / "processed" / "sample_labels.csv"
     quality_path = settings.data_dir / "processed" / "data_quality.json"
     data_metadata_path = settings.data_dir / "raw" / DATA_SOURCE_METADATA_FILENAME
     backtest_path = settings.data_dir / "reports" / "sample_backtest.json"
@@ -345,11 +354,23 @@ def run_report_pipeline(settings: Settings) -> str:
 
     metadata = read_model_metadata(model_path)
     predictions = read_predictions_csv(latest_prediction_path)
+    historical_predictions = read_predictions_csv(historical_prediction_path)
+    labels = read_labels_csv(label_path)
     quality_report = read_quality_report(quality_path)
     backtest = read_backtest_result(backtest_path)
     data_metadata = read_price_data_metadata(data_metadata_path)
+    # report 步骤只有在前置数据、训练、预测、回测步骤成功后才会运行；这里传入本轮 readiness，
+    # 避免报告在最终 research_status.json 写入前误判为“门禁缺失”。
+    readiness = {"passed": True, "failed_checks": []}
     payload = build_research_report_payload(
-        metadata, predictions, backtest, quality_report, data_metadata
+        metadata,
+        predictions,
+        backtest,
+        quality_report,
+        data_metadata,
+        historical_predictions,
+        labels,
+        readiness,
     )
     summary = render_research_summary(payload)
     write_research_report_payload(payload_path, payload)

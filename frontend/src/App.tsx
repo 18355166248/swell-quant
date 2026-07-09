@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -43,7 +43,7 @@ import { api, type FundProfile, type PredictionQuery } from "./api/client";
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-type PageKey =
+export type PageKey =
   | "dashboard"
   | "acceptance"
   | "data"
@@ -56,10 +56,39 @@ type PageKey =
   | "reports"
   | "settings";
 
+const PAGE_ROUTES: Record<PageKey, string> = {
+  dashboard: "/dashboard",
+  acceptance: "/acceptance",
+  data: "/data",
+  tasks: "/tasks",
+  models: "/models",
+  predictions: "/predictions",
+  backtests: "/backtests",
+  funds: "/funds",
+  stocks: "/stocks",
+  reports: "/reports",
+  settings: "/settings",
+};
+
+const ROUTE_PAGES = Object.fromEntries(
+  Object.entries(PAGE_ROUTES).map(([page, path]) => [path, page]),
+) as Record<string, PageKey>;
+
+export function pageFromPath(pathname: string): PageKey {
+  const normalized = pathname === "/" ? PAGE_ROUTES.dashboard : pathname.replace(/\/+$/, "");
+  return ROUTE_PAGES[normalized] ?? "dashboard";
+}
+
+export function pathForPage(page: PageKey): string {
+  return PAGE_ROUTES[page];
+}
+
 function App() {
   const queryClient = useQueryClient();
   const [messageApi, contextHolder] = message.useMessage();
-  const [activePage, setActivePage] = useState<PageKey>("dashboard");
+  const [activePage, setActivePage] = useState<PageKey>(() =>
+    typeof window === "undefined" ? "dashboard" : pageFromPath(window.location.pathname),
+  );
   const [selectedSymbol, setSelectedSymbol] = useState("000300.SH");
   const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
   const [selectedReportId, setSelectedReportId] = useState("sample-research-summary");
@@ -180,6 +209,20 @@ function App() {
       messageApi.error(`pipeline 执行失败：${error.message}`);
     },
   });
+
+  useEffect(() => {
+    const syncFromLocation = () => setActivePage(pageFromPath(window.location.pathname));
+    window.addEventListener("popstate", syncFromLocation);
+    return () => window.removeEventListener("popstate", syncFromLocation);
+  }, []);
+
+  const navigateToPage = (page: PageKey) => {
+    const path = pathForPage(page);
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, "", path);
+    }
+    setActivePage(page);
+  };
 
   const status = statusQuery.data;
   const quality = qualityQuery.data;
@@ -410,7 +453,7 @@ function App() {
         <Menu
           mode="inline"
           selectedKeys={[activePage]}
-          onClick={(item) => setActivePage(item.key as PageKey)}
+          onClick={(item) => navigateToPage(item.key as PageKey)}
           items={[
             { key: "dashboard", icon: <BarChartOutlined />, label: "工作台" },
             { key: "acceptance", icon: <CheckCircleOutlined />, label: "验收" },
@@ -426,7 +469,7 @@ function App() {
           ]}
         />
       </Sider>
-      <Layout>
+      <Layout className="main-panel">
         <Header className="topbar">
           <Space size={16} wrap>
             <Tag color="blue">A 股日频研究</Tag>

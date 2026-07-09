@@ -6,14 +6,37 @@ body,
   height: 100%;
   margin: 0;
   background: #f3f5f8;
+  overflow: hidden;
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
+  height: 100vh;
+  overflow: hidden;
   border-right: 1px solid #e5e8ef;
+}
+
+.sidebar .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sidebar .ant-menu {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-inline-end: 0;
+}
+
+.main-panel {
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .brand {
@@ -30,6 +53,7 @@ body,
 
 .topbar {
   display: flex;
+  flex: 0 0 56px;
   align-items: center;
   justify-content: space-between;
   height: 56px;
@@ -39,7 +63,11 @@ body,
 }
 
 .content {
+  flex: 1;
+  min-height: 0;
   padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .page-title {

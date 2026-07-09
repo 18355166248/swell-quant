@@ -26,9 +26,16 @@ def build_research_candidates(
     historical_predictions: list[PredictionRow] | None = None,
     labels: list[LabelRow] | None = None,
     top_n: int = 10,
+    readiness: dict[str, Any] | None = None,
+    symbol_names: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     if not predictions:
-        return {"count": 0, "candidates": [], "disclaimer": DISCLAIMER}
+        return {
+            "count": 0,
+            "candidates": [],
+            "readiness": build_research_readiness(readiness),
+            "disclaimer": DISCLAIMER,
+        }
 
     feature_by_key = {(feature.symbol, feature.trade_date): feature for feature in features or []}
     ordered = sorted(predictions, key=lambda row: (row.rank, row.symbol))[: max(0, top_n)]
@@ -49,10 +56,12 @@ def build_research_candidates(
             labels=labels or [],
             top_n=top_n,
         )
+        research_action = _research_action(confidence_level, risk_hints, history, readiness)
         candidates.append(
             {
                 "rank": row.rank,
                 "symbol": row.symbol,
+                "symbol_name": _symbol_name(row.symbol, symbol_names),
                 "date": row.trade_date.isoformat(),
                 "model_version": row.model_version,
                 "score": row.score,
@@ -61,6 +70,7 @@ def build_research_candidates(
                 "factors": factors,
                 "risk_hints": risk_hints,
                 "history": history,
+                "research_action": research_action,
                 "research_notes": _research_notes(confidence_level, factors, risk_hints),
             }
         )
@@ -68,7 +78,42 @@ def build_research_candidates(
     return {
         "count": len(candidates),
         "candidates": candidates,
+        "readiness": build_research_readiness(readiness),
         "disclaimer": DISCLAIMER,
+    }
+
+
+def _symbol_name(symbol: str, symbol_names: dict[str, str] | None) -> str:
+    if not symbol_names:
+        return symbol
+    name = str(symbol_names.get(symbol, "")).strip()
+    return name or symbol
+
+
+def build_research_readiness(readiness: dict[str, Any] | None = None) -> dict[str, Any]:
+    if readiness is None:
+        return {
+            "status": "unknown",
+            "passed": None,
+            "failed_checks": [],
+            "note": "未提供研究可用性门禁，候选动作需人工复核",
+        }
+
+    failed_checks = [
+        {
+            "key": str(check.get("key", "")),
+            "name": str(check.get("name", "")),
+            "status": str(check.get("status", "")),
+            "message": str(check.get("message", "")),
+        }
+        for check in readiness.get("failed_checks", [])
+    ]
+    passed = readiness.get("passed") is True
+    return {
+        "status": "passed" if passed else "failed",
+        "passed": passed,
+        "failed_checks": failed_checks,
+        "note": "研究可用性门禁通过" if passed else "研究可用性门禁未通过，候选动作已保守降级",
     }
 
 
@@ -182,6 +227,71 @@ def _risk_hints(row: PredictionRow) -> list[dict[str, str]]:
     if row.volume_change_1d is not None and abs(row.volume_change_1d) >= 2:
         hints.append({"code": "volume_spike", "label": "成交量异动"})
     return hints
+
+
+def _research_action(
+    confidence_level: str,
+    risk_hints: list[dict[str, str]],
+    history: dict[str, Any],
+    readiness: dict[str, Any] | None,
+) -> dict[str, Any]:
+    readiness_payload = build_research_readiness(readiness)
+    readiness_failed = readiness_payload["passed"] is False
+    readiness_unknown = readiness_payload["passed"] is None
+    reasons: list[str] = []
+    blockers: list[str] = []
+
+    if confidence_level == "high":
+        reasons.append("模型分数处于当日高相对位置")
+    elif confidence_level == "medium":
+        reasons.append("模型分数处于当日中等相对位置")
+    else:
+        reasons.append("模型分数处于当日低相对位置")
+
+    if risk_hints:
+        blockers.extend(f"触发风险提示：{hint['label']}" for hint in risk_hints)
+    if history["sample_count"] == 0:
+        blockers.append("缺少同标的成熟历史样本")
+    elif _history_deteriorated(history):
+        blockers.append("历史成熟样本表现偏弱")
+    else:
+        reasons.append("已有成熟历史样本可供回看")
+
+    if readiness_failed:
+        blockers.extend(
+            f"门禁未通过：{check['name']}({check['message']})"
+            for check in readiness_payload["failed_checks"]
+        )
+    elif readiness_unknown:
+        blockers.append("未提供研究可用性门禁")
+
+    # 动作分层只表达研究优先级，不映射买卖、仓位或收益预期；门禁失败时必须保守降级。
+    if confidence_level == "low" or readiness_failed:
+        status = "defer"
+        label = "暂缓观察"
+    elif confidence_level == "high" and not blockers:
+        status = "focus"
+        label = "可关注"
+    else:
+        status = "review"
+        label = "需复核"
+
+    return {
+        "status": status,
+        "label": label,
+        "reasons": reasons,
+        "blockers": blockers,
+    }
+
+
+def _history_deteriorated(history: dict[str, Any]) -> bool:
+    outperform_rate = history.get("outperform_rate")
+    average_return = history.get("average_future_5d_return")
+    if outperform_rate is not None and float(outperform_rate) < 0.5:
+        return True
+    if average_return is not None and float(average_return) < 0:
+        return True
+    return False
 
 
 def _research_notes(

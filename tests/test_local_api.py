@@ -138,6 +138,9 @@ def test_local_api_research_candidates_artifact_combines_predictions_and_feature
     assert "history" in payload["candidates"][0]
     assert payload["candidates"][0]["history"]["sample_count"] >= 0
     assert payload["candidates"][0]["history"]["note"] == "历史回看仅统计已成熟标签，不代表未来表现"
+    assert payload["readiness"]["status"] == "failed"
+    assert payload["readiness"]["failed_checks"][0]["key"] == "research_status_missing"
+    assert payload["candidates"][0]["research_action"]["status"] == "defer"
     assert payload["candidates"][0]["research_notes"]
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
     assert route_response is not None
@@ -202,6 +205,7 @@ def test_local_api_research_candidates_artifact_reads_historical_review(
     assert payload["candidates"][0]["history"]["sample_count"] == 2
     assert payload["candidates"][0]["history"]["average_future_5d_return"] == 0.01
     assert payload["candidates"][0]["history"]["outperform_rate"] == 0.5
+    assert "research_action" in payload["candidates"][0]
 
 
 def test_local_api_akshare_universe_artifact_reports_manual_symbols(tmp_path: Path) -> None:

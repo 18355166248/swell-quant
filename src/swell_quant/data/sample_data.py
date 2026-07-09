@@ -21,6 +21,11 @@ class PriceBar:
 
 
 SAMPLE_SYMBOLS = ("000300.SH", "000905.SH", "000001.SZ")
+SAMPLE_SYMBOL_NAMES = {
+    "000300.SH": "沪深300样例",
+    "000905.SH": "中证500样例",
+    "000001.SZ": "平安银行样例",
+}
 DATA_SOURCE_METADATA_FILENAME = "data_source.json"
 
 
@@ -127,6 +132,7 @@ def build_price_data_metadata(
     succeeded_symbols: tuple[str, ...] | None = None,
     failed_symbols: tuple[dict[str, str], ...] | None = None,
     source_attempts: tuple[dict[str, Any], ...] | None = None,
+    symbol_names: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     is_same_source_benchmark = data_source == "sample"
     resolved_universe_mode = universe_mode or ("sample" if data_source == "sample" else "manual")
@@ -143,6 +149,11 @@ def build_price_data_metadata(
     }
     resolved_succeeded_symbols = succeeded_symbols or symbols
     resolved_failed_symbols = failed_symbols or ()
+    resolved_symbol_names = (
+        dict(symbol_names)
+        if symbol_names is not None
+        else (SAMPLE_SYMBOL_NAMES if data_source == "sample" else {})
+    )
     success_rate = len(resolved_succeeded_symbols) / len(symbols) if symbols else 0.0
     quality_score = round(success_rate * 100, 2)
     if success_rate >= 0.95:
@@ -158,6 +169,7 @@ def build_price_data_metadata(
         "universe_mode": resolved_universe_mode,
         "universe_name": universe_name,
         "symbols": list(symbols),
+        "symbol_names": {symbol: resolved_symbol_names.get(symbol, symbol) for symbol in symbols},
         "selected_symbol_count": len(symbols),
         "resolved_symbol_count": resolved_symbol_count or len(symbols),
         "max_symbols": max_symbols,

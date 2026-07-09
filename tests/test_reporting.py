@@ -44,6 +44,8 @@ def test_research_summary_contains_required_sections() -> None:
     assert payload["model"]["feature_importance"][0]["feature_name"] == "momentum_5d"
     assert payload["backtest"]["backtest_id"] == "sample-topn-baseline"
     assert payload["predictions"][0]["rank"] == 1
+    assert payload["research_actions"]["summary"]
+    assert payload["research_actions"]["candidates"][0]["research_action"]["label"]
     assert payload["data_acquisition"] is None
     assert payload["risk_notes"]
     assert "# Swell Quant 离线研究摘要" in summary
@@ -60,6 +62,8 @@ def test_research_summary_contains_required_sections() -> None:
     assert "标签 Gap：5 个交易日" in summary
     assert "测试窗：2024-01-16 至 2024-01-16" in summary
     assert "## 最新预测 Top N" in summary
+    assert "## 研究动作分层" in summary
+    assert "分层只表示研究复核优先级" in summary
     assert "## 回测摘要" in summary
     assert "滑点率" in summary
     assert "无法成交记录" in summary

@@ -6,6 +6,8 @@ from typing import Any
 
 from swell_quant.data.quality import DataQualityReport
 from swell_quant.research.backtest import BacktestResult
+from swell_quant.research.candidates import build_research_candidates
+from swell_quant.research.labels import LabelRow
 from swell_quant.research.modeling import ModelMetadata, PredictionRow
 
 
@@ -18,8 +20,20 @@ def build_research_summary(
     backtest: BacktestResult,
     quality: DataQualityReport | None = None,
     data_metadata: dict[str, Any] | None = None,
+    historical_predictions: list[PredictionRow] | None = None,
+    labels: list[LabelRow] | None = None,
+    readiness: dict[str, Any] | None = None,
 ) -> str:
-    payload = build_research_report_payload(metadata, predictions, backtest, quality, data_metadata)
+    payload = build_research_report_payload(
+        metadata,
+        predictions,
+        backtest,
+        quality,
+        data_metadata,
+        historical_predictions,
+        labels,
+        readiness,
+    )
     return render_research_summary(payload)
 
 
@@ -29,9 +43,20 @@ def build_research_report_payload(
     backtest: BacktestResult,
     quality: DataQualityReport | None = None,
     data_metadata: dict[str, Any] | None = None,
+    historical_predictions: list[PredictionRow] | None = None,
+    labels: list[LabelRow] | None = None,
+    readiness: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sorted_predictions = sorted(predictions, key=lambda row: row.rank)
     acquisition = _acquisition_payload(data_metadata)
+    research_candidates = build_research_candidates(
+        sorted_predictions,
+        historical_predictions=historical_predictions,
+        labels=labels,
+        top_n=min(10, len(sorted_predictions)),
+        readiness=readiness,
+        symbol_names=(data_metadata or {}).get("symbol_names", {}),
+    )
     return {
         "report_id": "sample-research-summary",
         "title": "Swell Quant 离线研究摘要",
@@ -69,6 +94,20 @@ def build_research_report_payload(
             }
             for row in sorted_predictions
         ],
+        "research_actions": {
+            "summary": _research_action_summary(research_candidates["candidates"]),
+            "candidates": [
+                {
+                    "rank": candidate["rank"],
+                    "symbol": candidate["symbol"],
+                    "symbol_name": candidate["symbol_name"],
+                    "confidence_level": candidate["confidence_level"],
+                    "research_action": candidate["research_action"],
+                }
+                for candidate in research_candidates["candidates"]
+            ],
+            "disclaimer": RESEARCH_DISCLAIMER,
+        },
         "backtest": {
             "backtest_id": backtest.backtest_id,
             "top_n": backtest.top_n,
@@ -151,6 +190,10 @@ def render_research_summary(payload: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## 研究动作分层",
+            "",
+            *_build_research_action_lines(payload.get("research_actions")),
+            "",
             "## 回测摘要",
             "",
             f"- 回测 ID：`{backtest['backtest_id']}`",
@@ -209,6 +252,45 @@ def _metric_float(metrics: dict[str, float | int | str | None] | None, key: str)
         return None
     value = metrics.get(key)
     return float(value) if isinstance(value, (int, float)) else None
+
+
+def _research_action_summary(candidates: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {"focus": 0, "review": 0, "defer": 0}
+    for candidate in candidates:
+        status = candidate.get("research_action", {}).get("status")
+        if status in counts:
+            counts[status] += 1
+    return counts
+
+
+def _build_research_action_lines(actions: dict[str, Any] | None) -> list[str]:
+    if actions is None:
+        return ["- 研究动作分层：未提供"]
+
+    summary = actions.get("summary", {})
+    lines = [
+        "- 分层只表示研究复核优先级，不代表买入、卖出、仓位或目标价。",
+        (
+            "- 分层统计："
+            f"可关注 {summary.get('focus', 0)}，"
+            f"需复核 {summary.get('review', 0)}，"
+            f"暂缓观察 {summary.get('defer', 0)}"
+        ),
+        "| 排名 | 代码 | 名称 | 动作 | 理由 | 阻塞项 |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for candidate in actions.get("candidates", []):
+        action = candidate["research_action"]
+        lines.append(
+            "| "
+            f"{candidate['rank']} | "
+            f"`{candidate['symbol']}` | "
+            f"{candidate.get('symbol_name') or candidate['symbol']} | "
+            f"{action['label']} | "
+            f"{'；'.join(action['reasons']) or '-'} | "
+            f"{'；'.join(action['blockers']) or '-'} |"
+        )
+    return lines
 
 
 def _quality_payload(quality: DataQualityReport | None) -> dict[str, Any] | None:

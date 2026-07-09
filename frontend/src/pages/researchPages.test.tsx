@@ -65,6 +65,7 @@ describe("research pages module", () => {
       {
         rank: 1,
         symbol: "000300.SH",
+        symbol_name: "沪深300样例",
         date: "2024-01-08",
         model_version: "baseline-rule-v1",
         score: 0.42,
@@ -84,6 +85,12 @@ describe("research pages module", () => {
           latest_signal_date: "2024-01-20",
           note: "历史回看仅统计已成熟标签，不代表未来表现",
         },
+        research_action: {
+          status: "focus",
+          label: "可关注",
+          reasons: ["模型分数处于当日高相对位置", "已有成熟历史样本可供回看"],
+          blockers: [],
+        },
         research_notes: [
           "模型分数在当日候选池中处于高相对位置",
           "主要正向因子：5日动量",
@@ -93,6 +100,7 @@ describe("research pages module", () => {
       {
         rank: 2,
         symbol: "000905.SH",
+        symbol_name: "中证500样例",
         date: "2024-01-08",
         model_version: "baseline-rule-v1",
         score: 0.12,
@@ -114,6 +122,12 @@ describe("research pages module", () => {
           worst_future_5d_return: null,
           latest_signal_date: null,
           note: "历史回看仅统计已成熟标签，不代表未来表现",
+        },
+        research_action: {
+          status: "defer",
+          label: "暂缓观察",
+          reasons: ["模型分数处于当日低相对位置"],
+          blockers: ["触发风险提示：成交量异动"],
         },
         research_notes: [
           "模型分数在当日候选池中处于低相对位置",
@@ -142,8 +156,14 @@ describe("research pages module", () => {
     expect(html).toContain("预测分数");
     expect(html).toContain("成交量变化");
     expect(html).toContain("研究参考清单");
-    expect(html).toContain("候选代码");
+    expect(html).toContain("候选标的");
+    expect(html).toContain("沪深300样例");
+    expect(html).toContain("中证500样例");
     expect(html).toContain("相对置信度");
+    expect(html).toContain("研究动作");
+    expect(html).toContain("可关注");
+    expect(html).toContain("暂缓观察");
+    expect(html).toContain("模型分数处于当日高相对位置");
     expect(html).toContain("清单由后端研究候选 API 生成，仅用于研究，不构成投资建议");
     expect(html).toContain("研究备注");
     expect(html).toContain("主要正向因子：5日动量");

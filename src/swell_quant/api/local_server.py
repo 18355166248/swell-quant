@@ -1217,6 +1217,7 @@ def load_research_candidates_artifact(
     features_path = data_dir / "processed" / "sample_features.csv"
     historical_predictions_path = data_dir / "processed" / "historical_predictions.csv"
     labels_path = data_dir / "processed" / "sample_labels.csv"
+    data_metadata_path = data_dir / "raw" / DATA_SOURCE_METADATA_FILENAME
     # 候选建议必须以模型预测为主；因子文件缺失时仍返回候选，但归因会降级到预测 CSV 自带字段。
     features = read_features_csv(features_path) if features_path.exists() else []
     # 历史回看依赖已落盘的历史预测和成熟标签，缺任一文件时保守返回空统计，不阻断最新候选展示。
@@ -1226,15 +1227,58 @@ def load_research_candidates_artifact(
         else []
     )
     labels = read_labels_csv(labels_path) if labels_path.exists() else []
+    data_metadata = (
+        read_price_data_metadata(data_metadata_path) if data_metadata_path.exists() else {}
+    )
     payload = build_research_candidates(
         predictions,
         features=features,
         historical_predictions=historical_predictions,
         labels=labels,
         top_n=top_n,
+        readiness=load_research_readiness(data_dir),
+        symbol_names=data_metadata.get("symbol_names", {}),
     )
     payload["filters"] = {"top_n": top_n}
     return payload
+
+
+def load_research_readiness(data_dir: Path) -> dict[str, Any]:
+    status_path = data_dir / "reports" / "research_status.json"
+    if not status_path.exists():
+        return {
+            "passed": False,
+            "failed_checks": [
+                {
+                    "key": "research_status_missing",
+                    "name": "研究状态产物缺失",
+                    "status": "failed",
+                    "message": f"missing={status_path}",
+                }
+            ],
+        }
+
+    status = load_json_artifact(status_path)
+    checks = status.get("acceptance", {}).get("checks", [])
+    # 研究动作依赖核心链路门禁；失败项会进入候选 blocker，避免页面把不完整链路误读成可执行结论。
+    failed_checks = [
+        check
+        for check in checks
+        if check.get("key")
+        in {
+            "pipeline_success",
+            "data_quality_passed",
+            "predictions_available",
+            "training_samples_ready",
+            "backtest_has_trades",
+            "artifacts_complete",
+        }
+        and check.get("status") != "passed"
+    ]
+    return {
+        "passed": not failed_checks,
+        "failed_checks": failed_checks,
+    }
 
 
 def predictions_payload(predictions: list[Any]) -> dict[str, Any]:

@@ -19,6 +19,19 @@ def prediction(symbol: str, rank: int, score: float) -> PredictionRow:
     )
 
 
+def safe_prediction(symbol: str, rank: int, score: float) -> PredictionRow:
+    return PredictionRow(
+        symbol=symbol,
+        trade_date=date(2024, 1, 31),
+        model_version="baseline-rule-v1",
+        score=score,
+        rank=rank,
+        return_1d=0.01,
+        momentum_5d=0.08,
+        volume_change_1d=0.2,
+    )
+
+
 def historical_prediction(
     symbol: str,
     trade_date: date,
@@ -81,6 +94,7 @@ def test_build_research_candidates_returns_ranked_research_context() -> None:
     assert payload["count"] == 2
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
     assert payload["candidates"][0]["symbol"] == "000001.SZ"
+    assert payload["candidates"][0]["symbol_name"] == "000001.SZ"
     assert payload["candidates"][0]["confidence"] == 1.0
     assert payload["candidates"][0]["confidence_level"] == "high"
     assert payload["candidates"][0]["factors"][0] == {
@@ -98,6 +112,8 @@ def test_build_research_candidates_returns_ranked_research_context() -> None:
         "主要正向因子：成交量变化、RSI、MACD",
         "已触发风险提示，需先复核交易约束和数据质量",
     ]
+    assert payload["candidates"][0]["research_action"]["status"] == "review"
+    assert "触发风险提示：接近涨跌停幅度" in payload["candidates"][0]["research_action"]["blockers"]
 
 
 def test_build_research_candidates_adds_mature_historical_review() -> None:
@@ -146,8 +162,83 @@ def test_build_research_candidates_handles_flat_scores_and_empty_rows() -> None:
         "medium",
         "medium",
     ]
-    assert build_research_candidates([]) == {
-        "count": 0,
-        "candidates": [],
-        "disclaimer": "仅用于研究，不构成投资建议",
-    }
+    empty_payload = build_research_candidates([])
+    assert empty_payload["count"] == 0
+    assert empty_payload["candidates"] == []
+    assert empty_payload["readiness"]["status"] == "unknown"
+    assert empty_payload["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
+def test_build_research_candidates_marks_focus_when_ready_and_clean() -> None:
+    rows = [
+        safe_prediction("000001.SZ", 1, 0.9),
+        safe_prediction("000002.SZ", 2, 0.1),
+    ]
+    historical_rows = [historical_prediction("000001.SZ", date(2024, 1, 10), rank=1)]
+    labels = [label("000001.SZ", date(2024, 1, 10), 0.04, 1)]
+
+    payload = build_research_candidates(
+        rows,
+        historical_predictions=historical_rows,
+        labels=labels,
+        readiness={"passed": True, "failed_checks": []},
+        symbol_names={"000001.SZ": "平安银行"},
+    )
+
+    action = payload["candidates"][0]["research_action"]
+    assert payload["candidates"][0]["symbol_name"] == "平安银行"
+    assert action["status"] == "focus"
+    assert action["label"] == "可关注"
+    assert action["blockers"] == []
+
+
+def test_build_research_candidates_defers_low_confidence_or_failed_readiness() -> None:
+    rows = [
+        safe_prediction("000001.SZ", 1, 0.9),
+        safe_prediction("000002.SZ", 2, 0.1),
+    ]
+
+    low_action = build_research_candidates(
+        rows,
+        readiness={"passed": True, "failed_checks": []},
+    )["candidates"][1]["research_action"]
+    assert low_action["status"] == "defer"
+
+    failed_action = build_research_candidates(
+        rows,
+        readiness={
+            "passed": False,
+            "failed_checks": [
+                {
+                    "key": "pipeline_success",
+                    "name": "Pipeline 执行成功",
+                    "status": "failed",
+                    "message": "status=failed",
+                }
+            ],
+        },
+    )["candidates"][0]["research_action"]
+    assert failed_action["status"] == "defer"
+    assert failed_action["label"] == "暂缓观察"
+    assert "门禁未通过：Pipeline 执行成功(status=failed)" in failed_action["blockers"]
+
+
+def test_build_research_candidates_keeps_medium_confidence_under_review() -> None:
+    rows = [
+        safe_prediction("000001.SZ", 1, 0.9),
+        safe_prediction("000002.SZ", 2, 0.5),
+        safe_prediction("000003.SZ", 3, 0.1),
+    ]
+    historical_rows = [historical_prediction("000002.SZ", date(2024, 1, 10), rank=1)]
+    labels = [label("000002.SZ", date(2024, 1, 10), 0.03, 1)]
+
+    payload = build_research_candidates(
+        rows,
+        historical_predictions=historical_rows,
+        labels=labels,
+        readiness={"passed": True, "failed_checks": []},
+    )
+
+    assert payload["candidates"][1]["confidence_level"] == "medium"
+    assert payload["candidates"][1]["research_action"]["status"] == "review"
+    assert payload["candidates"][1]["research_action"]["label"] == "需复核"

@@ -48,24 +48,36 @@ def resolve_akshare_symbols(
     manual_symbols: tuple[str, ...],
     provider: Any | None = None,
 ) -> tuple[str, ...]:
+    return tuple(
+        resolve_akshare_symbol_metadata(
+            universe_mode=universe_mode,
+            manual_symbols=manual_symbols,
+            provider=provider,
+        ).keys()
+    )
+
+
+def resolve_akshare_symbol_metadata(
+    universe_mode: str,
+    manual_symbols: tuple[str, ...],
+    provider: Any | None = None,
+) -> dict[str, str]:
     mode = universe_mode.strip().lower()
     if mode == "manual":
-        return manual_symbols
+        return {symbol: symbol for symbol in manual_symbols}
     if mode not in CSI800_UNIVERSE_MODES:
         raise ValueError(f"unsupported AKShare universe mode: {universe_mode}")
 
     akshare = provider or _load_akshare()
-    symbols: list[str] = []
-    seen: set[str] = set()
+    symbols: dict[str, str] = {}
     for index_symbol in CSI800_COMPONENT_INDEXES:
         for row in _iter_rows(_fetch_index_cons_frame(akshare, index_symbol)):
             symbol = _normalize_component_symbol(row)
-            if symbol not in seen:
-                seen.add(symbol)
-                symbols.append(symbol)
+            if symbol not in symbols:
+                symbols[symbol] = _normalize_component_name(row) or symbol
     if not symbols:
         raise ValueError("akshare returned no CSI800 component symbols")
-    return tuple(symbols)
+    return symbols
 
 
 def fetch_akshare_price_bars(
@@ -450,6 +462,23 @@ def _normalize_component_symbol(row: dict[str, Any]) -> str:
     exchange = _optional_value(row, "交易所", "市场", "exchange")
     suffix = _exchange_suffix(digits, str(exchange) if exchange is not None else "")
     return f"{digits}.{suffix}"
+
+
+def _normalize_component_name(row: dict[str, Any]) -> str | None:
+    raw_name = _optional_value(
+        row,
+        "品种名称",
+        "成分券名称",
+        "证券简称",
+        "证券名称",
+        "名称",
+        "name",
+        "stock_name",
+    )
+    if raw_name is None:
+        return None
+    name = str(raw_name).strip()
+    return name or None
 
 
 def _exchange_suffix(symbol: str, exchange: str) -> str:

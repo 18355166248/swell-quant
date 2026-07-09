@@ -72,7 +72,10 @@ def test_run_data_update_reuses_usable_akshare_cache_when_live_fetch_fails(
         akshare_start_date="20240102",
         akshare_end_date="20240109",
     )
-    monkeypatch.setattr("scripts.run_pipeline.resolve_akshare_symbols", lambda **_kwargs: symbols)
+    monkeypatch.setattr(
+        "scripts.run_pipeline.resolve_akshare_symbol_metadata",
+        lambda **_kwargs: {symbol: symbol for symbol in symbols},
+    )
     monkeypatch.setattr(
         "scripts.run_pipeline.collect_akshare_price_bars",
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("live source unavailable")),

@@ -1290,7 +1290,17 @@ export function PredictionsPage({
             dataSource={candidates}
             columns={[
               { title: "排名", dataIndex: "rank", width: 80 },
-              { title: "候选代码", dataIndex: "symbol", width: 130 },
+              {
+                title: "候选标的",
+                dataIndex: "symbol",
+                width: 170,
+                render: (_value, row) => (
+                  <Space direction="vertical" size={0}>
+                    <Text>{row.symbol_name || row.symbol}</Text>
+                    <Text type="secondary">{row.symbol}</Text>
+                  </Space>
+                ),
+              },
               {
                 title: "预测分数",
                 dataIndex: "score",
@@ -1345,6 +1355,28 @@ export function PredictionsPage({
                   ) : (
                     <Text type="secondary">未触发</Text>
                   ),
+              },
+              {
+                title: "研究动作",
+                dataIndex: "research_action",
+                width: 220,
+                render: (_value, row) => (
+                  <Space direction="vertical" size={2}>
+                    <Tag color={researchActionColor(row.research_action.status)}>
+                      {row.research_action.label}
+                    </Tag>
+                    {row.research_action.reasons.map((reason) => (
+                      <Text type="secondary" key={`${row.symbol}-reason-${reason}`}>
+                        {reason}
+                      </Text>
+                    ))}
+                    {row.research_action.blockers.map((blocker) => (
+                      <Text type="warning" key={`${row.symbol}-blocker-${blocker}`}>
+                        {blocker}
+                      </Text>
+                    ))}
+                  </Space>
+                ),
               },
               {
                 title: "历史回看",
@@ -1926,6 +1958,8 @@ export function ReportsPage({
         ]),
   ];
   const reportBacktest = report?.structured?.backtest;
+  const actionSummary = report?.structured?.research_actions?.summary;
+  const actionCandidates = report?.structured?.research_actions?.candidates ?? [];
 
   return (
     <>
@@ -1980,6 +2014,16 @@ export function ReportsPage({
               <Text>AI Provider：{report?.ai_report?.provider ?? "-"}</Text>
               <Text>AI 模型：{report?.ai_report?.model ?? "-"}</Text>
               <Text>AI 状态说明：{report?.ai_report?.reason ?? "-"}</Text>
+              <Text>
+                研究动作：可关注 {actionSummary?.focus ?? 0}，需复核 {actionSummary?.review ?? 0}，暂缓观察{" "}
+                {actionSummary?.defer ?? 0}
+              </Text>
+              {actionCandidates.slice(0, 5).map((candidate) => (
+                <Text key={`${candidate.rank}-${candidate.symbol}`}>
+                  {candidate.rank}. {candidate.symbol_name ?? candidate.symbol}（{candidate.symbol}）：
+                  {candidate.research_action.label}
+                </Text>
+              ))}
               {riskItems.map((item) => (
                 <Text key={item}>{item}</Text>
               ))}
@@ -2161,6 +2205,16 @@ function watchlistConfidenceColor(level: ResearchCandidate["confidence_level"]):
   }
   if (level === "medium") {
     return "blue";
+  }
+  return "default";
+}
+
+function researchActionColor(status: ResearchCandidate["research_action"]["status"]): string {
+  if (status === "focus") {
+    return "green";
+  }
+  if (status === "review") {
+    return "orange";
   }
   return "default";
 }

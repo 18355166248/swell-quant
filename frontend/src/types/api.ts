@@ -315,9 +315,17 @@ export interface ResearchCandidateHistory {
   note: string;
 }
 
+export interface ResearchCandidateAction {
+  status: "focus" | "review" | "defer";
+  label: string;
+  reasons: string[];
+  blockers: string[];
+}
+
 export interface ResearchCandidate {
   rank: number;
   symbol: string;
+  symbol_name: string;
   date: string;
   model_version: string;
   score: number;
@@ -326,12 +334,19 @@ export interface ResearchCandidate {
   factors: ResearchCandidateFactor[];
   risk_hints: ResearchCandidateRiskHint[];
   history: ResearchCandidateHistory;
+  research_action: ResearchCandidateAction;
   research_notes: string[];
 }
 
 export interface ResearchCandidates {
   count: number;
   candidates: ResearchCandidate[];
+  readiness?: {
+    status: "passed" | "failed" | "unknown";
+    passed: boolean | null;
+    failed_checks: AcceptanceCheck[];
+    note: string;
+  };
   filters?: {
     top_n: number;
   };
@@ -876,6 +891,17 @@ export interface ReportDetail extends ReportSummary {
   payload_path: string | null;
   structured: {
     predictions?: unknown[];
+    research_actions?: {
+      summary?: Record<"focus" | "review" | "defer", number>;
+      candidates?: Array<{
+        rank: number;
+        symbol: string;
+        symbol_name?: string;
+        confidence_level: "high" | "medium" | "low";
+        research_action: ResearchCandidateAction;
+      }>;
+      disclaimer: string;
+    };
     risk_notes?: string[];
     backtest?: {
       cumulative_return?: number;
