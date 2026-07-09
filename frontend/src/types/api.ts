@@ -53,7 +53,9 @@ export type TaskTrigger =
   | "backtest_run"
   | "report_generate"
   | "fund_trial"
-  | "akshare_trial";
+  | "fund_trial_dry_run"
+  | "akshare_trial"
+  | "akshare_trial_dry_run";
 
 export interface DataTrialStep {
   name: string;

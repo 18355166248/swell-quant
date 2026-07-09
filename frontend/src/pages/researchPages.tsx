@@ -470,7 +470,9 @@ export function TasksPage({
     { key: "prediction_run", label: "生成预测" },
     { key: "backtest_run", label: "运行回测" },
     { key: "report_generate", label: "生成报告" },
+    { key: "akshare_trial_dry_run", label: "股票试跑预演" },
     { key: "akshare_trial", label: "股票真实试跑" },
+    { key: "fund_trial_dry_run", label: "基金试跑预演" },
     { key: "fund_trial", label: "基金真实试跑" },
   ];
   const timelineItems = steps.map((step) => ({
