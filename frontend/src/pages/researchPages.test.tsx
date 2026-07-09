@@ -16,7 +16,9 @@ import {
 } from "./researchPages";
 import type {
   AkshareUniverseStatus,
+  BacktestSummary,
   DataStatus,
+  LatestBacktest,
   LocalSettings,
   Prediction,
   ProjectProgress,
@@ -182,6 +184,76 @@ describe("research pages module", () => {
     expect(html).toContain("启发式风险");
     expect(html).toContain("接近涨跌停幅度");
     expect(html).toContain("成交量异动");
+  });
+
+  it("renders strategy experiment comparison on the backtests page", () => {
+    const summary: BacktestSummary = {
+      backtest_id: "sample-topn-baseline",
+      model_version: "baseline-rule-v1",
+      top_n: 2,
+      fee_rate: 0.0003,
+      slippage_rate: 0.0005,
+      execution_price: "next_day_open",
+      holding_period: "5d",
+      rebalance_rule: "daily_top_n",
+      trade_count: 4,
+      rejected_trade_count: 1,
+      start_date: "2024-01-02",
+      end_date: "2024-01-31",
+      cumulative_return: 0.08,
+      annualized_return: 0.18,
+      benchmark_return: 0.03,
+      excess_return: 0.05,
+      max_drawdown: -0.04,
+      sharpe_ratio: 1.2,
+      win_rate: 0.6,
+      turnover_rate: 0.4,
+      disclaimer: "仅用于研究，不构成投资建议",
+    };
+    const detail: LatestBacktest = {
+      ...summary,
+      equity_curve: [
+        {
+          date: "2024-01-03",
+          signal_date: "2024-01-02",
+          portfolio_return: 0.01,
+          benchmark_return: 0.005,
+          portfolio_value: 1.01,
+          benchmark_value: 1.005,
+          excess_value: 0.005,
+          relative_return: 0.0049,
+          portfolio_drawdown: 0,
+          benchmark_drawdown: 0,
+        },
+      ],
+      rejected_trades: [
+        {
+          symbol: "000001.SZ",
+          rank: 1,
+          signal_date: "2024-01-02",
+          trade_date: "2024-01-03",
+          reason: "limit_up_buy_blocked",
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      <BacktestsPage
+        backtests={[summary]}
+        backtest={detail}
+        selectedBacktestId="sample-topn-baseline"
+        onSelectBacktest={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("策略实验对比");
+    expect(html).toContain("不同回测配置的历史结果");
+    expect(html).toContain("不代表未来收益");
+    expect(html).toContain("累计");
+    expect(html).toContain("超额");
+    expect(html).toContain("换手");
+    expect(html).toContain("无法成交明细");
+    expect(html).toContain("涨停买入受限");
   });
 
   it("renders project stage progress on the dashboard", () => {

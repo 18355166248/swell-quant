@@ -1755,6 +1755,37 @@ export function BacktestsPage({
           <Card><Statistic title="无法成交" value={backtest?.rejected_trade_count ?? 0} /></Card>
         </Col>
       </Row>
+      <Card title="策略实验对比">
+        <Paragraph type="secondary">
+          对比不同回测配置的历史结果，只用于研究复核。单次或多次历史回测都不代表未来收益。
+        </Paragraph>
+        {backtests.length > 0 ? (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={12}>
+              <ReactECharts option={buildBacktestComparisonOption(backtests)} style={{ height: 340 }} />
+            </Col>
+            <Col xs={24} xl={12}>
+              <Table<BacktestSummary>
+                rowKey="backtest_id"
+                size="small"
+                pagination={false}
+                dataSource={backtests}
+                columns={[
+                  { title: "回测 ID", dataIndex: "backtest_id" },
+                  { title: "Top N", dataIndex: "top_n", width: 80, align: "right" },
+                  { title: "累计", dataIndex: "cumulative_return", align: "right", render: formatPercent },
+                  { title: "超额", dataIndex: "excess_return", align: "right", render: formatPercent },
+                  { title: "回撤", dataIndex: "max_drawdown", align: "right", render: formatPercent },
+                  { title: "胜率", dataIndex: "win_rate", align: "right", render: formatPercent },
+                  { title: "换手", dataIndex: "turnover_rate", align: "right", render: formatPercent },
+                ]}
+              />
+            </Col>
+          </Row>
+        ) : (
+          <Empty description="暂无可对比回测" />
+        )}
+      </Card>
       <Card title="逐期回测明细">
         <Table<BacktestPoint>
           rowKey={(row) => `${row.signal_date}-${row.date}`}
@@ -2811,6 +2842,48 @@ function buildFundComparisonOption(rows: FundSummary[]) {
         name: "总费率",
         type: "bar",
         data: rows.map((row) => row.total_fee),
+      },
+    ],
+  };
+}
+
+function buildBacktestComparisonOption(rows: BacktestSummary[]) {
+  const labels = rows.map((row) => row.backtest_id);
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 48, right: 24, top: 48, bottom: 64 },
+    xAxis: {
+      type: "category",
+      data: labels,
+      axisLabel: { interval: 0, rotate: labels.length > 2 ? 25 : 0 },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => `${(value * 100).toFixed(0)}%`,
+      },
+    },
+    series: [
+      {
+        name: "累计收益",
+        type: "bar",
+        data: rows.map((row) => row.cumulative_return),
+      },
+      {
+        name: "超额收益",
+        type: "bar",
+        data: rows.map((row) => row.excess_return),
+      },
+      {
+        name: "最大回撤",
+        type: "bar",
+        data: rows.map((row) => row.max_drawdown),
+      },
+      {
+        name: "胜率",
+        type: "bar",
+        data: rows.map((row) => row.win_rate),
       },
     ],
   };
