@@ -4,6 +4,7 @@ import json
 import csv
 import importlib.util
 import threading
+from datetime import date
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -845,6 +846,7 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
     if metadata_path.exists():
         metadata.update(read_price_data_metadata(metadata_path))
     source_status = build_data_source_status_from_metadata(metadata, metadata_path)
+    freshness = build_data_freshness(quality["end_date"])
     return {
         "data_source_status": source_status["status"],
         "data_source_passed": source_status["passed"],
@@ -885,9 +887,49 @@ def load_data_status_artifact(path: Path) -> dict[str, Any]:
         "symbol_count": quality["symbol_count"],
         "start_date": quality["start_date"],
         "end_date": quality["end_date"],
+        "freshness": freshness,
         "quality_passed": quality["passed"],
         "issue_count": quality["issue_count"],
         "disclaimer": "仅用于研究，不构成投资建议",
+    }
+
+
+def build_data_freshness(end_date: str | None, *, today: date | None = None) -> dict[str, Any]:
+    today = today or date.today()
+    if not end_date:
+        return {
+            "status": "missing",
+            "label": "缺少数据日期",
+            "as_of_date": None,
+            "today": today.isoformat(),
+            "lag_days": None,
+            "message": "缺少最新数据日期，无法判断新鲜度。",
+        }
+    try:
+        as_of = date.fromisoformat(end_date)
+    except ValueError:
+        return {
+            "status": "invalid",
+            "label": "日期格式异常",
+            "as_of_date": end_date,
+            "today": today.isoformat(),
+            "lag_days": None,
+            "message": f"最新数据日期 {end_date} 不是 ISO 日期格式。",
+        }
+    lag_days = (today - as_of).days
+    if lag_days <= 3:
+        status, label = "fresh", "数据较新"
+    elif lag_days <= 15:
+        status, label = "aging", "需要留意"
+    else:
+        status, label = "stale", "数据过期"
+    return {
+        "status": status,
+        "label": label,
+        "as_of_date": as_of.isoformat(),
+        "today": today.isoformat(),
+        "lag_days": lag_days,
+        "message": f"最新数据到 {as_of.isoformat()}，距今天 {lag_days} 天。",
     }
 
 
@@ -1521,9 +1563,9 @@ def load_fund_route(
     route: str, query: dict[str, list[str]], data_dir: Path
 ) -> tuple[HTTPStatus, dict[str, Any]] | None:
     if route == "/api/funds":
-        path = data_dir / "processed" / "sample_fund_metrics.csv"
-        if not path.exists():
-            return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
+        source = select_fund_artifacts(data_dir)
+        if not source["metrics_path"].exists():
+            return HTTPStatus.NOT_FOUND, missing_artifact_payload(source["metrics_path"])
         return HTTPStatus.OK, load_funds_artifact(data_dir)
     if route == "/api/funds/candidates":
         profile = (query.get("profile") or ["balanced"])[0]
@@ -1533,10 +1575,10 @@ def load_fund_route(
                 "message": f"profile must be one of {', '.join(FUND_PROFILES)}",
                 "disclaimer": "仅用于研究，不构成投资建议",
             }
-        path = data_dir / "processed" / f"sample_fund_candidates_{profile}.csv"
+        path = select_fund_artifacts(data_dir, profile)["candidates_path"]
         if not path.exists():
             return HTTPStatus.NOT_FOUND, missing_artifact_payload(path)
-        return HTTPStatus.OK, load_fund_candidates_artifact(path, profile)
+        return HTTPStatus.OK, load_fund_candidates_artifact(data_dir, profile)
 
     prefix = "/api/funds/"
     if not route.startswith(prefix):
@@ -1549,7 +1591,7 @@ def load_fund_route(
     if len(parts) == 1:
         payload = load_fund_detail_artifact(data_dir, fund_code)
     elif parts == [fund_code, "nav"]:
-        payload = load_fund_nav_artifact(data_dir / "raw" / "sample_fund_nav.csv", fund_code)
+        payload = load_fund_nav_artifact(data_dir, fund_code)
     else:
         return HTTPStatus.NOT_FOUND, {"error": "not_found", "path": route}
     if payload is None:
@@ -1557,38 +1599,94 @@ def load_fund_route(
     return HTTPStatus.OK, payload
 
 
+def select_fund_artifacts(data_dir: Path, profile: str = "balanced") -> dict[str, Any]:
+    processed_dir = data_dir / "processed"
+    raw_dir = data_dir / "raw"
+    real_metrics = processed_dir / "akshare_fund_metrics.csv"
+    real_candidates = processed_dir / f"akshare_fund_candidates_{profile}.csv"
+    real_nav = raw_dir / "akshare_fund_nav.csv"
+    # 真实基金试跑通过后优先展示真实产物；任何关键产物缺失都回退样例，避免半截真实数据污染页面判断。
+    if real_metrics.exists() and real_candidates.exists() and real_nav.exists():
+        return {
+            "source_kind": "real_data",
+            "source_label": "AKShare 真实基金数据",
+            "metrics_path": real_metrics,
+            "candidates_path": real_candidates,
+            "nav_path": real_nav,
+            "warning": None,
+        }
+    return {
+        "source_kind": "sample",
+        "source_label": "本地样例基金数据",
+        "metrics_path": processed_dir / "sample_fund_metrics.csv",
+        "candidates_path": processed_dir / f"sample_fund_candidates_{profile}.csv",
+        "nav_path": raw_dir / "sample_fund_nav.csv",
+        "warning": "真实基金候选产物不完整，当前回退为样例数据。",
+    }
+
+
+def build_fund_source_summary(source: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    latest_date = None
+    if source["nav_path"].exists():
+        dates = [row.get("date") for row in _read_csv_rows(source["nav_path"]) if row.get("date")]
+        latest_date = max(dates, default=None)
+    return {
+        "source_kind": source["source_kind"],
+        "source_label": source["source_label"],
+        "metrics_path": str(source["metrics_path"]),
+        "candidates_path": str(source["candidates_path"]),
+        "nav_path": str(source["nav_path"]),
+        "warning": source["warning"],
+        "fund_count": len(rows),
+        "latest_nav_date": latest_date,
+        "freshness": build_data_freshness(latest_date),
+    }
+
+
 def load_funds_artifact(data_dir: Path) -> dict[str, Any]:
-    funds = read_fund_metrics_csv(data_dir / "processed" / "sample_fund_metrics.csv")
+    source = select_fund_artifacts(data_dir)
+    funds = read_fund_metrics_csv(source["metrics_path"])
     return {
         "count": len(funds),
         "funds": funds,
+        "source": build_fund_source_summary(source, funds),
         "disclaimer": "仅用于研究，不构成投资建议",
     }
 
 
 def load_fund_detail_artifact(data_dir: Path, fund_code: str) -> dict[str, Any] | None:
-    funds = read_fund_metrics_csv(data_dir / "processed" / "sample_fund_metrics.csv")
+    source = select_fund_artifacts(data_dir)
+    funds = read_fund_metrics_csv(source["metrics_path"])
     fund = next((row for row in funds if row["fund_code"] == fund_code), None)
     if fund is None:
         return None
-    return {**fund, "disclaimer": "仅用于研究，不构成投资建议"}
+    return {
+        **fund,
+        "source": build_fund_source_summary(source, funds),
+        "disclaimer": "仅用于研究，不构成投资建议",
+    }
 
 
-def load_fund_nav_artifact(path: Path, fund_code: str) -> dict[str, Any] | None:
-    rows = [row for row in _read_csv_rows(path) if row["fund_code"] == fund_code]
+def load_fund_nav_artifact(data_dir: Path, fund_code: str) -> dict[str, Any] | None:
+    source = select_fund_artifacts(data_dir)
+    if not source["nav_path"].exists():
+        return None
+    rows = [row for row in _read_csv_rows(source["nav_path"]) if row["fund_code"] == fund_code]
     if not rows:
         return None
     return {
         "fund_code": fund_code,
         "count": len(rows),
         "nav": [{"date": row["date"], "nav": float(row["nav"])} for row in rows],
+        "source": build_fund_source_summary(source, rows),
         "disclaimer": "仅用于研究，不构成投资建议",
     }
 
 
-def load_fund_candidates_artifact(path: Path, profile: str) -> dict[str, Any]:
-    candidates = read_fund_candidates_csv(path)
-    metrics_path = path.parent / "sample_fund_metrics.csv"
+def load_fund_candidates_artifact(data_dir: Path, profile: str) -> dict[str, Any]:
+    source = select_fund_artifacts(data_dir, profile)
+    candidates = read_fund_candidates_csv(source["candidates_path"])
+    metrics_path = source["metrics_path"]
     metrics_by_code = (
         {row["fund_code"]: row for row in read_fund_metrics_csv(metrics_path)}
         if metrics_path.exists()
@@ -1610,6 +1708,7 @@ def load_fund_candidates_artifact(path: Path, profile: str) -> dict[str, Any]:
         "profile": profile,
         "count": len(candidates),
         "candidates": candidates,
+        "source": build_fund_source_summary(source, list(metrics_by_code.values())),
         "disclaimer": "仅用于研究，不构成投资建议",
     }
 

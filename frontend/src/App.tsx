@@ -443,6 +443,7 @@ function App() {
       <FundsPage
         funds={fundsQuery.data?.funds ?? []}
         candidates={fundCandidatesQuery.data?.candidates ?? []}
+        source={fundCandidatesQuery.data?.source ?? fundsQuery.data?.source}
         profile={fundProfile}
         onProfileChange={setFundProfile}
         disclaimer={fundCandidatesQuery.data?.disclaimer ?? fundsQuery.data?.disclaimer}

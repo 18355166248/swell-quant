@@ -60,12 +60,14 @@ import type {
   BacktestSummary,
   DataTrialRun,
   DataTrialStep,
+  DataFreshness,
   DataQuality,
   DataQualityIssue,
   DataStatus,
   DuckDBStorageStatus,
   FeatureSummary,
   FundCandidate,
+  FundSourceSummary,
   FundSummary,
   FundTrialRun,
   LabelSummary,
@@ -724,7 +726,15 @@ export function DataPage({
         </Col>
         <Col xs={24} md={12} xl={6}>
           <Card>
-            <Statistic title="质量状态" value={(dataStatus?.quality_passed ?? quality?.passed) ? "通过" : "需检查"} />
+            <Statistic
+              title="数据新鲜度"
+              value={dataStatus?.freshness?.label ?? "待确认"}
+            />
+            <Tag color={freshnessColor(dataStatus?.freshness?.status)}>
+              {dataStatus?.freshness?.lag_days === null || dataStatus?.freshness?.lag_days === undefined
+                ? "-"
+                : `${dataStatus.freshness.lag_days} 天前`}
+            </Tag>
           </Card>
         </Col>
       </Row>
@@ -756,6 +766,9 @@ export function DataPage({
               </Descriptions.Item>
               <Descriptions.Item label="结束日期">
                 {dataStatus?.end_date ?? quality?.end_date ?? "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="新鲜度">
+                {dataStatus?.freshness?.message ?? "-"}
               </Descriptions.Item>
               <Descriptions.Item label="源更新时间">{dataStatus?.source_updated_at ?? "-"}</Descriptions.Item>
               <Descriptions.Item label="声明">
@@ -1870,12 +1883,14 @@ export function StocksPage({
 export function FundsPage({
   funds,
   candidates,
+  source,
   profile,
   onProfileChange,
   disclaimer,
 }: {
   funds: FundSummary[];
   candidates: FundCandidate[];
+  source?: FundSourceSummary;
   profile: "conservative" | "balanced" | "aggressive";
   onProfileChange: (profile: "conservative" | "balanced" | "aggressive") => void;
   disclaimer?: string;
@@ -1884,7 +1899,7 @@ export function FundsPage({
     <>
       <PageTitle
         title="基金"
-        description="比较样例基金的历史收益、回撤、费用和规模，生成研究候选清单。"
+        description="比较基金的历史收益、回撤、费用和规模，生成研究候选清单。"
       />
       <Alert
         className="page-alert"
@@ -1895,11 +1910,39 @@ export function FundsPage({
       />
       <Alert
         className="page-alert"
-        type="warning"
+        type={source?.source_kind === "real_data" ? "success" : "warning"}
         showIcon
-        message="基金候选状态"
-        description="第一版使用本地样例基金数据验证指标链路；真实基金数据源、费用口径、基金合同限制和个人风险偏好完成接入前，只能作为研究框架和人工筛选输入。"
+        message={`基金数据来源：${source?.source_label ?? "待确认"}`}
+        description={
+          source?.source_kind === "real_data"
+            ? `当前展示真实基金试跑产物，最新净值日期 ${source.latest_nav_date ?? "-"}。${source.freshness.message}`
+            : `${source?.warning ?? "当前使用本地样例基金数据验证指标链路。"} 真实基金数据源、费用口径、基金合同限制和个人风险偏好完成复核前，只能作为研究框架和人工筛选输入。`
+        }
       />
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic title="基金数据来源" value={source?.source_kind === "real_data" ? "真实试跑" : "样例"} />
+            <Text type="secondary">{source?.source_label ?? "-"}</Text>
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic title="最新净值日期" value={source?.latest_nav_date ?? "-"} />
+            <Tag color={freshnessColor(source?.freshness.status)}>{source?.freshness.label ?? "待确认"}</Tag>
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic title="基金数量" value={source?.fund_count ?? funds.length} />
+            <Text type="secondary">
+              {source?.freshness.lag_days === null || source?.freshness.lag_days === undefined
+                ? "缺少新鲜度"
+                : `距今天 ${source.freshness.lag_days} 天`}
+            </Text>
+          </Card>
+        </Col>
+      </Row>
       <Card className="filter-card" title="候选视图">
         <Space wrap>
           <Select
@@ -1912,6 +1955,9 @@ export function FundsPage({
             ]}
           />
           <Tag color="blue">候选、关注、参考，不代表买入或持有动作</Tag>
+          <Tag color={source?.source_kind === "real_data" ? "green" : "orange"}>
+            {source?.source_label ?? "数据来源待确认"}
+          </Tag>
         </Space>
       </Card>
       <Card title="候选基金清单">
@@ -2314,6 +2360,19 @@ function fundVerificationColor(status: FundCandidate["verification_status"]): st
     return "orange";
   }
   return "red";
+}
+
+function freshnessColor(status?: DataFreshness["status"]): string {
+  if (status === "fresh") {
+    return "green";
+  }
+  if (status === "aging") {
+    return "orange";
+  }
+  if (status === "stale") {
+    return "red";
+  }
+  return "default";
 }
 
 function renderCandidateHistory(row: ResearchCandidate) {

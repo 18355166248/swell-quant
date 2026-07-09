@@ -503,9 +503,19 @@ export interface DataStatus {
   symbol_count: number;
   start_date: string;
   end_date: string;
+  freshness?: DataFreshness;
   quality_passed: boolean;
   issue_count: number;
   disclaimer: string;
+}
+
+export interface DataFreshness {
+  status: "fresh" | "aging" | "stale" | "missing" | "invalid";
+  label: string;
+  as_of_date: string | null;
+  today: string;
+  lag_days: number | null;
+  message: string;
 }
 
 export type DuckDBStorageHealth =
@@ -775,6 +785,7 @@ export interface FundSummary {
 export interface FundList {
   count: number;
   funds: FundSummary[];
+  source?: FundSourceSummary;
   disclaimer: string;
 }
 
@@ -787,7 +798,20 @@ export interface FundNav {
   fund_code: string;
   count: number;
   nav: FundNavPoint[];
+  source?: FundSourceSummary;
   disclaimer: string;
+}
+
+export interface FundSourceSummary {
+  source_kind: "sample" | "real_data";
+  source_label: string;
+  metrics_path: string;
+  candidates_path: string;
+  nav_path: string;
+  warning: string | null;
+  fund_count: number;
+  latest_nav_date: string | null;
+  freshness: DataFreshness;
 }
 
 export interface FundCandidate {
@@ -810,6 +834,7 @@ export interface FundCandidates {
   profile: "conservative" | "balanced" | "aggressive";
   count: number;
   candidates: FundCandidate[];
+  source?: FundSourceSummary;
   disclaimer: string;
 }
 

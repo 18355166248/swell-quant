@@ -392,6 +392,24 @@ describe("research pages module", () => {
         profile="balanced"
         onProfileChange={() => undefined}
         disclaimer="仅用于研究，不构成投资建议"
+        source={{
+          source_kind: "sample",
+          source_label: "本地样例基金数据",
+          metrics_path: "data/processed/sample_fund_metrics.csv",
+          candidates_path: "data/processed/sample_fund_candidates_balanced.csv",
+          nav_path: "data/raw/sample_fund_nav.csv",
+          warning: "真实基金候选产物不完整，当前回退为样例数据。",
+          fund_count: 1,
+          latest_nav_date: "2024-12-31",
+          freshness: {
+            status: "stale",
+            label: "数据过期",
+            as_of_date: "2024-12-31",
+            today: "2026-07-09",
+            lag_days: 555,
+            message: "最新数据到 2024-12-31，距今天 555 天。",
+          },
+        }}
         candidates={[
           {
             rank: 1,
@@ -439,8 +457,11 @@ describe("research pages module", () => {
     expect(html).toContain("净值波动偏高");
     expect(html).toContain("仅用于研究，不构成投资建议");
     expect(html).toContain("不给出申购、赎回、定投金额或仓位建议");
-    expect(html).toContain("基金候选状态");
-    expect(html).toContain("真实基金数据源、费用口径、基金合同限制和个人风险偏好完成接入前");
+    expect(html).toContain("基金数据来源：本地样例基金数据");
+    expect(html).toContain("真实基金候选产物不完整，当前回退为样例数据。");
+    expect(html).toContain("最新净值日期");
+    expect(html).toContain("数据过期");
+    expect(html).toContain("距今天 555 天");
     expect(html).toContain("买前验证");
     expect(html).toContain("暂不适合决策");
     expect(html).toContain("当前为样例基金数据，不能作为真实申购依据");

@@ -111,6 +111,9 @@ curl "http://127.0.0.1:8765/api/funds/candidates?profile=balanced"
 
 重点字段：
 
+- `source.source_kind`：`real_data` 表示来自基金真实试跑产物，`sample` 表示已回退样例数据。
+- `source.latest_nav_date` / `source.freshness`：最新净值日期和距今天多久，过期数据不能作为真实研究依据。
+- `source.warning`：真实基金产物不完整时的回退原因。
 - `candidates[].verification_label`：`可进入人工复核`、`需补充验证` 或 `暂不适合决策`。
 - `candidates[].verification_checks`：收益、回撤、波动、费用、规模等检查摘要。
 - `candidates[].verification_blockers`：样例数据、基金合同、费用口径、个人风险偏好等待补充问题。
@@ -170,6 +173,7 @@ http://127.0.0.1:4173/
 - `data_source=sample`：样例数据，只能验证工程链路。
 - `data_source=akshare`：真实 AKShare 数据。
 - 成功标的数、失败标的数、质量等级和 warning。
+- 数据新鲜度：如果显示“数据过期”，先更新数据，不要把旧数据当成当前市场。
 
 ### 预测页
 
@@ -199,6 +203,18 @@ http://127.0.0.1:4173/
 - 无法成交记录。
 
 历史回测不代表未来收益。
+
+### 基金页
+
+基金页用于买基金前做研究框架校验，不输出申购、赎回、定投金额或仓位建议。
+
+重点看：
+
+- 数据来源：`真实试跑` 表示页面读取 `akshare_fund_*` 产物，`样例` 表示真实产物缺失或不完整。
+- 最新净值日期：如果显示“数据过期”，先运行 `make fund-trial` 或检查 `make fund-trial-status`。
+- 候选视图：稳健、均衡、进取三种排序。
+- 研究分数：只用于候选排序，不代表收益预测。
+- 买前验证：优先看阻塞项，尤其是样例数据、基金合同、费用口径和个人风险偏好。
 
 ### 报告页
 

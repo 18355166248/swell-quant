@@ -5,6 +5,7 @@ from http import HTTPStatus
 from pathlib import Path
 
 from swell_quant.api.local_server import (
+    build_data_freshness,
     load_acceptance_artifact,
     load_akshare_universe_artifact,
     load_akshare_trial_artifact,
@@ -49,6 +50,7 @@ from swell_quant.api.local_server import (
     normalize_equity_curve,
     pipeline_status_to_http_status,
     run_pipeline_for_api,
+    select_fund_artifacts,
 )
 from swell_quant.research.funds import (
     build_fund_candidates,
@@ -716,6 +718,8 @@ def test_local_api_structured_artifact_loaders(tmp_path: Path) -> None:
     assert "自定义股票池" in data_status["benchmark_note"]
     assert data_status["update_mode"] == "manual_trigger"
     assert data_status["quality_passed"] is True
+    assert data_status["freshness"]["as_of_date"] == data_status["end_date"]
+    assert data_status["freshness"]["lag_days"] is not None
     assert features_payload["row_count"] == 60
     assert features_payload["symbol_count"] == 3
     assert features_payload["feature_names"] == [
@@ -1263,6 +1267,8 @@ def test_local_api_fund_routes_return_list_detail_nav_and_candidates(tmp_path: P
 
     assert list_status == HTTPStatus.OK
     assert list_payload["count"] == 4
+    assert list_payload["source"]["source_kind"] == "sample"
+    assert list_payload["source"]["freshness"]["status"] == "stale"
     assert detail_status == HTTPStatus.OK
     assert detail_payload["fund_code"] == "510300"
     assert nav_status == HTTPStatus.OK
@@ -1279,6 +1285,45 @@ def test_local_api_fund_routes_return_list_detail_nav_and_candidates(tmp_path: P
     assert candidates_payload["candidates"][0]["verification_blockers"]
     assert missing_status == HTTPStatus.NOT_FOUND
     assert missing_payload["error"] == "fund_not_found"
+
+
+def test_local_api_fund_routes_prefer_complete_real_trial_outputs(tmp_path: Path) -> None:
+    funds, navs = generate_sample_funds()
+    metrics = compute_fund_metrics(
+        funds[:2], [row for row in navs if row.fund_code in {"510300", "159915"}]
+    )
+    write_fund_nav_csv(
+        tmp_path / "raw" / "akshare_fund_nav.csv",
+        [row for row in navs if row.fund_code in {"510300", "159915"}],
+    )
+    write_fund_metrics_csv(tmp_path / "processed" / "akshare_fund_metrics.csv", metrics)
+    write_fund_candidates_csv(
+        tmp_path / "processed" / "akshare_fund_candidates_balanced.csv",
+        build_fund_candidates(metrics, profile="balanced"),
+    )
+
+    list_status, list_payload = load_fund_route("/api/funds", {}, tmp_path)
+    candidates_status, candidates_payload = load_fund_route(
+        "/api/funds/candidates", {"profile": ["balanced"]}, tmp_path
+    )
+    nav_status, nav_payload = load_fund_route("/api/funds/510300/nav", {}, tmp_path)
+
+    assert select_fund_artifacts(tmp_path)["source_kind"] == "real_data"
+    assert list_status == HTTPStatus.OK
+    assert list_payload["source"]["source_kind"] == "real_data"
+    assert list_payload["count"] == 2
+    assert candidates_status == HTTPStatus.OK
+    assert candidates_payload["source"]["source_label"] == "AKShare 真实基金数据"
+    assert nav_status == HTTPStatus.OK
+    assert nav_payload["source"]["source_kind"] == "real_data"
+
+
+def test_build_data_freshness_marks_stale_data() -> None:
+    payload = build_data_freshness("2024-12-31", today=date(2026, 7, 9))
+
+    assert payload["status"] == "stale"
+    assert payload["label"] == "数据过期"
+    assert payload["lag_days"] == 555
 
 
 def test_local_api_can_trigger_pipeline(tmp_path: Path) -> None:

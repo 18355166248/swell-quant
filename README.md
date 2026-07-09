@@ -198,8 +198,10 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 `GET /api/acceptance` 只返回验收门禁摘要，适合前端首屏、脚本或外部集成直接判断当前研究链路是否可用。
 
 `GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
+响应里的 `freshness` 会根据最新数据日期计算 `数据较新 / 需要留意 / 数据过期`，用于避免把 2024 年样例数据误当成 2026 年最新行情。
 
 `GET /api/funds`、`GET /api/funds/{fund_code}`、`GET /api/funds/{fund_code}/nav` 和 `GET /api/funds/candidates?profile=balanced` 会返回本地样例基金池、基金指标、净值序列和不同风险视图下的研究候选清单。基金候选会附带买前验证状态、检查项和阻塞项，用于提示还需要复核的数据材料、费用口径、基金合同限制和个人风险偏好；它只用于研究比较，不构成投资建议。
+如果 `data/processed/akshare_fund_metrics.csv`、`data/processed/akshare_fund_candidates_{profile}.csv` 和 `data/raw/akshare_fund_nav.csv` 同时存在，基金接口会优先展示真实试跑产物；否则自动回退样例数据，并在 `source.source_kind`、`source.warning` 和 `source.freshness` 中说明来源和新鲜度。
 
 `GET /api/funds/trial` 会返回最近一次基金真实数据试跑摘要，包含基金代码、日期区间、成功/失败数量、错误原因和最近真实通过记录。该接口只展示数据源可用性，不输出申购、赎回、仓位或收益承诺。
 
