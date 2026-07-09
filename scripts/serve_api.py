@@ -30,7 +30,7 @@ def main() -> int:
         "/api/models/latest /api/tasks /api/predictions /api/backtests /api/stocks "
         "/api/reports /api/pipeline POST:/api/data/update POST:/api/models/train "
         "POST:/api/predictions/run POST:/api/backtests/run POST:/api/reports/generate "
-        "POST:/api/funds/trial/run"
+        "POST:/api/akshare/trial/run POST:/api/funds/trial/run"
     )
     try:
         server.serve_forever()

@@ -50,6 +50,7 @@ from swell_quant.api.local_server import (
     missing_artifact_payload,
     normalize_equity_curve,
     pipeline_status_to_http_status,
+    run_akshare_trial_for_api,
     run_fund_trial_for_api,
     run_pipeline_for_api,
     select_fund_artifacts,
@@ -1456,5 +1457,35 @@ def test_local_api_fund_trial_trigger_returns_busy_when_locked(tmp_path: Path) -
 
     assert payload["status"] == "busy"
     assert payload["requested_task"] == "fund_trial"
+    assert payload["error"] == "pipeline_already_running"
+    assert task_run_status_to_http_status(payload["status"]).value == 409
+
+
+def test_local_api_can_trigger_akshare_trial_dry_run(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("AKSHARE_MAX_SYMBOLS", "2")
+    monkeypatch.setenv("AKSHARE_START_DATE", "20240102")
+    monkeypatch.setenv("AKSHARE_END_DATE", "20240131")
+    payload = run_akshare_trial_for_api(tmp_path / "data", dry_run=True)
+
+    assert payload["status"] == "dry_run", payload
+    assert payload["requested_task"] == "akshare_trial"
+    assert payload["execution_mode"] == "akshare_trial_dry_run"
+    assert payload["passed"] is True
+    assert payload["real_data_verified"] is False
+    assert payload["env"]["AKSHARE_MAX_SYMBOLS"] == "2"
+    assert (tmp_path / "data" / "reports" / "akshare_trial_run.json").exists()
+    assert task_run_status_to_http_status(payload["status"]).value == 200
+
+
+def test_local_api_akshare_trial_trigger_returns_busy_when_locked(tmp_path: Path) -> None:
+    lock = threading.Lock()
+    lock.acquire()
+    try:
+        payload = run_akshare_trial_for_api(tmp_path / "data", lock=lock, dry_run=True)
+    finally:
+        lock.release()
+
+    assert payload["status"] == "busy"
+    assert payload["requested_task"] == "akshare_trial"
     assert payload["error"] == "pipeline_already_running"
     assert task_run_status_to_http_status(payload["status"]).value == 409

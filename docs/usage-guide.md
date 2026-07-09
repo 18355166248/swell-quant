@@ -118,13 +118,25 @@ curl "http://127.0.0.1:8765/api/daily-brief"
 - `next_actions`：后台建议的下一步研究动作；带 `task` 的动作可由前端触发现有后台任务，不带 `task` 的动作需要人工执行或复核。
 - `access_issues`：简报读取失败的产物或原因。
 
+从后台触发股票真实试跑：
+
+```bash
+curl -X POST "http://127.0.0.1:8765/api/akshare/trial/run"
+```
+
+只验证股票试跑计划、不访问网络：
+
+```bash
+curl -X POST "http://127.0.0.1:8765/api/akshare/trial/run?dry_run=true"
+```
+
 从后台触发基金真实试跑：
 
 ```bash
 curl -X POST "http://127.0.0.1:8765/api/funds/trial/run"
 ```
 
-只验证计划、不访问网络：
+只验证基金试跑计划、不访问网络：
 
 ```bash
 curl -X POST "http://127.0.0.1:8765/api/funds/trial/run?dry_run=true"

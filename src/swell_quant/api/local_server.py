@@ -4,6 +4,7 @@ import json
 import csv
 import importlib.util
 import os
+import sys
 import threading
 from datetime import date
 from http import HTTPStatus
@@ -50,6 +51,7 @@ TASK_TRIGGER_ROUTES = {
     "/api/reports/generate": "report_generate",
 }
 FUND_TRIAL_RUN_ROUTE = "/api/funds/trial/run"
+AKSHARE_TRIAL_RUN_ROUTE = "/api/akshare/trial/run"
 
 
 class ResearchApiHandler(BaseHTTPRequestHandler):
@@ -225,6 +227,14 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             return
         if route == FUND_TRIAL_RUN_ROUTE:
             payload = run_fund_trial_for_api(
+                self.settings,
+                dry_run=_truthy_query_flag(query.get("dry_run", ["false"])[0]),
+            )
+            status = task_run_status_to_http_status(payload["status"])
+            self._send_json(payload, status=status)
+            return
+        if route == AKSHARE_TRIAL_RUN_ROUTE:
+            payload = run_akshare_trial_for_api(
                 self.settings,
                 dry_run=_truthy_query_flag(query.get("dry_run", ["false"])[0]),
             )
@@ -429,6 +439,80 @@ def _run_fund_trial_for_api_unlocked(settings: Settings, *, dry_run: bool) -> di
     return payload
 
 
+def run_akshare_trial_for_api(
+    settings: Settings | Path,
+    lock: threading.Lock | None = None,
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    resolved_settings = (
+        Settings(
+            data_dir=settings,
+            duckdb_path=settings / "duckdb" / "swell_quant.duckdb",
+        )
+        if isinstance(settings, Path)
+        else settings
+    )
+    run_lock = _PIPELINE_RUN_LOCK if lock is None else lock
+    # 股票真实试跑会触发完整 pipeline 并写多类产物，必须和其他写任务串行。
+    if not run_lock.acquire(blocking=False):
+        return {
+            "status": "busy",
+            "requested_task": "akshare_trial",
+            "error": "pipeline_already_running",
+            "message": "another data task is already running; retry after it finishes",
+        }
+
+    try:
+        return _run_akshare_trial_for_api_unlocked(resolved_settings, dry_run=dry_run)
+    except Exception as error:  # noqa: BLE001 - API 需要把配置/依赖错误结构化返回给前端排查。
+        return {
+            "status": "failed",
+            "requested_task": "akshare_trial",
+            "execution_mode": "akshare_trial_dry_run" if dry_run else "akshare_real_data_trial",
+            "passed": False,
+            "trial_kind": "dry_run" if dry_run else "real_data",
+            "real_data_verified": False,
+            "error": str(error),
+            "message": str(error),
+            "disclaimer": "仅用于研究，不构成投资建议",
+        }
+    finally:
+        run_lock.release()
+
+
+def _run_akshare_trial_for_api_unlocked(settings: Settings, *, dry_run: bool) -> dict[str, Any]:
+    akshare_trial_runner = _load_akshare_trial_runner()
+    args = SimpleNamespace(
+        dry_run=dry_run,
+        universe_mode=os.getenv("AKSHARE_UNIVERSE_MODE", "csi800"),
+        max_symbols=int(os.getenv("AKSHARE_MAX_SYMBOLS", "20")),
+        start_date=os.getenv("AKSHARE_START_DATE", "20240102"),
+        end_date=os.getenv("AKSHARE_END_DATE", "20240131"),
+        benchmark_symbol=os.getenv("AKSHARE_BENCHMARK_SYMBOL", "sh000906"),
+        skip_universe_check=_truthy_query_flag(os.getenv("AKSHARE_SKIP_UNIVERSE_CHECK", "false")),
+    )
+    if args.max_symbols <= 0:
+        raise ValueError("AKSHARE_MAX_SYMBOLS must be greater than 0")
+    env_backup = os.environ.get("DATA_DIR")
+    os.environ["DATA_DIR"] = str(settings.data_dir)
+    try:
+        payload = akshare_trial_runner.run_trial(args)
+        akshare_trial_runner.write_trial_artifacts(Path(payload["artifact_path"]), payload)
+    finally:
+        if env_backup is None:
+            os.environ.pop("DATA_DIR", None)
+        else:
+            os.environ["DATA_DIR"] = env_backup
+    payload["requested_task"] = "akshare_trial"
+    payload["execution_mode"] = "akshare_trial_dry_run" if dry_run else "akshare_real_data_trial"
+    payload.setdefault(
+        "message",
+        "AKShare trial finished; review /api/akshare/trial and data source health",
+    )
+    return payload
+
+
 def _parse_fund_trial_codes(value: str) -> tuple[str, ...]:
     codes = tuple(item.strip() for item in value.split(",") if item.strip())
     invalid = [code for code in codes if not (len(code) == 6 and code.isdigit())]
@@ -443,6 +527,18 @@ def _load_fund_trial_runner() -> Any:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load fund trial runner from {script_path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_akshare_trial_runner() -> Any:
+    script_path = Path(__file__).resolve().parents[3] / "scripts" / "run_akshare_trial.py"
+    spec = importlib.util.spec_from_file_location("swell_quant_akshare_trial_runner", script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"unable to load AKShare trial runner from {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -453,6 +549,7 @@ def _load_pipeline_runner() -> Any:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load pipeline runner from {script_path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module.run_pipeline
 

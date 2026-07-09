@@ -57,6 +57,7 @@ const TASK_TRIGGER_PATHS: Record<TaskTrigger, string> = {
   backtest_run: "/api/backtests/run",
   report_generate: "/api/reports/generate",
   fund_trial: "/api/funds/trial/run",
+  akshare_trial: "/api/akshare/trial/run",
 };
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
