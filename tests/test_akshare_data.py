@@ -151,7 +151,12 @@ def test_collect_akshare_price_bars_reports_all_failures_when_no_bars(
         ) -> FakeFrame:
             raise RuntimeError(f"blocked {symbol}")
 
-    with pytest.raises(ValueError, match="000001.SZ: fallback unavailable"):
+        def stock_zh_a_daily(
+            self, symbol: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            raise RuntimeError(f"sina blocked {symbol}")
+
+    with pytest.raises(ValueError, match="000001.SZ: sina blocked sz000001"):
         collect_akshare_price_bars(
             symbols=("000001.SZ", "600000.SH"),
             start_date="20240102",
@@ -203,6 +208,69 @@ def test_collect_akshare_price_bars_falls_back_to_eastmoney_proxy(
     assert result.bars[0].close == 7.29
     assert result.succeeded_symbols == ("000001.SZ",)
     assert result.failed_symbols == ()
+
+
+def test_collect_akshare_price_bars_falls_back_to_sina(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EastmoneyBlockedAkshare(FakeAkshare):
+        def stock_zh_a_hist(
+            self, symbol: str, period: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            raise RuntimeError("eastmoney kline blocked by proxy")
+
+        def stock_zh_a_daily(
+            self, symbol: str, start_date: str, end_date: str, adjust: str
+        ) -> FakeFrame:
+            assert symbol == "sz000001"
+            assert start_date == "20240102"
+            assert end_date == "20240103"
+            assert adjust == "qfq"
+            # 新浪返回英文列名，直接被 _price_bars_from_frame 标准化。
+            return FakeFrame(
+                [
+                    {
+                        "date": "2024-01-02",
+                        "open": 7.89,
+                        "high": 7.91,
+                        "low": 7.74,
+                        "close": 7.74,
+                        "volume": 115836645.0,
+                    }
+                ]
+            )
+
+    def blocked_eastmoney_rows(symbol: str, start_date: str, end_date: str, proxy_url):
+        raise RuntimeError("eastmoney direct blocked by proxy")
+
+    monkeypatch.setattr(
+        "swell_quant.data.akshare_data._fetch_eastmoney_price_rows",
+        blocked_eastmoney_rows,
+    )
+
+    result = collect_akshare_price_bars(
+        symbols=("000001.SZ",),
+        start_date="20240102",
+        end_date="20240103",
+        provider=EastmoneyBlockedAkshare(),
+    )
+
+    assert result.succeeded_symbols == ("000001.SZ",)
+    assert result.failed_symbols == ()
+    assert len(result.bars) == 1
+    assert result.bars[0].close == 7.74
+    assert result.bars[0].benchmark_close == 1000.0
+    passed_sources = {a.source for a in result.source_attempts if a.status == "passed"}
+    assert passed_sources == {"sina"}
+
+
+def test_sina_stock_symbol_formats_lowercase_exchange_prefix() -> None:
+    from swell_quant.data.akshare_data import _sina_stock_symbol
+
+    assert _sina_stock_symbol("000001.SZ") == "sz000001"
+    assert _sina_stock_symbol("600000.SH") == "sh600000"
+    # 无后缀时按代码前缀推断交易所。
+    assert _sina_stock_symbol("300750") == "sz300750"
 
 
 def test_collect_akshare_price_bars_retries_primary_source() -> None:

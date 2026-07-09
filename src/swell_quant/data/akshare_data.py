@@ -290,8 +290,26 @@ def _fetch_symbol_price_frame(
             )
             attempts.append(attempt)
             return frame, attempts
-        except Exception as error:  # noqa: BLE001 - 全部失败时由调用方记录单标的失败。
+        except Exception as error:  # noqa: BLE001 - 东方财富全部失败后回退到新浪行情源。
             attempts.append(_failed_attempt(symbol, "eastmoney_proxy", error))
+
+    try:
+        # 东方财富常被公司或校园网络策略拦截 kline 接口，新浪日频行情作为独立来源兜底，
+        # 返回的英文列名与 _price_bars_from_frame 的标准化字段兼容。
+        frame, attempt = _run_price_source(
+            symbol=symbol,
+            source="sina",
+            fetcher=lambda: provider.stock_zh_a_daily(
+                symbol=_sina_stock_symbol(symbol),
+                start_date=start_date,
+                end_date=end_date,
+                adjust="qfq",
+            ),
+        )
+        attempts.append(attempt)
+        return frame, attempts
+    except Exception as error:  # noqa: BLE001 - 全部来源失败时由调用方记录单标的失败。
+        attempts.append(_failed_attempt(symbol, "sina", error))
 
     raise _PriceFrameFetchError(symbol=symbol, attempts=tuple(attempts))
 
@@ -387,6 +405,13 @@ def _eastmoney_secid(symbol: str) -> str:
     suffix = symbol.split(".")[1].upper() if "." in symbol else _exchange_suffix(digits, "")
     market = "1" if suffix == "SH" else "0"
     return f"{market}.{digits}"
+
+
+def _sina_stock_symbol(symbol: str) -> str:
+    # 新浪行情要求 "sh600000" / "sz000001" 形式：小写交易所前缀 + 6 位代码。
+    digits = _akshare_stock_symbol(symbol)
+    suffix = symbol.split(".")[1].upper() if "." in symbol else _exchange_suffix(digits, "")
+    return f"{suffix.lower()}{digits}"
 
 
 def _eastmoney_proxy_url() -> str | None:
