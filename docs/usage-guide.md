@@ -115,7 +115,7 @@ curl "http://127.0.0.1:8765/api/daily-brief"
 - `stocks.action_summary`：股票候选在 `可关注 / 需复核 / 暂缓观察` 三层中的数量。
 - `funds.source.source_kind`：基金候选来自真实试跑产物还是样例数据。
 - `review_items`：当天优先复核的问题清单。
-- `next_actions`：后台建议的下一步研究动作；带 `task` 的动作可由前端触发现有后台任务，不带 `task` 的动作需要人工执行或复核。
+- `next_actions`：后台建议的下一步研究动作；带 `task` 的动作可由前端触发现有后台任务，不带 `task` 的动作需要人工执行或复核。样例数据会优先推荐 `*_dry_run` 预演动作，确认计划后再手动触发真实试跑。
 - `access_issues`：简报读取失败的产物或原因。
 
 从后台触发股票真实试跑：

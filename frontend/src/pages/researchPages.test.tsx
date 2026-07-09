@@ -939,10 +939,10 @@ describe("research pages module", () => {
               task: "data_update",
             },
             {
-              id: "fund_trial",
-              label: "运行基金真实数据试跑",
-              description: "基金候选仍是样例数据，真实研究前先执行 make fund-trial。",
-              task: "fund_trial",
+              id: "fund_trial_dry_run",
+              label: "预演基金真实数据试跑",
+              description: "基金候选仍是样例数据，真实研究前先预演基金采集计划。",
+              task: "fund_trial_dry_run",
             },
           ],
           access_issues: [{ name: "fund_candidates", message: "missing fund candidates" }],
@@ -963,7 +963,8 @@ describe("research pages module", () => {
     expect(html).toContain("API 简报复核项");
     expect(html).toContain("下一步动作");
     expect(html).toContain("刷新数据并重跑研究链路");
-    expect(html).toContain("执行");
+    expect(html).toContain("预演基金真实数据试跑");
+    expect(html).toContain("可触发任务");
     expect(html).toContain("基金页当前使用样例数据");
   });
 

@@ -1229,8 +1229,18 @@ def build_daily_brief_next_actions(
     issues: list[dict[str, str]],
 ) -> list[dict[str, str | None]]:
     actions: list[dict[str, str | None]] = []
+    data_source = (data_status or {}).get("data_source")
     freshness = (data_status or {}).get("freshness") or {}
 
+    if data_source != "akshare":
+        actions.append(
+            {
+                "id": "akshare_trial_dry_run",
+                "label": "预演股票真实数据试跑",
+                "description": "当前股票数据不是 AKShare 真实试跑产物，先预演真实数据采集计划。",
+                "task": "akshare_trial_dry_run",
+            }
+        )
     if freshness.get("status") in {"missing", "invalid", "stale"}:
         actions.append(
             {
@@ -1263,10 +1273,10 @@ def build_daily_brief_next_actions(
     if fund_source and fund_source.get("source_kind") == "sample":
         actions.append(
             {
-                "id": "fund_trial",
-                "label": "运行基金真实数据试跑",
-                "description": "基金候选仍是样例数据，真实研究前先执行 make fund-trial。",
-                "task": "fund_trial",
+                "id": "fund_trial_dry_run",
+                "label": "预演基金真实数据试跑",
+                "description": "基金候选仍是样例数据，真实研究前先预演基金采集计划。",
+                "task": "fund_trial_dry_run",
             }
         )
     if issues:

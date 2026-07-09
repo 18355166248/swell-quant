@@ -6,6 +6,7 @@ from pathlib import Path
 
 from swell_quant.api.local_server import (
     build_data_freshness,
+    build_daily_brief_next_actions,
     load_acceptance_artifact,
     load_akshare_universe_artifact,
     load_akshare_trial_artifact,
@@ -164,9 +165,27 @@ def test_local_api_daily_brief_returns_partial_when_artifacts_missing(tmp_path: 
     assert payload["stocks"]["action_summary"] == {"focus": 0, "review": 0, "defer": 0}
     assert payload["review_items"]
     assert payload["next_actions"]
-    assert payload["next_actions"][0]["id"] in {"repair_artifacts", "inspect_health"}
+    assert payload["next_actions"][0]["id"] == "akshare_trial_dry_run"
     assert payload["access_issues"]
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
+def test_local_api_daily_brief_prefers_trial_dry_run_actions_for_sample_sources() -> None:
+    actions = build_daily_brief_next_actions(
+        data_status={
+            "data_source": "sample",
+            "freshness": {"status": "fresh", "message": "样例数据日期仅用于链路验证。"},
+        },
+        acceptance={"passed": True, "failed_count": 0},
+        artifact_status={"status": "complete", "missing": []},
+        fund_source={"source_kind": "sample"},
+        issues=[],
+    )
+
+    action_by_id = {action["id"]: action for action in actions}
+    assert action_by_id["akshare_trial_dry_run"]["task"] == "akshare_trial_dry_run"
+    assert action_by_id["fund_trial_dry_run"]["task"] == "fund_trial_dry_run"
+    assert "fund_trial" not in action_by_id
 
 
 def test_local_api_research_candidates_artifact_reads_historical_review(
