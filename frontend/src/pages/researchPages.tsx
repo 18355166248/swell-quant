@@ -2538,6 +2538,7 @@ export function ReportsPage({
       qualityIssues,
     });
   const briefNextActions = dailyBrief?.next_actions ?? [];
+  const briefTrials = dailyBrief?.trials;
 
   return (
     <>
@@ -2593,6 +2594,26 @@ export function ReportsPage({
             </Card>
           </Col>
         </Row>
+        {briefTrials ? (
+          <>
+            <Divider />
+            <Title level={5}>试跑状态</Title>
+            <Space wrap>
+              <Tag color={preflightStatusColor(briefTrials.akshare?.status)}>
+                股票：{briefTrials.akshare?.status ?? "missing"}
+              </Tag>
+              <Text type="secondary">
+                {briefTrials.akshare?.real_data_verified ? "股票真实数据已验证" : "股票真实数据未验证"}
+              </Text>
+              <Tag color={preflightStatusColor(briefTrials.fund?.status)}>
+                基金：{briefTrials.fund?.status ?? "missing"}
+              </Tag>
+              <Text type="secondary">
+                {briefTrials.fund?.real_data_verified ? "基金真实数据已验证" : "基金真实数据未验证"}
+              </Text>
+            </Space>
+          </>
+        ) : null}
         <Divider />
         {briefNextActions.length > 0 ? (
           <>

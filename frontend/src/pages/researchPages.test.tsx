@@ -931,8 +931,22 @@ describe("research pages module", () => {
             optional_missing: [],
           },
           trials: {
-            akshare: null,
-            fund: null,
+            akshare: {
+              status: "dry_run",
+              passed: true,
+              trial_kind: "dry_run",
+              real_data_verified: false,
+              artifact_path: "data/reports/akshare_trial_run.json",
+              steps: [],
+            },
+            fund: {
+              status: "passed",
+              passed: true,
+              trial_kind: "real_data",
+              real_data_verified: true,
+              artifact_path: "data/reports/fund_trial_run.json",
+              steps: [],
+            },
           },
           review_items: ["API 简报复核项", "基金页当前使用样例数据"],
           next_actions: [
@@ -960,6 +974,11 @@ describe("research pages module", () => {
     expect(html).toContain("股票研究候选");
     expect(html).toContain("基金研究候选");
     expect(html).toContain("今日复核重点");
+    expect(html).toContain("试跑状态");
+    expect(html).toContain("股票：dry_run");
+    expect(html).toContain("股票真实数据未验证");
+    expect(html).toContain("基金：passed");
+    expect(html).toContain("基金真实数据已验证");
     expect(html).toContain("沪深300样例");
     expect(html).toContain("沪深300ETF样例");
     expect(html).toContain("partial");
