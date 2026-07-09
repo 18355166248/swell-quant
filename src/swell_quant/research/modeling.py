@@ -7,6 +7,7 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import date
+from math import sqrt
 from pathlib import Path
 from typing import Any
 
@@ -294,6 +295,107 @@ def build_time_series_evaluation_split(
     }
 
 
+def build_rank_signal_metrics(
+    scored_by_date: dict[date, list[tuple[float, float]]],
+    quantile_fraction: float = 1.0 / 3.0,
+) -> dict[str, float | int | None]:
+    """基于每日截面的 (预测分数, 超额收益) 计算信号质量指标。
+
+    - IC：分数与未来超额收益的皮尔逊相关（逐日再取均值）。
+    - RankIC：秩相关，抗异常值，衡量排序方向是否稳定。
+    - IC_IR：IC 均值 / IC 标准差，衡量信号跨期稳定性。
+    - long_short_spread：高分组与低分组的平均超额收益之差。
+    指标只解释历史信号的排序能力，不构成投资建议。
+    """
+    daily_ic: list[float] = []
+    daily_rank_ic: list[float] = []
+    daily_spread: list[float] = []
+    for _trade_date, rows in sorted(scored_by_date.items()):
+        if len(rows) < 2:
+            continue
+        scores = [score for score, _excess in rows]
+        excess = [value for _score, value in rows]
+        ic = _pearson_correlation(scores, excess)
+        if ic is not None:
+            daily_ic.append(ic)
+        rank_ic = _pearson_correlation(_average_ranks(scores), _average_ranks(excess))
+        if rank_ic is not None:
+            daily_rank_ic.append(rank_ic)
+        spread = _long_short_spread(rows, quantile_fraction)
+        if spread is not None:
+            daily_spread.append(spread)
+
+    return {
+        "ic_date_count": len(daily_ic),
+        "ic_mean": _round_optional(_mean(daily_ic)),
+        "rank_ic_mean": _round_optional(_mean(daily_rank_ic)),
+        "ic_ir": _round_optional(_information_ratio(daily_ic)),
+        "rank_ic_positive_rate": _round_optional(
+            sum(1 for value in daily_rank_ic if value > 0) / len(daily_rank_ic)
+            if daily_rank_ic
+            else None
+        ),
+        "long_short_spread": _round_optional(_mean(daily_spread)),
+    }
+
+
+def _long_short_spread(rows: list[tuple[float, float]], quantile_fraction: float) -> float | None:
+    if len(rows) < 2:
+        return None
+    ordered = sorted(rows, key=lambda item: item[0], reverse=True)
+    group_size = max(1, int(len(ordered) * quantile_fraction))
+    # 高低分组各取截面的一端，group_size <= n//3 时两端不重叠，避免同一标的同时进多空组。
+    top_excess = [excess for _score, excess in ordered[:group_size]]
+    bottom_excess = [excess for _score, excess in ordered[-group_size:]]
+    return _mean(top_excess) - _mean(bottom_excess)
+
+
+def _pearson_correlation(xs: list[float], ys: list[float]) -> float | None:
+    if len(xs) != len(ys) or len(xs) < 2:
+        return None
+    mean_x = sum(xs) / len(xs)
+    mean_y = sum(ys) / len(ys)
+    covariance = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
+    variance_x = sum((x - mean_x) ** 2 for x in xs)
+    variance_y = sum((y - mean_y) ** 2 for y in ys)
+    if variance_x <= 0 or variance_y <= 0:
+        return None
+    return covariance / sqrt(variance_x * variance_y)
+
+
+def _average_ranks(values: list[float]) -> list[float]:
+    order = sorted(range(len(values)), key=lambda index: values[index])
+    ranks = [0.0] * len(values)
+    position = 0
+    while position < len(order):
+        end = position
+        while end + 1 < len(order) and values[order[end + 1]] == values[order[position]]:
+            end += 1
+        average_rank = (position + end) / 2.0 + 1.0
+        for index in range(position, end + 1):
+            ranks[order[index]] = average_rank
+        position = end + 1
+    return ranks
+
+
+def _information_ratio(values: list[float]) -> float | None:
+    if len(values) < 2:
+        return None
+    mean_value = sum(values) / len(values)
+    variance = sum((value - mean_value) ** 2 for value in values) / (len(values) - 1)
+    if variance <= 0:
+        return None
+    return mean_value / sqrt(variance)
+
+
+def _mean(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _round_optional(value: float | None, digits: int = 6) -> float | None:
+    return None if value is None else round(value, digits)
+
+
 def build_baseline_evaluation_metrics(
     features: list[FeatureRow],
     labels: list[LabelRow],
@@ -330,6 +432,7 @@ def build_baseline_evaluation_metrics(
     top1_total = 0
     top3_hits = 0
     top3_total = 0
+    scored_by_date: dict[date, list[tuple[float, float]]] = {}
     for trade_date, rows in sorted(features_by_date.items()):
         scored = [
             (row, _score_feature_row(row))
@@ -347,6 +450,10 @@ def build_baseline_evaluation_metrics(
         for row, _score in scored[:3]:
             top3_total += 1
             top3_hits += int(bool(label_by_key[(row.symbol, trade_date)].outperform_benchmark_5d))
+        scored_by_date[trade_date] = [
+            (score, _label_excess_return(label_by_key[(row.symbol, trade_date)]))
+            for row, score in scored
+        ]
 
     metrics.update(
         {
@@ -355,6 +462,7 @@ def build_baseline_evaluation_metrics(
             "top3_outperform_rate": round(top3_hits / top3_total, 6) if top3_total else None,
         }
     )
+    metrics.update(build_rank_signal_metrics(scored_by_date))
     return metrics
 
 
@@ -381,6 +489,7 @@ def build_lightgbm_evaluation_metrics(
     top1_total = 0
     top3_hits = 0
     top3_total = 0
+    scored_by_date: dict[date, list[tuple[float, float]]] = {}
     for trade_date, scored_rows in sorted(rows_by_date.items()):
         scored_rows.sort(key=lambda item: (-item[1], item[0].symbol))
         top1_total += 1
@@ -388,6 +497,9 @@ def build_lightgbm_evaluation_metrics(
         for row, _score in scored_rows[:3]:
             top3_total += 1
             top3_hits += int(bool(row.outperform_benchmark_5d))
+        scored_by_date[trade_date] = [
+            (score, row.future_5d_return - row.benchmark_5d_return) for row, score in scored_rows
+        ]
 
     metrics.update(
         {
@@ -395,7 +507,14 @@ def build_lightgbm_evaluation_metrics(
             "top3_outperform_rate": round(top3_hits / top3_total, 6) if top3_total else None,
         }
     )
+    metrics.update(build_rank_signal_metrics(scored_by_date))
     return metrics
+
+
+def _label_excess_return(label: LabelRow) -> float:
+    future = label.future_5d_return or 0.0
+    benchmark = label.benchmark_5d_return or 0.0
+    return future - benchmark
 
 
 def build_baseline_feature_importance() -> list[dict[str, float | int | str]]:

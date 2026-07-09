@@ -10,6 +10,7 @@ from swell_quant.research.labels import compute_labels
 from swell_quant.research.modeling import (
     BASELINE_MODEL_VERSION,
     LIGHTGBM_MODEL_VERSION,
+    build_rank_signal_metrics,
     build_training_samples,
     generate_historical_predictions,
     generate_predictions,
@@ -183,6 +184,66 @@ def test_generate_historical_predictions_skips_rows_without_lookback() -> None:
 
     assert {row.trade_date.isoformat() for row in predictions} == {"2024-01-07", "2024-01-08"}
     assert len(predictions) == 6
+
+
+def test_rank_signal_metrics_reward_correct_ordering() -> None:
+    from datetime import date
+
+    scored_by_date = {
+        date(2024, 1, 1): [(3.0, 0.03), (2.0, 0.02), (1.0, 0.01)],
+        date(2024, 1, 2): [(3.0, 0.06), (2.0, 0.04), (1.0, 0.02)],
+    }
+
+    metrics = build_rank_signal_metrics(scored_by_date)
+
+    # 分数与超额收益完全同序：IC 和 RankIC 应为满分正相关。
+    assert metrics["ic_date_count"] == 2
+    assert metrics["ic_mean"] == pytest.approx(1.0)
+    assert metrics["rank_ic_mean"] == pytest.approx(1.0)
+    assert metrics["rank_ic_positive_rate"] == pytest.approx(1.0)
+    # 高分组超额减低分组超额，逐日 0.02 与 0.04 取均值。
+    assert metrics["long_short_spread"] == pytest.approx(0.03)
+
+
+def test_rank_signal_metrics_penalize_inverse_ordering() -> None:
+    from datetime import date
+
+    scored_by_date = {date(2024, 1, 1): [(3.0, 0.01), (2.0, 0.02), (1.0, 0.03)]}
+
+    metrics = build_rank_signal_metrics(scored_by_date)
+
+    assert metrics["ic_mean"] == pytest.approx(-1.0)
+    assert metrics["rank_ic_mean"] == pytest.approx(-1.0)
+    assert metrics["rank_ic_positive_rate"] == pytest.approx(0.0)
+    assert metrics["long_short_spread"] == pytest.approx(-0.02)
+
+
+def test_rank_signal_metrics_skip_uncorrelatable_dates() -> None:
+    from datetime import date
+
+    # 单标的日期无法算截面相关，零方差分数也不产生 IC。
+    scored_by_date = {
+        date(2024, 1, 1): [(1.0, 0.5)],
+        date(2024, 1, 2): [(2.0, 0.01), (2.0, 0.02), (2.0, 0.03)],
+    }
+
+    metrics = build_rank_signal_metrics(scored_by_date)
+
+    assert metrics["ic_date_count"] == 0
+    assert metrics["ic_mean"] is None
+    assert metrics["ic_ir"] is None
+    assert metrics["rank_ic_positive_rate"] is None
+
+
+def test_baseline_metadata_reports_signal_metrics() -> None:
+    bars = generate_sample_bars(days=40)
+    metadata = train_baseline_model(compute_features(bars), compute_labels(bars))
+
+    assert metadata.metrics is not None
+    if metadata.evaluation_status == "ready":
+        assert "ic_mean" in metadata.metrics
+        assert "rank_ic_mean" in metadata.metrics
+        assert "long_short_spread" in metadata.metrics
 
 
 def test_feature_csv_read_round_trip(tmp_path: Path) -> None:

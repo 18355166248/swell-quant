@@ -130,6 +130,26 @@ const ROADMAP_STATUS_META: Record<
   planned: { color: "default", label: "规划中" },
 };
 
+// 评估指标的中文标签；未列出的指标 key 原样展示。
+const METRIC_LABELS: Record<string, string> = {
+  positive_rate: "跑赢占比",
+  evaluation_status: "评估状态",
+  test_prediction_dates: "测试预测日数",
+  top1_outperform_rate: "Top1 跑赢率",
+  top3_outperform_rate: "Top3 跑赢率",
+  labeled_row_count: "标注样本数",
+  training_row_count: "训练样本数",
+  validation_row_count: "验证样本数",
+  test_row_count: "测试样本数",
+  evaluation_date_count: "评估日数",
+  ic_date_count: "IC 有效日数",
+  ic_mean: "IC 均值",
+  rank_ic_mean: "RankIC 均值",
+  ic_ir: "IC 信息比 (IC_IR)",
+  rank_ic_positive_rate: "RankIC 为正占比",
+  long_short_spread: "多空分层超额",
+};
+
 function buildResearchRoadmap(progress?: ProjectProgress): ResearchRoadmapItem[] {
   const akshareTrialVerified = progress?.akshare_trial?.real_data_verified === true;
   const allStagesComplete = progress?.status === "complete";
@@ -1297,7 +1317,7 @@ export function ModelsPage({
     index: index + 1,
   })) ?? [];
   const metricRows = Object.entries(model?.metrics ?? {}).map(([name, value]) => ({
-    name,
+    name: METRIC_LABELS[name] ?? name,
     value: typeof value === "number" ? formatNumber(value) : (value ?? "-"),
   }));
   const importanceRows = model?.feature_importance ?? [];
