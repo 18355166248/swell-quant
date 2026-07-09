@@ -216,6 +216,7 @@ def train_baseline_model(
 
     split = build_time_series_evaluation_split(usable_dates)
     metrics = build_baseline_evaluation_metrics(features, usable_labels, split)
+    metrics.update(build_walk_forward_metrics(features, usable_labels))
     lightgbm_available = is_lightgbm_available()
     dependency_status = "lightgbm_available" if lightgbm_available else "lightgbm_missing"
     normalized_requested_type = requested_model_type.strip().lower() or DEFAULT_MODEL_TYPE
@@ -394,6 +395,122 @@ def _mean(values: list[float]) -> float | None:
 
 def _round_optional(value: float | None, digits: int = 6) -> float | None:
     return None if value is None else round(value, digits)
+
+
+def build_walk_forward_folds(
+    usable_dates: list[date],
+    *,
+    label_gap_days: int = 5,
+    min_train_dates: int = 3,
+    test_size: int = 1,
+) -> list[dict[str, Any]]:
+    """构建扩张窗口 walk-forward 折。
+
+    训练窗从 min_train_dates 起随时间增长，测试窗在保留 label_gap_days 标签间隔后向前滚动，
+    相邻折的测试日不重叠。规则基线不需要按折重训，这里的折用于把离线评估从单一测试日
+    扩展到滚动样本外时间线。
+    """
+    folds: list[dict[str, Any]] = []
+    total = len(usable_dates)
+    train_end = min_train_dates  # exclusive index into usable_dates
+    while True:
+        test_start = train_end + label_gap_days
+        if test_start >= total:
+            break
+        test_end = min(test_start + test_size, total)
+        folds.append(
+            {
+                "train_start": usable_dates[0],
+                "train_end": usable_dates[train_end - 1],
+                "test_dates": usable_dates[test_start:test_end],
+            }
+        )
+        train_end += test_size
+    return folds
+
+
+def build_walk_forward_metrics(
+    features: list[FeatureRow],
+    labels: list[LabelRow],
+    *,
+    label_gap_days: int = 5,
+    min_train_dates: int = 3,
+    test_size: int = 1,
+) -> dict[str, float | int | str | None]:
+    """在滚动样本外时间线上评估固定规则信号，比单一测试日更能反映信号稳定性。"""
+    usable_labels = [
+        label
+        for label in labels
+        if label.future_5d_return is not None
+        and label.benchmark_5d_return is not None
+        and label.outperform_benchmark_5d is not None
+    ]
+    usable_dates = sorted({label.trade_date for label in usable_labels})
+    folds = build_walk_forward_folds(
+        usable_dates,
+        label_gap_days=label_gap_days,
+        min_train_dates=min_train_dates,
+        test_size=test_size,
+    )
+    if not folds:
+        return {
+            "walk_forward_status": "skipped_insufficient_history",
+            "walk_forward_fold_count": 0,
+            "walk_forward_test_date_count": 0,
+        }
+
+    label_by_key = {(label.symbol, label.trade_date): label for label in usable_labels}
+    test_dates = {trade_date for fold in folds for trade_date in fold["test_dates"]}
+    features_by_date: dict[date, list[FeatureRow]] = defaultdict(list)
+    for row in features:
+        if row.trade_date in test_dates:
+            features_by_date[row.trade_date].append(row)
+
+    scored_by_date: dict[date, list[tuple[float, float]]] = {}
+    top1_hits = 0
+    top1_total = 0
+    top3_hits = 0
+    top3_total = 0
+    for trade_date in sorted(features_by_date):
+        scored = [
+            (row, _score_feature_row(row))
+            for row in features_by_date[trade_date]
+            if row.momentum_5d is not None
+            and row.return_1d is not None
+            and (row.symbol, trade_date) in label_by_key
+        ]
+        if not scored:
+            continue
+        scored.sort(key=lambda item: (-item[1], item[0].symbol))
+        top1_total += 1
+        top1_hits += int(
+            bool(label_by_key[(scored[0][0].symbol, trade_date)].outperform_benchmark_5d)
+        )
+        for row, _score in scored[:3]:
+            top3_total += 1
+            top3_hits += int(bool(label_by_key[(row.symbol, trade_date)].outperform_benchmark_5d))
+        scored_by_date[trade_date] = [
+            (score, _label_excess_return(label_by_key[(row.symbol, trade_date)]))
+            for row, score in scored
+        ]
+
+    signal = build_rank_signal_metrics(scored_by_date)
+    return {
+        "walk_forward_status": "ready",
+        "walk_forward_fold_count": len(folds),
+        "walk_forward_test_date_count": top1_total,
+        "walk_forward_top1_outperform_rate": round(top1_hits / top1_total, 6)
+        if top1_total
+        else None,
+        "walk_forward_top3_outperform_rate": round(top3_hits / top3_total, 6)
+        if top3_total
+        else None,
+        "walk_forward_ic_mean": signal["ic_mean"],
+        "walk_forward_rank_ic_mean": signal["rank_ic_mean"],
+        "walk_forward_ic_ir": signal["ic_ir"],
+        "walk_forward_rank_ic_positive_rate": signal["rank_ic_positive_rate"],
+        "walk_forward_long_short_spread": signal["long_short_spread"],
+    }
 
 
 def build_baseline_evaluation_metrics(

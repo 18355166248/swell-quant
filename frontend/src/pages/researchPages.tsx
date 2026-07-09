@@ -148,6 +148,16 @@ const METRIC_LABELS: Record<string, string> = {
   ic_ir: "IC 信息比 (IC_IR)",
   rank_ic_positive_rate: "RankIC 为正占比",
   long_short_spread: "多空分层超额",
+  walk_forward_status: "滚动样本外状态",
+  walk_forward_fold_count: "滚动折数",
+  walk_forward_test_date_count: "滚动样本外测试日数",
+  walk_forward_top1_outperform_rate: "滚动 Top1 跑赢率",
+  walk_forward_top3_outperform_rate: "滚动 Top3 跑赢率",
+  walk_forward_ic_mean: "滚动 IC 均值",
+  walk_forward_rank_ic_mean: "滚动 RankIC 均值",
+  walk_forward_ic_ir: "滚动 IC 信息比",
+  walk_forward_rank_ic_positive_rate: "滚动 RankIC 为正占比",
+  walk_forward_long_short_spread: "滚动多空分层超额",
 };
 
 function buildResearchRoadmap(progress?: ProjectProgress): ResearchRoadmapItem[] {

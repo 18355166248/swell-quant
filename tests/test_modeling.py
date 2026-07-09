@@ -12,6 +12,8 @@ from swell_quant.research.modeling import (
     LIGHTGBM_MODEL_VERSION,
     build_rank_signal_metrics,
     build_training_samples,
+    build_walk_forward_folds,
+    build_walk_forward_metrics,
     generate_historical_predictions,
     generate_predictions,
     read_training_samples_csv,
@@ -233,6 +235,53 @@ def test_rank_signal_metrics_skip_uncorrelatable_dates() -> None:
     assert metrics["ic_mean"] is None
     assert metrics["ic_ir"] is None
     assert metrics["rank_ic_positive_rate"] is None
+
+
+def test_walk_forward_folds_roll_without_overlap() -> None:
+    from datetime import date
+
+    dates = [date(2024, 1, day) for day in range(1, 13)]
+    folds = build_walk_forward_folds(dates, label_gap_days=5, min_train_dates=3, test_size=1)
+
+    # 12 个日期，训练至少 3 天、gap 5 天后开始测试：首个测试日为索引 8。
+    assert len(folds) == 4
+    assert folds[0]["test_dates"] == [date(2024, 1, 9)]
+    assert folds[-1]["test_dates"] == [date(2024, 1, 12)]
+    # 扩张窗口：训练结束日随折递增，测试日不重叠。
+    assert folds[0]["train_end"] == date(2024, 1, 3)
+    assert folds[1]["train_end"] == date(2024, 1, 4)
+    all_test = [day for fold in folds for day in fold["test_dates"]]
+    assert len(all_test) == len(set(all_test))
+
+
+def test_walk_forward_folds_skip_when_history_too_short() -> None:
+    from datetime import date
+
+    dates = [date(2024, 1, day) for day in range(1, 8)]
+    assert build_walk_forward_folds(dates, label_gap_days=5, min_train_dates=3) == []
+
+
+def test_walk_forward_metrics_cover_rolling_out_of_sample() -> None:
+    bars = generate_sample_bars(days=40)
+    features = compute_features(bars)
+    labels = compute_labels(bars)
+
+    metrics = build_walk_forward_metrics(features, labels)
+
+    assert metrics["walk_forward_status"] == "ready"
+    assert metrics["walk_forward_fold_count"] > 0
+    # 滚动样本外应覆盖比单一测试窗更长的时间线。
+    assert metrics["walk_forward_test_date_count"] >= 1
+    assert metrics["walk_forward_ic_mean"] is not None
+    assert metrics["walk_forward_rank_ic_mean"] is not None
+
+
+def test_walk_forward_metrics_report_skip_without_history() -> None:
+    bars = generate_sample_bars(days=8)
+    metrics = build_walk_forward_metrics(compute_features(bars), compute_labels(bars))
+
+    assert metrics["walk_forward_status"] == "skipped_insufficient_history"
+    assert metrics["walk_forward_fold_count"] == 0
 
 
 def test_baseline_metadata_reports_signal_metrics() -> None:
