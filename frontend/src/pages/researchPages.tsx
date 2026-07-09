@@ -2444,6 +2444,10 @@ export function ReportsPage({
   selectedReportId,
   onSelectReport,
   status,
+  dataStatus,
+  researchCandidates,
+  fundCandidates,
+  fundSource,
   qualityIssues,
 }: {
   reports: ReportSummary[];
@@ -2451,6 +2455,10 @@ export function ReportsPage({
   selectedReportId: string;
   onSelectReport: (reportId: string) => void;
   status?: ResearchStatus;
+  dataStatus?: DataStatus;
+  researchCandidates: ResearchCandidate[];
+  fundCandidates: FundCandidate[];
+  fundSource?: FundSourceSummary;
   qualityIssues: DataQualityIssue[];
 }) {
   const riskItems = [
@@ -2467,10 +2475,101 @@ export function ReportsPage({
   const reportBacktest = report?.structured?.backtest;
   const actionSummary = report?.structured?.research_actions?.summary;
   const actionCandidates = report?.structured?.research_actions?.candidates ?? [];
+  const focusCandidates = researchCandidates.filter(
+    (candidate) => candidate.research_action.status === "focus",
+  );
+  const reviewCandidates = researchCandidates.filter(
+    (candidate) => candidate.research_action.status === "review",
+  );
+  const deferCandidates = researchCandidates.filter(
+    (candidate) => candidate.research_action.status === "defer",
+  );
 
   return (
     <>
       <PageTitle title="报告" description="展示离线研究报告和结构化风险提示。" />
+      <Card title="每日研究简报">
+        <Paragraph type="secondary">
+          简报只汇总现有研究产物、门禁和候选分层，不构成投资建议，也不输出买入、卖出、仓位或目标价。
+        </Paragraph>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12} xl={6}>
+            <Card size="small">
+              <Statistic title="数据新鲜度" value={dataStatus?.freshness?.label ?? "待确认"} />
+              <Text type="secondary">{dataStatus?.freshness?.message ?? "-"}</Text>
+            </Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card size="small">
+              <Statistic title="研究动作" value={`${focusCandidates.length}/${reviewCandidates.length}/${deferCandidates.length}`} />
+              <Text type="secondary">可关注 / 需复核 / 暂缓观察</Text>
+            </Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card size="small">
+              <Statistic title="基金候选" value={fundCandidates.length} />
+              <Text type="secondary">{fundSource?.source_label ?? "来源待确认"}</Text>
+            </Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card size="small">
+              <Statistic title="验收门禁" value={status?.acceptance.status ?? "unknown"} />
+              <Text type="secondary">失败项 {status?.acceptance.failed_count ?? 0}</Text>
+            </Card>
+          </Col>
+        </Row>
+        <Divider />
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={8}>
+            <Title level={5}>股票研究候选</Title>
+            {researchCandidates.length > 0 ? (
+              <Space direction="vertical" size={6} className="full-width">
+                {researchCandidates.slice(0, 5).map((candidate) => (
+                  <Text key={`${candidate.rank}-${candidate.symbol}`}>
+                    {candidate.rank}. {candidate.symbol_name || candidate.symbol}：
+                    <Tag color={researchActionColor(candidate.research_action.status)}>
+                      {candidate.research_action.label}
+                    </Tag>
+                  </Text>
+                ))}
+              </Space>
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无股票候选" />
+            )}
+          </Col>
+          <Col xs={24} xl={8}>
+            <Title level={5}>基金研究候选</Title>
+            {fundCandidates.length > 0 ? (
+              <Space direction="vertical" size={6} className="full-width">
+                {fundCandidates.slice(0, 5).map((candidate) => (
+                  <Text key={`${candidate.rank}-${candidate.fund_code}`}>
+                    {candidate.rank}. {candidate.fund_name}：
+                    <Tag color={fundVerificationColor(candidate.verification_status)}>
+                      {candidate.verification_label}
+                    </Tag>
+                  </Text>
+                ))}
+              </Space>
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无基金候选" />
+            )}
+          </Col>
+          <Col xs={24} xl={8}>
+            <Title level={5}>今日复核重点</Title>
+            <Space direction="vertical" size={6} className="full-width">
+              {buildDailyBriefReviewItems({
+                dataStatus,
+                status,
+                researchCandidates,
+                fundSource,
+                qualityIssues,
+              }).map((item) => (
+                <Text type="secondary" key={item}>{item}</Text>
+              ))}
+            </Space>
+          </Col>
+        </Row>
+      </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={6}>
           <Card title="报告列表">
@@ -2742,6 +2841,44 @@ function buildCandidateReviewChecklist(candidate: ResearchCandidate): string[] {
     checklist.push("逐项消除阻塞项后再复核");
   }
   return checklist;
+}
+
+function buildDailyBriefReviewItems({
+  dataStatus,
+  status,
+  researchCandidates,
+  fundSource,
+  qualityIssues,
+}: {
+  dataStatus?: DataStatus;
+  status?: ResearchStatus;
+  researchCandidates: ResearchCandidate[];
+  fundSource?: FundSourceSummary;
+  qualityIssues: DataQualityIssue[];
+}): string[] {
+  const items: string[] = [];
+  if (dataStatus?.freshness?.status === "stale") {
+    items.push(`先更新行情数据：${dataStatus.freshness.message}`);
+  }
+  if (status?.acceptance.passed === false) {
+    items.push(`验收门禁未通过：失败 ${status.acceptance.failed_count} 项`);
+  }
+  if (qualityIssues.length > 0) {
+    items.push(`数据质量问题 ${qualityIssues.length} 个，先复核异常数据`);
+  }
+  const blockedCandidates = researchCandidates.filter(
+    (candidate) => candidate.research_action.blockers.length > 0,
+  );
+  if (blockedCandidates.length > 0) {
+    items.push(`股票候选存在 ${blockedCandidates.length} 个阻塞项，先处理需复核/暂缓观察原因`);
+  }
+  if (fundSource?.source_kind === "sample") {
+    items.push("基金页当前使用样例数据，真实研究前先运行基金真实试跑");
+  }
+  if (items.length === 0) {
+    items.push("当前无明显阻塞项，仍需人工复核研究假设和交易约束");
+  }
+  return items;
 }
 
 function fundVerificationColor(status: FundCandidate["verification_status"]): string {

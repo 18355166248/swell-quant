@@ -484,6 +484,10 @@ function App() {
         selectedReportId={selectedReportId}
         onSelectReport={setSelectedReportId}
         status={status}
+        dataStatus={dataStatusQuery.data}
+        researchCandidates={researchCandidatesQuery.data?.candidates ?? []}
+        fundCandidates={fundCandidatesQuery.data?.candidates ?? []}
+        fundSource={fundCandidatesQuery.data?.source ?? fundsQuery.data?.source}
         qualityIssues={quality?.issues ?? []}
       />
     ),

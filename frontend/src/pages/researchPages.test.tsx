@@ -23,6 +23,7 @@ import type {
   Prediction,
   ProjectProgress,
   ResearchCandidates,
+  ResearchStatus,
 } from "../types/api";
 
 describe("research pages module", () => {
@@ -615,6 +616,237 @@ describe("research pages module", () => {
     expect(html).toContain("买前验证");
     expect(html).toContain("暂不适合决策");
     expect(html).toContain("当前为样例基金数据，不能作为真实申购依据");
+  });
+
+  it("renders daily research brief on the reports page", () => {
+    const status: ResearchStatus = {
+      acceptance: {
+        status: "failed",
+        passed: false,
+        check_count: 2,
+        failed_count: 1,
+        checks: [],
+        disclaimer: "仅用于研究，不构成投资建议",
+      },
+      artifact_status: { status: "complete", missing: [], artifacts: [] },
+      pipeline: {
+        status: "success",
+        started_at: "2026-07-09T00:00:00Z",
+        ended_at: "2026-07-09T00:00:01Z",
+        duration_seconds: 1,
+        step_count: 1,
+      },
+      data_quality: {
+        passed: true,
+        row_count: 10,
+        symbol_count: 1,
+        start_date: "2024-01-02",
+        end_date: "2024-01-31",
+        issue_count: 1,
+      },
+      data_source: null,
+      model: {
+        model_version: "baseline-rule-v1",
+        model_type: "baseline",
+        requested_model_type: "baseline",
+        training_backend: "rule",
+        dependency_status: "available",
+        model_artifact_path: null,
+        feature_importance: [],
+        train_start: "2024-01-02",
+        train_end: "2024-01-31",
+        prediction_date: "2024-01-31",
+        feature_names: [],
+        label_gap_days: 5,
+        evaluation_status: "ready",
+        evaluation_train_start: "2024-01-02",
+        evaluation_train_end: "2024-01-20",
+        validation_start: "2024-01-21",
+        validation_end: "2024-01-25",
+        test_start: "2024-01-26",
+        test_end: "2024-01-31",
+        metrics: {},
+      },
+      training_samples: {
+        status: "ready",
+        row_count: 10,
+        symbol_count: 1,
+        split_counts: { train: 6, validation: 2, test: 2 },
+        positive_count: 5,
+        negative_count: 5,
+        positive_rate: 0.5,
+        start_date: "2024-01-02",
+        end_date: "2024-01-31",
+        missing_feature_counts: {},
+      },
+      predictions: { count: 1, top: [] },
+      backtest: {
+        backtest_id: "sample-topn-baseline",
+        top_n: 2,
+        trade_count: 2,
+        fee_rate: 0.0003,
+        slippage_rate: 0.0005,
+        cumulative_return: 0.01,
+        annualized_return: 0.08,
+        benchmark_return: 0.005,
+        excess_return: 0.005,
+        max_drawdown: -0.01,
+        sharpe_ratio: 1,
+        win_rate: 0.5,
+        turnover_rate: 0.2,
+        start_date: "2024-01-02",
+        end_date: "2024-01-31",
+        disclaimer: "仅用于研究，不构成投资建议",
+      },
+      artifacts: {
+        data_quality: "data/processed/data_quality.json",
+        model: "data/models/latest_model.json",
+        training_samples: "data/processed/training_samples.csv",
+        latest_predictions: "data/processed/latest_predictions.csv",
+        historical_predictions: "data/processed/historical_predictions.csv",
+        duckdb: "data/duckdb/swell_quant.duckdb",
+        backtest: "data/reports/sample_backtest.json",
+        summary: "data/reports/sample_research_summary.md",
+        pipeline_run: "data/reports/pipeline_run.json",
+      },
+      disclaimer: "仅用于研究，不构成投资建议",
+    };
+    const dataStatus: DataStatus = {
+      data_source_status: "passed",
+      data_source_passed: true,
+      data_source_warning_count: 0,
+      data_source_warnings: [],
+      data_source_failed_count: 0,
+      data_source_failures: [],
+      data_source: "sample",
+      market: "A_SHARE_DAILY",
+      universe: "sample",
+      universe_mode: "sample",
+      universe_name: "样例",
+      symbols: ["000300.SH"],
+      selected_symbol_count: 1,
+      resolved_symbol_count: 1,
+      max_symbols: null,
+      succeeded_symbols: ["000300.SH"],
+      succeeded_symbol_count: 1,
+      failed_symbols: [],
+      failed_symbol_count: 0,
+      target_universe: "沪深 300 + 中证 500",
+      target_universe_size: 800,
+      benchmark: "sh000906",
+      benchmark_name: "中证 800",
+      benchmark_fallback: "CSI300",
+      benchmark_same_source: true,
+      benchmark_note: "同源说明",
+      adjustment: "forward_adjusted_daily",
+      update_mode: "manual_trigger",
+      configured_start_date: "20240102",
+      configured_end_date: "20240131",
+      source_updated_at: "2024-01-31T00:00:00Z",
+      row_count: 10,
+      symbol_count: 1,
+      start_date: "2024-01-02",
+      end_date: "2024-01-31",
+      freshness: {
+        status: "stale",
+        label: "数据过期",
+        as_of_date: "2024-01-31",
+        today: "2026-07-09",
+        lag_days: 890,
+        message: "最新数据到 2024-01-31，距今天 890 天。",
+      },
+      quality_passed: true,
+      issue_count: 1,
+      disclaimer: "仅用于研究，不构成投资建议",
+    };
+    const html = renderToStaticMarkup(
+      <ReportsPage
+        reports={[]}
+        selectedReportId="sample"
+        onSelectReport={() => undefined}
+        status={status}
+        dataStatus={dataStatus}
+        researchCandidates={[
+          {
+            rank: 1,
+            symbol: "000300.SH",
+            symbol_name: "沪深300样例",
+            date: "2024-01-31",
+            model_version: "baseline-rule-v1",
+            score: 0.8,
+            confidence: 1,
+            confidence_level: "high",
+            factors: [],
+            risk_hints: [],
+            history: {
+              sample_count: 1,
+              outperform_count: 1,
+              outperform_rate: 1,
+              average_future_5d_return: 0.01,
+              best_future_5d_return: 0.01,
+              worst_future_5d_return: 0.01,
+              latest_signal_date: "2024-01-20",
+              note: "历史回看",
+            },
+            research_action: {
+              status: "focus",
+              label: "可关注",
+              reasons: ["模型分数处于当日高相对位置"],
+              blockers: [],
+            },
+            research_notes: [],
+          },
+        ]}
+        fundCandidates={[
+          {
+            rank: 1,
+            fund_code: "510300",
+            fund_name: "沪深300ETF样例",
+            fund_type: "宽基指数",
+            profile: "balanced",
+            score: 0.8,
+            score_level: "high",
+            factor_reasons: [],
+            risk_notes: [],
+            verification_status: "block",
+            verification_label: "暂不适合决策",
+            verification_checks: [],
+            verification_blockers: ["样例数据"],
+          },
+        ]}
+        fundSource={{
+          source_kind: "sample",
+          source_label: "本地样例基金数据",
+          metrics_path: "data/processed/sample_fund_metrics.csv",
+          candidates_path: "data/processed/sample_fund_candidates_balanced.csv",
+          nav_path: "data/raw/sample_fund_nav.csv",
+          warning: "样例",
+          fund_count: 1,
+          latest_nav_date: "2024-12-31",
+          freshness: {
+            status: "stale",
+            label: "数据过期",
+            as_of_date: "2024-12-31",
+            today: "2026-07-09",
+            lag_days: 555,
+            message: "最新数据到 2024-12-31，距今天 555 天。",
+          },
+        }}
+        qualityIssues={[
+          { code: "missing", severity: "warning", message: "缺失价格", symbol: "000300.SH", date: "2024-01-03" },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("每日研究简报");
+    expect(html).toContain("不输出买入、卖出、仓位或目标价");
+    expect(html).toContain("股票研究候选");
+    expect(html).toContain("基金研究候选");
+    expect(html).toContain("今日复核重点");
+    expect(html).toContain("沪深300样例");
+    expect(html).toContain("沪深300ETF样例");
+    expect(html).toContain("先更新行情数据");
+    expect(html).toContain("基金页当前使用样例数据");
   });
 
   it("shows API key configuration status without rendering secret values", () => {
