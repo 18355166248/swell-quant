@@ -17,6 +17,7 @@ import {
   Timeline,
   Typography,
 } from "antd";
+import { useMemo, useState } from "react";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -1909,9 +1910,18 @@ export function FundsPage({
     label: `${fund.fund_code} ${fund.fund_name}`,
     value: fund.fund_code,
   }));
+  const [comparisonFundCodes, setComparisonFundCodes] = useState<string[]>([]);
+  const defaultComparisonCodes = useMemo(
+    () => funds.slice(0, Math.min(3, funds.length)).map((fund) => fund.fund_code),
+    [funds],
+  );
+  const effectiveComparisonCodes =
+    comparisonFundCodes.length > 0 ? comparisonFundCodes : defaultComparisonCodes;
+  const comparisonRows = funds.filter((fund) => effectiveComparisonCodes.includes(fund.fund_code));
   const selectedCandidate = candidates.find((candidate) => candidate.fund_code === selectedFundCode);
   const navRows = fundNav?.nav ?? [];
   const navChartOption = buildFundNavOption(navRows);
+  const comparisonChartOption = buildFundComparisonOption(comparisonRows);
   return (
     <>
       <PageTitle
@@ -1975,6 +1985,46 @@ export function FundsPage({
           <Tag color={source?.source_kind === "real_data" ? "green" : "orange"}>
             {source?.source_label ?? "数据来源待确认"}
           </Tag>
+        </Space>
+      </Card>
+      <Card title="基金对比">
+        <Space direction="vertical" size={12} className="full-width">
+          <Space wrap>
+            <Select
+              mode="multiple"
+              value={effectiveComparisonCodes}
+              onChange={(values) => setComparisonFundCodes(values.slice(0, 5))}
+              options={fundOptions}
+              optionFilterProp="label"
+              maxTagCount="responsive"
+              className="fund-compare-select"
+            />
+            <Tag color="blue">最多对比 5 只，仍只用于研究筛选</Tag>
+          </Space>
+          {comparisonRows.length > 0 ? (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} xl={14}>
+                <ReactECharts option={comparisonChartOption} style={{ height: 320 }} />
+              </Col>
+              <Col xs={24} xl={10}>
+                <Table<FundSummary>
+                  rowKey={(row) => row.fund_code}
+                  size="small"
+                  pagination={false}
+                  dataSource={comparisonRows}
+                  columns={[
+                    { title: "基金", dataIndex: "fund_name" },
+                    { title: "近1年", dataIndex: "return_1y", align: "right", render: formatPercent },
+                    { title: "最大回撤", dataIndex: "max_drawdown", align: "right", render: formatPercent },
+                    { title: "波动率", dataIndex: "volatility", align: "right", render: formatPercent },
+                    { title: "总费率", dataIndex: "total_fee", align: "right", render: formatPercent },
+                  ]}
+                />
+              </Col>
+            </Row>
+          ) : (
+            <Empty description="请选择基金进行对比" />
+          )}
         </Space>
       </Card>
       <Card title="候选基金清单">
@@ -2490,6 +2540,48 @@ function buildFundNavOption(rows: FundNavPoint[]) {
         showSymbol: false,
         smooth: true,
         data: rows.map((row) => row.nav),
+      },
+    ],
+  };
+}
+
+function buildFundComparisonOption(rows: FundSummary[]) {
+  const names = rows.map((row) => row.fund_name);
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 48, right: 24, top: 48, bottom: 56 },
+    xAxis: {
+      type: "category",
+      data: names,
+      axisLabel: { interval: 0, rotate: names.length > 3 ? 25 : 0 },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => `${(value * 100).toFixed(0)}%`,
+      },
+    },
+    series: [
+      {
+        name: "近1年",
+        type: "bar",
+        data: rows.map((row) => row.return_1y),
+      },
+      {
+        name: "最大回撤",
+        type: "bar",
+        data: rows.map((row) => row.max_drawdown),
+      },
+      {
+        name: "波动率",
+        type: "bar",
+        data: rows.map((row) => row.volatility),
+      },
+      {
+        name: "总费率",
+        type: "bar",
+        data: rows.map((row) => row.total_fee),
       },
     ],
   };

@@ -482,6 +482,8 @@ describe("research pages module", () => {
     );
 
     expect(html).toContain("基金");
+    expect(html).toContain("基金对比");
+    expect(html).toContain("最多对比 5 只");
     expect(html).toContain("候选基金清单");
     expect(html).toContain("基金详情");
     expect(html).toContain("净值走势");

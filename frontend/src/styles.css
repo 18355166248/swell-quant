@@ -136,6 +136,11 @@ body,
   width: 180px;
 }
 
+.fund-compare-select {
+  min-width: 320px;
+  max-width: min(560px, 100%);
+}
+
 .date-filter,
 .model-filter {
   width: 190px;
