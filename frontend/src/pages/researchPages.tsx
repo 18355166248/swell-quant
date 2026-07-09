@@ -67,6 +67,8 @@ import type {
   DuckDBStorageStatus,
   FeatureSummary,
   FundCandidate,
+  FundNav,
+  FundNavPoint,
   FundSourceSummary,
   FundSummary,
   FundTrialRun,
@@ -1884,17 +1886,32 @@ export function FundsPage({
   funds,
   candidates,
   source,
+  selectedFundCode,
+  fundDetail,
+  fundNav,
   profile,
   onProfileChange,
+  onFundSelect,
   disclaimer,
 }: {
   funds: FundSummary[];
   candidates: FundCandidate[];
   source?: FundSourceSummary;
+  selectedFundCode: string;
+  fundDetail?: FundSummary;
+  fundNav?: FundNav;
   profile: "conservative" | "balanced" | "aggressive";
   onProfileChange: (profile: "conservative" | "balanced" | "aggressive") => void;
+  onFundSelect: (fundCode: string) => void;
   disclaimer?: string;
 }) {
+  const fundOptions = funds.map((fund) => ({
+    label: `${fund.fund_code} ${fund.fund_name}`,
+    value: fund.fund_code,
+  }));
+  const selectedCandidate = candidates.find((candidate) => candidate.fund_code === selectedFundCode);
+  const navRows = fundNav?.nav ?? [];
+  const navChartOption = buildFundNavOption(navRows);
   return (
     <>
       <PageTitle
@@ -1966,6 +1983,12 @@ export function FundsPage({
           size="middle"
           dataSource={candidates}
           pagination={false}
+          onRow={(record) => ({
+            onClick: () => onFundSelect(record.fund_code),
+          })}
+          rowClassName={(record) =>
+            record.fund_code === selectedFundCode ? "selected-table-row" : ""
+          }
           columns={[
             { title: "排名", dataIndex: "rank", width: 80 },
             { title: "基金代码", dataIndex: "fund_code", width: 110 },
@@ -2039,6 +2062,78 @@ export function FundsPage({
             },
           ]}
         />
+      </Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={9}>
+          <Card title="基金详情">
+            <Space direction="vertical" size={12} className="full-width">
+              <Select
+                showSearch
+                value={selectedFundCode}
+                onChange={onFundSelect}
+                options={fundOptions}
+                optionFilterProp="label"
+                className="full-width"
+              />
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="基金名称">{fundDetail?.fund_name ?? "-"}</Descriptions.Item>
+                <Descriptions.Item label="类型">{fundDetail?.fund_type ?? "-"}</Descriptions.Item>
+                <Descriptions.Item label="管理人">{fundDetail?.manager ?? "-"}</Descriptions.Item>
+                <Descriptions.Item label="成立日期">{fundDetail?.inception_date ?? "-"}</Descriptions.Item>
+                <Descriptions.Item label="规模(亿)">
+                  {formatNumber(fundDetail?.aum_billion)}
+                </Descriptions.Item>
+                <Descriptions.Item label="近1年">{formatPercent(fundDetail?.return_1y)}</Descriptions.Item>
+                <Descriptions.Item label="近6月">{formatPercent(fundDetail?.return_6m)}</Descriptions.Item>
+                <Descriptions.Item label="最大回撤">
+                  {formatPercent(fundDetail?.max_drawdown)}
+                </Descriptions.Item>
+                <Descriptions.Item label="波动率">
+                  {formatPercent(fundDetail?.volatility)}
+                </Descriptions.Item>
+                <Descriptions.Item label="总费率">{formatPercent(fundDetail?.total_fee)}</Descriptions.Item>
+              </Descriptions>
+            </Space>
+          </Card>
+        </Col>
+        <Col xs={24} xl={15}>
+          <Card title="净值走势">
+            {navRows.length > 0 ? (
+              <ReactECharts option={navChartOption} style={{ height: 320 }} />
+            ) : (
+              <Empty description="暂无净值数据" />
+            )}
+          </Card>
+        </Col>
+      </Row>
+      <Card title="买前验证明细">
+        {selectedCandidate ? (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={8}>
+              <Tag color={fundVerificationColor(selectedCandidate.verification_status)}>
+                {selectedCandidate.verification_label}
+              </Tag>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Space direction="vertical" size={4}>
+                <Text strong>检查项</Text>
+                {selectedCandidate.verification_checks.map((item) => (
+                  <Text type="secondary" key={item}>{item}</Text>
+                ))}
+              </Space>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Space direction="vertical" size={4}>
+                <Text strong>阻塞项</Text>
+                {selectedCandidate.verification_blockers.map((item) => (
+                  <Text type="danger" key={item}>{item}</Text>
+                ))}
+              </Space>
+            </Col>
+          </Row>
+        ) : (
+          <Empty description="请选择候选基金查看验证明细" />
+        )}
       </Card>
       <Card title="基金池指标">
         <Table<FundSummary>
@@ -2373,6 +2468,31 @@ function freshnessColor(status?: DataFreshness["status"]): string {
     return "red";
   }
   return "default";
+}
+
+function buildFundNavOption(rows: FundNavPoint[]) {
+  return {
+    tooltip: { trigger: "axis" },
+    grid: { left: 48, right: 24, top: 24, bottom: 48 },
+    xAxis: {
+      type: "category",
+      data: rows.map((row) => row.date),
+      axisLabel: { hideOverlap: true },
+    },
+    yAxis: {
+      type: "value",
+      scale: true,
+    },
+    series: [
+      {
+        name: "单位净值",
+        type: "line",
+        showSymbol: false,
+        smooth: true,
+        data: rows.map((row) => row.nav),
+      },
+    ],
+  };
 }
 
 function renderCandidateHistory(row: ResearchCandidate) {

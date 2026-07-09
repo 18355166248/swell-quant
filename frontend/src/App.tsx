@@ -105,6 +105,7 @@ function App() {
   const [selectedBacktestId, setSelectedBacktestId] = useState("sample-topn-baseline");
   const [selectedReportId, setSelectedReportId] = useState("sample-research-summary");
   const [selectedModelVersion, setSelectedModelVersion] = useState("baseline-rule-v1");
+  const [selectedFundCode, setSelectedFundCode] = useState("510300");
   const [fundProfile, setFundProfile] = useState<FundProfile>("balanced");
   const [predictionFilters, setPredictionFilters] = useState<PredictionFilters>({
     date: "",
@@ -211,6 +212,16 @@ function App() {
     queryKey: ["funds", "candidates", fundProfile],
     queryFn: () => api.getFundCandidates(fundProfile),
   });
+  const fundDetailQuery = useQuery({
+    queryKey: ["funds", selectedFundCode, "summary"],
+    queryFn: () => api.getFund(selectedFundCode),
+    enabled: activePage === "funds" && selectedFundCode.length > 0,
+  });
+  const fundNavQuery = useQuery({
+    queryKey: ["funds", selectedFundCode, "nav"],
+    queryFn: () => api.getFundNav(selectedFundCode),
+    enabled: activePage === "funds" && selectedFundCode.length > 0,
+  });
 
   const runPipelineMutation = useMutation({
     mutationFn: api.runTask,
@@ -280,6 +291,12 @@ function App() {
     ];
     return Array.from(new Set(symbols.filter(Boolean)));
   }, [predictions, selectedSymbol, status, stocksQuery.data]);
+  useEffect(() => {
+    const fundCodes = fundsQuery.data?.funds.map((fund) => fund.fund_code) ?? [];
+    if (fundCodes.length > 0 && !fundCodes.includes(selectedFundCode)) {
+      setSelectedFundCode(fundCodes[0]);
+    }
+  }, [fundsQuery.data, selectedFundCode]);
   const backtest = backtestQuery.data;
   const pipeline = pipelineQuery.data;
   const report = reportQuery.data;
@@ -314,6 +331,8 @@ function App() {
     stocksQuery.isLoading ||
     fundsQuery.isLoading ||
     fundCandidatesQuery.isLoading ||
+    (activePage === "funds" && fundDetailQuery.isLoading) ||
+    (activePage === "funds" && fundNavQuery.isLoading) ||
     settingsQuery.isLoading;
   const isStockLoading =
     stockSummaryQuery.isLoading ||
@@ -351,6 +370,8 @@ function App() {
     stocksQuery.isError ||
     fundsQuery.isError ||
     fundCandidatesQuery.isError ||
+    (activePage === "funds" && fundDetailQuery.isError) ||
+    (activePage === "funds" && fundNavQuery.isError) ||
     settingsQuery.isError;
 
   const pageContent = {
@@ -444,8 +465,12 @@ function App() {
         funds={fundsQuery.data?.funds ?? []}
         candidates={fundCandidatesQuery.data?.candidates ?? []}
         source={fundCandidatesQuery.data?.source ?? fundsQuery.data?.source}
+        selectedFundCode={selectedFundCode}
+        fundDetail={fundDetailQuery.data}
+        fundNav={fundNavQuery.data}
         profile={fundProfile}
         onProfileChange={setFundProfile}
+        onFundSelect={setSelectedFundCode}
         disclaimer={fundCandidatesQuery.data?.disclaimer ?? fundsQuery.data?.disclaimer}
       />
     ),

@@ -779,6 +779,7 @@ export interface FundSummary {
   volatility: number;
   downside_volatility: number;
   age_years: number;
+  source?: FundSourceSummary;
   disclaimer?: string;
 }
 

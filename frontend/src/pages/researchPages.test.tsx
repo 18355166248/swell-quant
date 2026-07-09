@@ -391,6 +391,8 @@ describe("research pages module", () => {
       <FundsPage
         profile="balanced"
         onProfileChange={() => undefined}
+        selectedFundCode="510300"
+        onFundSelect={() => undefined}
         disclaimer="仅用于研究，不构成投资建议"
         source={{
           source_kind: "sample",
@@ -409,6 +411,34 @@ describe("research pages module", () => {
             lag_days: 555,
             message: "最新数据到 2024-12-31，距今天 555 天。",
           },
+        }}
+        fundDetail={{
+          fund_code: "510300",
+          fund_name: "沪深300ETF样例",
+          fund_type: "宽基指数",
+          manager: "指数团队",
+          inception_date: "2012-05-04",
+          aum_billion: 620,
+          management_fee: 0.005,
+          custody_fee: 0.001,
+          total_fee: 0.006,
+          return_1m: 0.01,
+          return_3m: 0.03,
+          return_6m: 0.06,
+          return_1y: 0.12,
+          max_drawdown: -0.08,
+          volatility: 0.16,
+          downside_volatility: 0.1,
+          age_years: 12,
+        }}
+        fundNav={{
+          fund_code: "510300",
+          count: 2,
+          nav: [
+            { date: "2024-12-30", nav: 1.01 },
+            { date: "2024-12-31", nav: 1.02 },
+          ],
+          disclaimer: "仅用于研究，不构成投资建议",
         }}
         candidates={[
           {
@@ -453,6 +483,9 @@ describe("research pages module", () => {
 
     expect(html).toContain("基金");
     expect(html).toContain("候选基金清单");
+    expect(html).toContain("基金详情");
+    expect(html).toContain("净值走势");
+    expect(html).toContain("买前验证明细");
     expect(html).toContain("沪深300ETF样例");
     expect(html).toContain("净值波动偏高");
     expect(html).toContain("仅用于研究，不构成投资建议");
