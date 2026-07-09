@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -83,9 +83,21 @@ export function pathForPage(page: PageKey): string {
   return PAGE_ROUTES[page];
 }
 
+export function resetScrollContainer(container: Pick<HTMLElement, "scrollTo" | "scrollTop"> | null) {
+  if (!container) {
+    return;
+  }
+  if (typeof container.scrollTo === "function") {
+    container.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    return;
+  }
+  container.scrollTop = 0;
+}
+
 function App() {
   const queryClient = useQueryClient();
   const [messageApi, contextHolder] = message.useMessage();
+  const contentRef = useRef<HTMLElement | null>(null);
   const [activePage, setActivePage] = useState<PageKey>(() =>
     typeof window === "undefined" ? "dashboard" : pageFromPath(window.location.pathname),
   );
@@ -223,6 +235,11 @@ function App() {
     }
     setActivePage(page);
   };
+
+  useEffect(() => {
+    // 右侧内容区是独立滚动容器；切换菜单时必须复位，避免新页面继承上一页滚动位置。
+    resetScrollContainer(contentRef.current);
+  }, [activePage]);
 
   const status = statusQuery.data;
   const quality = qualityQuery.data;
@@ -485,7 +502,7 @@ function App() {
             运行 pipeline
           </Button>
         </Header>
-        <Content className="content">
+        <Content className="content" ref={contentRef}>
           {hasError ? (
             <Alert
               className="page-alert"
