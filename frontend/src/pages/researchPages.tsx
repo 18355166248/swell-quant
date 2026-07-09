@@ -142,6 +142,8 @@ const METRIC_LABELS: Record<string, string> = {
   validation_row_count: "验证样本数",
   test_row_count: "测试样本数",
   evaluation_date_count: "评估日数",
+  num_boost_round_used: "实际训练轮数",
+  early_stopping_applied: "启用验证集早停",
   ic_date_count: "IC 有效日数",
   ic_mean: "IC 均值",
   rank_ic_mean: "RankIC 均值",
@@ -1328,7 +1330,14 @@ export function ModelsPage({
   })) ?? [];
   const metricRows = Object.entries(model?.metrics ?? {}).map(([name, value]) => ({
     name: METRIC_LABELS[name] ?? name,
-    value: typeof value === "number" ? formatNumber(value) : (value ?? "-"),
+    value:
+      typeof value === "number"
+        ? formatNumber(value)
+        : typeof value === "boolean"
+          ? value
+            ? "是"
+            : "否"
+          : (value ?? "-"),
   }));
   const importanceRows = model?.feature_importance ?? [];
   const splitRows = Object.entries(trainingSamples?.split_counts ?? {}).map(([split, count]) => ({

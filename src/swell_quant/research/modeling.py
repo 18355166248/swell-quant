@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import json
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import date
 from math import sqrt
@@ -49,7 +50,9 @@ LIGHTGBM_TRAINING_PARAMS: dict[str, float | int | str | bool | None] = {
     "learning_rate": 0.05,
     "num_leaves": 7,
     "min_data_in_leaf": 1,
-    "num_boost_round": 20,
+    # num_boost_round 是早停的上限；有验证集时按验证 logloss 早停，没有验证集时才跑满。
+    "num_boost_round": 200,
+    "early_stopping_rounds": 20,
     "seed": 42,
     "deterministic": True,
     "force_col_wise": True,
@@ -141,20 +144,58 @@ def train_lightgbm_model(
     if not train_rows:
         raise ValueError("no training rows available for lightgbm model")
 
+    numpy = importlib.import_module("numpy")
     params = dict(LIGHTGBM_TRAINING_PARAMS)
     num_boost_round = int(params.pop("num_boost_round"))
+    early_stopping_rounds = int(params.pop("early_stopping_rounds"))
     train_set = lightgbm.Dataset(
-        [_feature_vector_from_sample(row) for row in train_rows],
-        label=[row.outperform_benchmark_5d for row in train_rows],
+        numpy.asarray([_feature_vector_from_sample(row) for row in train_rows], dtype=float),
+        label=numpy.asarray([row.outperform_benchmark_5d for row in train_rows], dtype=float),
         feature_name=BASELINE_FEATURE_NAMES,
     )
-    booster = lightgbm.train(params, train_set, num_boost_round=num_boost_round)
+    callbacks = [lightgbm.log_evaluation(0)]
+    valid_sets = None
+    # 有独立验证集时按验证 logloss 早停，避免固定轮数下的过拟合或欠拟合；无验证集只能跑满上限。
+    if validation_rows:
+        valid_sets = [
+            lightgbm.Dataset(
+                numpy.asarray(
+                    [_feature_vector_from_sample(row) for row in validation_rows], dtype=float
+                ),
+                label=numpy.asarray(
+                    [row.outperform_benchmark_5d for row in validation_rows], dtype=float
+                ),
+                reference=train_set,
+                feature_name=BASELINE_FEATURE_NAMES,
+            )
+        ]
+        callbacks.append(lightgbm.early_stopping(early_stopping_rounds, verbose=False))
+    booster = lightgbm.train(
+        params,
+        train_set,
+        num_boost_round=num_boost_round,
+        valid_sets=valid_sets,
+        valid_names=["validation"] if valid_sets else None,
+        callbacks=callbacks,
+    )
+    best_iteration = (
+        booster.best_iteration if booster.best_iteration else booster.current_iteration()
+    )
     if model_output_path is not None:
         model_output_path.parent.mkdir(parents=True, exist_ok=True)
-        booster.save_model(str(model_output_path))
+        booster.save_model(str(model_output_path), num_iteration=best_iteration)
 
     split_dates = sorted({row.trade_date for row in training_samples})
     metrics = build_lightgbm_evaluation_metrics(booster, training_samples)
+    metrics["num_boost_round_used"] = best_iteration
+    metrics["early_stopping_applied"] = bool(validation_rows)
+    metrics.update(
+        build_walk_forward_metrics(
+            features,
+            labels,
+            score_fn=lambda row: _predict_scores(booster, [_feature_vector_from_feature(row)])[0],
+        )
+    )
     # LightGBM 训练只使用 train split；validation/test 仅用于离线评估，确保监督标签不会回流到同日预测特征。
     return ModelMetadata(
         model_version=LIGHTGBM_MODEL_VERSION,
@@ -436,8 +477,13 @@ def build_walk_forward_metrics(
     label_gap_days: int = 5,
     min_train_dates: int = 3,
     test_size: int = 1,
+    score_fn: Callable[[FeatureRow], float] | None = None,
 ) -> dict[str, float | int | str | None]:
-    """在滚动样本外时间线上评估固定规则信号，比单一测试日更能反映信号稳定性。"""
+    """在滚动样本外时间线上评估固定模型信号，比单一测试日更能反映信号稳定性。
+
+    score_fn 默认使用规则基线打分；LightGBM 传入 booster 打分函数即可复用同一套滚动口径。
+    """
+    score_row = score_fn or _score_feature_row
     usable_labels = [
         label
         for label in labels
@@ -473,7 +519,7 @@ def build_walk_forward_metrics(
     top3_total = 0
     for trade_date in sorted(features_by_date):
         scored = [
-            (row, _score_feature_row(row))
+            (row, score_row(row))
             for row in features_by_date[trade_date]
             if row.momentum_5d is not None
             and row.return_1d is not None
@@ -597,7 +643,7 @@ def build_lightgbm_evaluation_metrics(
         metrics.update({"top1_outperform_rate": None, "top3_outperform_rate": None})
         return metrics
 
-    scores = booster.predict([_feature_vector_from_sample(row) for row in test_rows])
+    scores = _predict_scores(booster, [_feature_vector_from_sample(row) for row in test_rows])
     rows_by_date: dict[date, list[tuple[TrainingSampleRow, float]]] = defaultdict(list)
     for row, score in zip(test_rows, scores, strict=True):
         rows_by_date[row.trade_date].append((row, float(score)))
@@ -802,8 +848,8 @@ def _rank_feature_rows(
     if prediction_booster is None:
         scored = [(row, _score_feature_row(row)) for row in scorable_rows]
     else:
-        scores = prediction_booster.predict(
-            [_feature_vector_from_feature(row) for row in scorable_rows]
+        scores = _predict_scores(
+            prediction_booster, [_feature_vector_from_feature(row) for row in scorable_rows]
         )
         scored = [(row, float(score)) for row, score in zip(scorable_rows, scores, strict=True)]
     scored.sort(key=lambda item: (-item[1], item[0].symbol))
@@ -1023,6 +1069,17 @@ def _feature_vector_from_feature(row: FeatureRow) -> list[float]:
 
 def _model_float(value: float | None) -> float:
     return float("nan") if value is None else float(value)
+
+
+def _predict_scores(booster: Any, feature_vectors: list[list[float]]) -> list[float]:
+    # LightGBM 4.x 的 predict 要求 2D ndarray；统一在此转换，避免各调用点传 Python 列表被判为 1 维。
+    if not feature_vectors:
+        return []
+    numpy = importlib.import_module("numpy")
+    matrix = numpy.asarray(feature_vectors, dtype=float)
+    if matrix.ndim == 1:
+        matrix = matrix.reshape(1, -1)
+    return [float(value) for value in booster.predict(matrix)]
 
 
 def _format_optional(value: float | None) -> str:

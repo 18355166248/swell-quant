@@ -29,20 +29,27 @@ class FakeDataset:
         rows: list[list[float]],
         label: list[int],
         feature_name: list[str],
+        reference: "FakeDataset | None" = None,
     ) -> None:
         self.rows = rows
         self.label = label
         self.feature_name = feature_name
+        self.reference = reference
 
 
 class FakeBooster:
     def __init__(self) -> None:
         self.saved_path: str | None = None
+        self.best_iteration = 0
 
-    def predict(self, rows: list[list[float]]) -> list[float]:
+    def predict(self, rows: object) -> list[float]:
+        # 真实调用会传入 numpy 2D 数组；遍历每行求和即可模拟打分，nan 通过 value == value 过滤。
         return [sum(value for value in row if value == value) for row in rows]
 
-    def save_model(self, path: str) -> None:
+    def current_iteration(self) -> int:
+        return 1
+
+    def save_model(self, path: str, num_iteration: int | None = None) -> None:
         self.saved_path = path
         Path(path).write_text("fake lightgbm model\n", encoding="utf-8")
 
@@ -104,7 +111,9 @@ def test_generate_predictions_ranks_latest_date_only() -> None:
     assert predictions[0].score >= predictions[1].score >= predictions[2].score
 
 
-def test_train_model_dispatches_requested_backend() -> None:
+def test_train_model_dispatches_requested_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    # LightGBM 是可选依赖；强制不可用以确定性地验证降级到规则基线的分派逻辑。
+    monkeypatch.setattr(modeling, "is_lightgbm_available", lambda: False)
     bars = generate_sample_bars(days=20)
     features = compute_features(bars)
     labels = compute_labels(bars)
@@ -125,7 +134,11 @@ def test_train_model_uses_lightgbm_when_dependency_is_available(
     booster = FakeBooster()
     fake_lightgbm = SimpleNamespace(
         Dataset=FakeDataset,
-        train=lambda params, train_set, num_boost_round: booster,
+        train=lambda params, train_set, num_boost_round, valid_sets=None, valid_names=None, callbacks=None: (
+            booster
+        ),
+        log_evaluation=lambda period: ("log_evaluation", period),
+        early_stopping=lambda rounds, verbose=False: ("early_stopping", rounds),
     )
     monkeypatch.setattr(modeling, "is_lightgbm_available", lambda: True)
     monkeypatch.setattr(modeling, "_load_lightgbm_module", lambda: fake_lightgbm)
@@ -151,6 +164,23 @@ def test_train_model_uses_lightgbm_when_dependency_is_available(
     assert model_path.exists()
     assert predictions[0].model_version == LIGHTGBM_MODEL_VERSION
     assert predictions[0].score >= predictions[-1].score
+
+
+def test_train_lightgbm_model_applies_validation_early_stopping() -> None:
+    # 仅在真实安装了可选依赖 LightGBM 时运行，验证真实训练与早停路径可端到端跑通。
+    pytest.importorskip("lightgbm")
+    from swell_quant.research.modeling import train_lightgbm_model
+
+    bars = generate_sample_bars(days=40)
+    metadata = train_lightgbm_model(compute_features(bars), compute_labels(bars))
+
+    assert metadata.model_type == "lightgbm"
+    assert metadata.metrics is not None
+    assert metadata.metrics["early_stopping_applied"] is True
+    used = metadata.metrics["num_boost_round_used"]
+    assert isinstance(used, int) and 1 <= used <= 200
+    # 早停路径也应带出滚动样本外指标，与规则基线口径一致。
+    assert metadata.metrics["walk_forward_status"] == "ready"
 
 
 def test_train_model_rejects_unsupported_backend() -> None:

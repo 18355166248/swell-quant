@@ -237,7 +237,7 @@ export interface ResearchStatus {
     validation_end: string | null;
     test_start: string | null;
     test_end: string | null;
-    metrics: Record<string, number | string | null>;
+    metrics: Record<string, number | string | boolean | null>;
   };
   training_samples: {
     status: "ready" | "incomplete" | "missing";
@@ -640,7 +640,7 @@ export interface LatestModel {
   validation_end: string | null;
   test_start: string | null;
   test_end: string | null;
-  metrics: Record<string, number | string | null>;
+  metrics: Record<string, number | string | boolean | null>;
   path?: string;
   updated_at?: string;
   disclaimer: string;

@@ -1414,7 +1414,8 @@ def test_local_api_can_trigger_named_task_through_full_pipeline(tmp_path: Path) 
     assert payload["requested_task"] == "model_train"
     assert payload["execution_mode"] == "full_pipeline_refresh"
     assert "dependent artifacts stay consistent" in payload["message"]
-    assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists()
+    # 模型版本文件名取决于是否安装可选的 LightGBM；latest_model.json 是与后端无关的规范产物。
+    assert (tmp_path / "data" / "models" / "latest_model.json").exists()
 
 
 def test_local_api_pipeline_trigger_uses_configured_settings(tmp_path: Path, monkeypatch) -> None:

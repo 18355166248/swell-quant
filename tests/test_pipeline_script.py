@@ -124,7 +124,10 @@ def test_run_pipeline_writes_sample_outputs(tmp_path: Path) -> None:
     assert (tmp_path / "data" / "processed" / "sample_features.csv").exists()
     assert (tmp_path / "data" / "processed" / "sample_labels.csv").exists()
     assert (tmp_path / "data" / "processed" / "training_samples.csv").exists()
-    assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists()
+    # 模型版本文件名取决于是否安装可选的 LightGBM，两种后端都应写出对应版本产物。
+    assert (tmp_path / "data" / "models" / "baseline-rule-v1.json").exists() or (
+        tmp_path / "data" / "models" / "lightgbm-v1.json"
+    ).exists()
     assert (tmp_path / "data" / "models" / "latest_model.json").exists()
     assert (tmp_path / "data" / "processed" / "latest_predictions.csv").exists()
     assert (tmp_path / "data" / "processed" / "historical_predictions.csv").exists()
