@@ -127,12 +127,12 @@ function App() {
   const akshareTrialQuery = useQuery({
     queryKey: ["akshare-trial"],
     queryFn: api.getAkshareTrial,
-    enabled: activePage === "tasks",
+    enabled: activePage === "tasks" || activePage === "data",
   });
   const fundTrialQuery = useQuery({
     queryKey: ["fund-trial"],
     queryFn: api.getFundTrial,
-    enabled: activePage === "tasks",
+    enabled: activePage === "tasks" || activePage === "data",
   });
   const dataStatusQuery = useQuery({ queryKey: ["data-status"], queryFn: api.getDataStatus });
   const akshareUniverseQuery = useQuery({
@@ -308,8 +308,8 @@ function App() {
     qualityQuery.isLoading ||
     tasksQuery.isLoading ||
     taskDetailQuery.isLoading ||
-    (activePage === "tasks" && akshareTrialQuery.isLoading) ||
-    (activePage === "tasks" && fundTrialQuery.isLoading) ||
+    ((activePage === "tasks" || activePage === "data") && akshareTrialQuery.isLoading) ||
+    ((activePage === "tasks" || activePage === "data") && fundTrialQuery.isLoading) ||
     dataStatusQuery.isLoading ||
     (activePage === "settings" && akshareUniverseQuery.isLoading) ||
     duckdbStorageQuery.isLoading ||
@@ -348,8 +348,8 @@ function App() {
     qualityQuery.isError ||
     tasksQuery.isError ||
     taskDetailQuery.isError ||
-    (activePage === "tasks" && akshareTrialQuery.isError) ||
-    (activePage === "tasks" && fundTrialQuery.isError) ||
+    ((activePage === "tasks" || activePage === "data") && akshareTrialQuery.isError) ||
+    ((activePage === "tasks" || activePage === "data") && fundTrialQuery.isError) ||
     dataStatusQuery.isError ||
     duckdbStorageQuery.isError ||
     featuresQuery.isError ||
@@ -404,6 +404,9 @@ function App() {
       <DataPage
         dataStatus={dataStatusQuery.data}
         duckdbStorage={duckdbStorageQuery.data}
+        artifacts={artifactsQuery.data}
+        akshareTrial={akshareTrialQuery.data}
+        fundTrial={fundTrialQuery.data}
         quality={qualityQuery.data}
         features={featuresQuery.data}
         labels={labelsQuery.data}

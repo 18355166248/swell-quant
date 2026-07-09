@@ -289,13 +289,49 @@ describe("research pages module", () => {
       symbol_count: 1,
       start_date: "2024-01-02",
       end_date: "2024-01-31",
+      freshness: {
+        status: "stale",
+        label: "数据过期",
+        as_of_date: "2024-01-31",
+        today: "2026-07-09",
+        lag_days: 890,
+        message: "最新数据到 2024-01-31，距今天 890 天。",
+      },
       quality_passed: true,
       issue_count: 0,
       disclaimer: "仅用于研究，不构成投资建议",
     };
 
-    const html = renderToStaticMarkup(<DataPage dataStatus={dataStatus} />);
+    const html = renderToStaticMarkup(
+      <DataPage
+        dataStatus={dataStatus}
+        artifacts={{
+          status: "missing",
+          missing: ["duckdb"],
+          optional_missing: ["fund_trial"],
+          disclaimer: "仅用于研究，不构成投资建议",
+          artifacts: [],
+        }}
+        akshareTrial={{
+          status: "dry_run",
+          passed: true,
+          trial_kind: "dry_run",
+          real_data_verified: false,
+        }}
+        fundTrial={{
+          status: "missing",
+          passed: false,
+          real_data_verified: false,
+        }}
+      />,
+    );
 
+    expect(html).toContain("数据源健康中心");
+    expect(html).toContain("A 股行情数据");
+    expect(html).toContain("股票真实试跑");
+    expect(html).toContain("基金真实试跑");
+    expect(html).toContain("关键产物");
+    expect(html).toContain("make fund-trial");
     expect(html).toContain("采集摘要");
     expect(html).toContain("采集状态：warning");
     expect(html).toContain("采集成功率");

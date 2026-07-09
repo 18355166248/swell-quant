@@ -689,12 +689,18 @@ function TrialRunCard({
 export function DataPage({
   dataStatus,
   duckdbStorage,
+  artifacts,
+  akshareTrial,
+  fundTrial,
   quality,
   features,
   labels,
 }: {
   dataStatus?: DataStatus;
   duckdbStorage?: DuckDBStorageStatus;
+  artifacts?: ArtifactStatus;
+  akshareTrial?: DataTrialRun;
+  fundTrial?: DataTrialRun;
   quality?: DataQuality;
   features?: FeatureSummary;
   labels?: LabelSummary;
@@ -711,6 +717,60 @@ export function DataPage({
   const labelRate = labels?.labeled_row_count && labels.labeled_row_count > 0
     ? labels.positive_count / labels.labeled_row_count
     : 0;
+  const healthRows = [
+    {
+      key: "stock_source",
+      item: "A 股行情数据",
+      status: dataStatus?.data_source_status ?? "missing",
+      detail: dataStatus
+        ? `成功 ${dataStatus.succeeded_symbol_count}/${dataStatus.selected_symbol_count}，${dataStatus.freshness?.label ?? "新鲜度待确认"}`
+        : "暂无数据源状态",
+      action: "make akshare-trial / make data-source",
+    },
+    {
+      key: "freshness",
+      item: "数据新鲜度",
+      status: dataStatus?.freshness?.status ?? "missing",
+      detail: dataStatus?.freshness?.message ?? "暂无最新日期",
+      action: "更新数据后复查数据页",
+    },
+    {
+      key: "duckdb",
+      item: "DuckDB 镜像",
+      status: duckdbStorage?.status ?? "missing",
+      detail: duckdbStorage
+        ? `表 ${duckdbStorage.tables.length} 个，总行数 ${duckdbStorage.total_rows}`
+        : "暂无 DuckDB 状态",
+      action: "make storage",
+    },
+    {
+      key: "akshare_trial",
+      item: "股票真实试跑",
+      status: akshareTrial?.status ?? "missing",
+      detail: akshareTrial?.real_data_verified
+        ? "已有真实通过记录"
+        : `当前 ${akshareTrial?.trial_kind ?? "未试跑"}`,
+      action: "make akshare-trial",
+    },
+    {
+      key: "fund_trial",
+      item: "基金真实试跑",
+      status: fundTrial?.status ?? "missing",
+      detail: fundTrial?.real_data_verified
+        ? "已有真实通过记录"
+        : `当前 ${fundTrial?.trial_kind ?? "未试跑"}`,
+      action: "make fund-trial",
+    },
+    {
+      key: "artifacts",
+      item: "关键产物",
+      status: artifacts?.status ?? "missing",
+      detail: artifacts
+        ? `缺失 ${artifacts.missing.length} 个，可选缺失 ${artifacts.optional_missing?.length ?? 0} 个`
+        : "暂无产物清单",
+      action: "make pipeline / make acceptance",
+    },
+  ];
   return (
     <>
       <PageTitle
@@ -741,6 +801,30 @@ export function DataPage({
           </Card>
         </Col>
       </Row>
+      <Card title="数据源健康中心">
+        <Table
+          rowKey="key"
+          size="small"
+          pagination={false}
+          dataSource={healthRows}
+          columns={[
+            { title: "检查项", dataIndex: "item", width: 150 },
+            {
+              title: "状态",
+              dataIndex: "status",
+              width: 130,
+              render: (status: string) => <Tag color={healthStatusColor(status)}>{status}</Tag>,
+            },
+            { title: "说明", dataIndex: "detail" },
+            {
+              title: "操作入口",
+              dataIndex: "action",
+              width: 230,
+              render: (value: string) => <Text code>{value}</Text>,
+            },
+          ]}
+        />
+      </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={8}>
           <Card title="数据口径">
@@ -2515,6 +2599,19 @@ function freshnessColor(status?: DataFreshness["status"]): string {
     return "orange";
   }
   if (status === "stale") {
+    return "red";
+  }
+  return "default";
+}
+
+function healthStatusColor(status?: string): string {
+  if (["passed", "complete", "healthy", "fresh", "dry_run"].includes(status ?? "")) {
+    return "green";
+  }
+  if (["warning", "aging", "incomplete"].includes(status ?? "")) {
+    return "orange";
+  }
+  if (["failed", "stale", "missing", "invalid", "inconsistent"].includes(status ?? "")) {
     return "red";
   }
   return "default";
