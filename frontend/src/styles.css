@@ -162,6 +162,14 @@ body,
   margin-bottom: 16px;
 }
 
+.roadmap-item {
+  height: 100%;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid #e5e8ef;
+  border-radius: 8px;
+}
+
 .trial-command-summary {
   margin-bottom: 16px;
 }

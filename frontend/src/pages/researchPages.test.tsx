@@ -310,6 +310,11 @@ describe("research pages module", () => {
     expect(html).toContain("阶段 6：AI 报告与 Agent 集成");
     expect(html).toContain("阶段进度");
     expect(html).toContain("补齐 AI 报告产物");
+    expect(html).toContain("后续功能路线图");
+    expect(html).toContain("A 股真实数据小规模试跑");
+    expect(html).toContain("基金真实净值与候选验证");
+    expect(html).toContain("模型与样本外评估升级");
+    expect(html).toContain("不输出买入、卖出、仓位、目标价或收益承诺");
   });
 
   it("renders empty states for missing acceptance artifacts", () => {

@@ -105,6 +105,70 @@ export interface PredictionFilters {
   modelVersion: string;
   topN: number;
 }
+
+interface ResearchRoadmapItem {
+  key: string;
+  title: string;
+  priority: "P0" | "P1" | "P2";
+  status: "done" | "next" | "planned";
+  evidence: string;
+  outcome: string;
+}
+
+function buildResearchRoadmap(progress?: ProjectProgress): ResearchRoadmapItem[] {
+  const akshareTrialVerified = progress?.akshare_trial?.real_data_verified === true;
+  const allStagesComplete = progress?.status === "complete";
+  const hasDryRunOnly = progress?.akshare_trial?.trial_kind === "dry_run" && !akshareTrialVerified;
+
+  // 路线图只汇总当前研发动作，不把未验证能力标记为可用研究结论。
+  return [
+    {
+      key: "real_stock_trial",
+      title: "A 股真实数据小规模试跑",
+      priority: "P0",
+      status: akshareTrialVerified ? "done" : hasDryRunOnly ? "next" : "planned",
+      evidence: akshareTrialVerified
+        ? "已有真实数据通过记录"
+        : hasDryRunOnly
+          ? "已完成 dry-run，下一步跑真实 AKShare 试采集"
+          : "先完成试跑预演，再进入真实数据验证",
+      outcome: "把候选日期从样例链路推进到真实公开行情链路",
+    },
+    {
+      key: "fund_real_data_validation",
+      title: "基金真实净值与候选验证",
+      priority: "P0",
+      status: "next",
+      evidence: "任务中心已有基金试跑入口，需持续复核真实通过产物",
+      outcome: "让基金页从样例比较升级为真实数据研究比较",
+    },
+    {
+      key: "model_upgrade",
+      title: "模型与样本外评估升级",
+      priority: "P1",
+      status: allStagesComplete ? "next" : "planned",
+      evidence: allStagesComplete ? "离线闭环已完成，可进入模型增强" : "等待基础链路和验收稳定",
+      outcome: "引入更强模型和更严格样本外评估，降低样例规则模型局限",
+    },
+    {
+      key: "report_governance",
+      title: "报告与研究动作治理",
+      priority: "P1",
+      status: "planned",
+      evidence: "已有研究动作分层和每日简报，后续补审计历史与对比视图",
+      outcome: "让每次候选变化都有来源、门禁、阻塞项和复核记录",
+    },
+    {
+      key: "data_observability",
+      title: "数据源可观测性与告警",
+      priority: "P2",
+      status: "planned",
+      evidence: "已有新鲜度、质量、试跑摘要，缺少持续监控提示",
+      outcome: "及时发现行情、基金净值、报告产物过期或缺失",
+    },
+  ];
+}
+
 export function DashboardPage({
   status,
   acceptance,
@@ -132,6 +196,7 @@ export function DashboardPage({
 }) {
   const acceptanceStatus = acceptance ?? status?.acceptance;
   const acceptanceChecks = acceptanceStatus?.checks ?? [];
+  const roadmapItems = buildResearchRoadmap(progress);
   return (
     <>
       <PageTitle
@@ -226,6 +291,33 @@ export function DashboardPage({
         ) : (
           <Empty description="暂无阶段进度" />
         )}
+      </Card>
+
+      <Card title="后续功能路线图">
+        <Paragraph type="secondary">
+          只展示研究系统建设动作，不输出买入、卖出、仓位、目标价或收益承诺。
+        </Paragraph>
+        <Row gutter={[12, 12]}>
+          {roadmapItems.map((item) => (
+            <Col xs={24} md={12} xl={8} key={item.key}>
+              <div className="roadmap-item">
+                <Space direction="vertical" size={8} className="full-width">
+                  <Space wrap>
+                    <Tag color={item.priority === "P0" ? "red" : item.priority === "P1" ? "blue" : "default"}>
+                      {item.priority}
+                    </Tag>
+                    <Tag color={item.status === "done" ? "green" : item.status === "next" ? "orange" : "default"}>
+                      {item.status === "done" ? "已完成" : item.status === "next" ? "下一步" : "规划中"}
+                    </Tag>
+                  </Space>
+                  <Text strong>{item.title}</Text>
+                  <Text type="secondary">{item.evidence}</Text>
+                  <Text>{item.outcome}</Text>
+                </Space>
+              </div>
+            </Col>
+          ))}
+        </Row>
       </Card>
 
       <Card
