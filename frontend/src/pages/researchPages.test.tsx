@@ -485,6 +485,8 @@ describe("research pages module", () => {
 
     expect(html).toContain("最近股票真实试跑");
     expect(html).toContain("最近基金真实试跑");
+    expect(html).toContain("股票真实试跑");
+    expect(html).toContain("基金真实试跑");
     expect(html).toContain("make akshare-trial");
     expect(html).toContain("make akshare-trial-dry-run");
     expect(html).toContain("make fund-trial");
