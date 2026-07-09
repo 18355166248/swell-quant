@@ -156,6 +156,13 @@ describe("research pages module", () => {
     expect(html).toContain("预测分数");
     expect(html).toContain("成交量变化");
     expect(html).toContain("研究参考清单");
+    expect(html).toContain("研究候选解释");
+    expect(html).toContain("为什么进入该分层");
+    expect(html).toContain("复核清单");
+    expect(html).toContain("核对数据新鲜度、停牌和涨跌停约束");
+    expect(html).toContain("复核候选信号是否来自样本外日期");
+    expect(html).toContain("因子依据");
+    expect(html).toContain("风险提示");
     expect(html).toContain("候选标的");
     expect(html).toContain("沪深300样例");
     expect(html).toContain("中证500样例");

@@ -1399,6 +1399,9 @@ export function PredictionsPage({
   modelOptions: string[];
   onFiltersChange: (filters: PredictionFilters) => void;
 }) {
+  const [selectedCandidateSymbol, setSelectedCandidateSymbol] = useState<string>("");
+  const selectedCandidate =
+    candidates.find((candidate) => candidate.symbol === selectedCandidateSymbol) ?? candidates[0];
   return (
     <>
       <PageTitle
@@ -1453,6 +1456,12 @@ export function PredictionsPage({
             size="small"
             pagination={false}
             dataSource={candidates}
+            onRow={(record) => ({
+              onClick: () => setSelectedCandidateSymbol(record.symbol),
+            })}
+            rowClassName={(record) =>
+              selectedCandidate?.symbol === record.symbol ? "selected-table-row" : ""
+            }
             columns={[
               { title: "排名", dataIndex: "rank", width: 80 },
               {
@@ -1563,6 +1572,111 @@ export function PredictionsPage({
               },
             ]}
           />
+        </Card>
+      ) : null}
+      {selectedCandidate ? (
+        <Card title="研究候选解释">
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={8}>
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="候选标的">
+                  {selectedCandidate.symbol_name || selectedCandidate.symbol}
+                </Descriptions.Item>
+                <Descriptions.Item label="代码">{selectedCandidate.symbol}</Descriptions.Item>
+                <Descriptions.Item label="信号日">{selectedCandidate.date}</Descriptions.Item>
+                <Descriptions.Item label="模型版本">{selectedCandidate.model_version}</Descriptions.Item>
+                <Descriptions.Item label="预测分数">
+                  {formatNumber(selectedCandidate.score)}
+                </Descriptions.Item>
+                <Descriptions.Item label="相对置信度">
+                  <Tag color={watchlistConfidenceColor(selectedCandidate.confidence_level)}>
+                    {watchlistConfidenceLabel(selectedCandidate.confidence_level)}
+                  </Tag>
+                  <Text type="secondary">{formatPercent(selectedCandidate.confidence)}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="研究动作">
+                  <Tag color={researchActionColor(selectedCandidate.research_action.status)}>
+                    {selectedCandidate.research_action.label}
+                  </Tag>
+                </Descriptions.Item>
+              </Descriptions>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Space direction="vertical" size={8} className="full-width">
+                <Text strong>为什么进入该分层</Text>
+                {selectedCandidate.research_action.reasons.length > 0 ? (
+                  selectedCandidate.research_action.reasons.map((reason) => (
+                    <Text type="secondary" key={`${selectedCandidate.symbol}-explain-${reason}`}>
+                      {reason}
+                    </Text>
+                  ))
+                ) : (
+                  <Text type="secondary">暂无结构化理由</Text>
+                )}
+                <Text strong>阻塞项</Text>
+                {selectedCandidate.research_action.blockers.length > 0 ? (
+                  selectedCandidate.research_action.blockers.map((blocker) => (
+                    <Text type="danger" key={`${selectedCandidate.symbol}-explain-${blocker}`}>
+                      {blocker}
+                    </Text>
+                  ))
+                ) : (
+                  <Text type="secondary">暂无阻塞项，仍需人工复核。</Text>
+                )}
+              </Space>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Space direction="vertical" size={8} className="full-width">
+                <Text strong>复核清单</Text>
+                {buildCandidateReviewChecklist(selectedCandidate).map((item) => (
+                  <Text type="secondary" key={`${selectedCandidate.symbol}-${item}`}>
+                    {item}
+                  </Text>
+                ))}
+              </Space>
+            </Col>
+          </Row>
+          <Divider />
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={8}>
+              <Card size="small" title="因子依据">
+                {selectedCandidate.factors.length > 0 ? (
+                  <Space size={[4, 4]} wrap>
+                    {selectedCandidate.factors.map((factor) => (
+                      <Tag
+                        color={factor.direction === "up" ? "green" : "red"}
+                        key={`${selectedCandidate.symbol}-detail-${factor.name}`}
+                      >
+                        {factor.name} {formatPercent(factor.value)}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  <Empty description="暂无因子" />
+                )}
+              </Card>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Card size="small" title="风险提示">
+                {selectedCandidate.risk_hints.length > 0 ? (
+                  <Space size={[4, 4]} wrap>
+                    {selectedCandidate.risk_hints.map((hint) => (
+                      <Tag color="warning" key={`${selectedCandidate.symbol}-detail-${hint.code}`}>
+                        {hint.label}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  <Text type="secondary">未触发启发式风险</Text>
+                )}
+              </Card>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Card size="small" title="历史回看">
+                {renderCandidateHistory(selectedCandidate)}
+              </Card>
+            </Col>
+          </Row>
         </Card>
       ) : null}
       <Row gutter={[16, 16]}>
@@ -2579,6 +2693,24 @@ function researchActionColor(status: ResearchCandidate["research_action"]["statu
     return "orange";
   }
   return "default";
+}
+
+function buildCandidateReviewChecklist(candidate: ResearchCandidate): string[] {
+  const checklist = [
+    "核对数据新鲜度、停牌和涨跌停约束",
+    "复核候选信号是否来自样本外日期",
+    "查看同标的历史成熟样本表现",
+  ];
+  if (candidate.risk_hints.length > 0) {
+    checklist.push("先处理启发式风险提示，再进入人工研究池");
+  }
+  if (candidate.history.sample_count <= 0) {
+    checklist.push("历史成熟样本不足，不能形成强结论");
+  }
+  if (candidate.research_action.blockers.length > 0) {
+    checklist.push("逐项消除阻塞项后再复核");
+  }
+  return checklist;
 }
 
 function fundVerificationColor(status: FundCandidate["verification_status"]): string {
