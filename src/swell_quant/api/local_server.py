@@ -37,7 +37,7 @@ from swell_quant.storage.duckdb_mirror import inspect_duckdb_mirror
 
 
 _PIPELINE_RUN_LOCK = threading.Lock()
-OPTIONAL_ARTIFACTS = {"akshare_trial"}
+OPTIONAL_ARTIFACTS = {"akshare_trial", "fund_trial"}
 TASK_TRIGGER_ROUTES = {
     "/api/pipeline/run": "pipeline",
     "/api/data/update": "data_update",
@@ -102,6 +102,12 @@ class ResearchApiHandler(BaseHTTPRequestHandler):
             self._send_loader_json(
                 self.data_dir / "reports" / "akshare_trial_run.json",
                 load_akshare_trial_artifact,
+            )
+            return
+        if route == "/api/funds/trial":
+            self._send_loader_json(
+                self.data_dir / "reports" / "fund_trial_run.json",
+                load_fund_trial_artifact,
             )
             return
         if route == "/api/storage/duckdb":
@@ -452,6 +458,16 @@ def load_akshare_trial_artifact(path: Path) -> dict[str, Any]:
     return payload
 
 
+def load_fund_trial_artifact(path: Path) -> dict[str, Any]:
+    payload = load_json_artifact(path)
+    payload.setdefault("artifact_path", str(path))
+    payload.setdefault(
+        "trial_kind", "real_data" if payload.get("real_data_verified") else "dry_run"
+    )
+    payload.setdefault("disclaimer", "仅用于研究，不构成投资建议")
+    return payload
+
+
 def load_artifacts_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, Any]:
     # API/设置页/脚本共享同一份产物清单，避免新增产物时只更新其中一个入口造成排查误导。
     artifact_status = build_artifact_status(local_artifact_paths(data_dir, duckdb_path))
@@ -742,6 +758,7 @@ def local_artifact_paths(data_dir: Path, duckdb_path: Path) -> dict[str, Path]:
         "pipeline": data_dir / "reports" / "pipeline_run.json",
         "status": data_dir / "reports" / "research_status.json",
         "akshare_trial": data_dir / "reports" / "akshare_trial_run.json",
+        "fund_trial": data_dir / "reports" / "fund_trial_run.json",
     }
 
 

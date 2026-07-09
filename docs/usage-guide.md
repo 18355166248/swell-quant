@@ -58,6 +58,22 @@ make acceptance
 - `acceptance_status=passed`：研究链路门禁通过。
 - `data_source_status=warning` 仍可能可用；通常表示部分标的失败或启用了 `AKSHARE_MAX_SYMBOLS` 试跑上限。
 
+### 基金真实数据试跑
+
+基金模块目前把真实数据试跑和样例候选分开，避免网络失败或半成品数据污染样例页面：
+
+```bash
+make fund-trial-dry-run
+FUND_SYMBOLS=510300,159915 FUND_START_DATE=20250101 FUND_END_DATE=20260708 make fund-trial
+make fund-trial-status
+```
+
+关键判断：
+
+- `real_data_verified=true`：基金净值真实试跑通过。
+- `status=failed`：数据源、网络或字段解析失败；打开 `data/reports/fund_trial_run.json` 看 `steps[].error`。
+- 当前只验证公开基金净值和基础名称信息，基金经理、持仓、行业暴露和费用细项仍需人工补充复核。
+
 ## 3. 启动后台 API
 
 后台只读本地 `data/` 产物，不会自动下单，也不会连接券商。
@@ -98,6 +114,19 @@ curl "http://127.0.0.1:8765/api/funds/candidates?profile=balanced"
 - `candidates[].verification_label`：`可进入人工复核`、`需补充验证` 或 `暂不适合决策`。
 - `candidates[].verification_checks`：收益、回撤、波动、费用、规模等检查摘要。
 - `candidates[].verification_blockers`：样例数据、基金合同、费用口径、个人风险偏好等待补充问题。
+
+查看基金真实数据试跑状态：
+
+```bash
+curl "http://127.0.0.1:8765/api/funds/trial"
+```
+
+重点字段：
+
+- `env.FUND_SYMBOLS`：本次试跑基金代码。
+- `steps[].succeeded_count` / `steps[].failed_count`：成功和失败数量。
+- `steps[].error`：数据源失败原因。
+- `real_data_verified`：是否已经有真实数据通过记录。
 
 ## 4. 启动前端看板
 
@@ -184,6 +213,8 @@ make config                 # 配置预检
 make pipeline               # 按当前 .env 生成研究产物
 make akshare-trial          # 真实 AKShare 20 只小规模试跑
 make akshare-trial-status   # 查看最近真实试跑状态
+make fund-trial             # 真实基金净值小规模试跑
+make fund-trial-status      # 查看最近基金试跑状态
 make data-source            # 查看数据源采集状态
 make acceptance             # 查看研究链路门禁
 make progress               # 查看阶段进度
@@ -207,6 +238,7 @@ make ci-local               # 全量本地质量门禁
 - `data/reports/sample_research_summary.md`：可读研究报告。
 - `data/reports/sample_research_summary.json`：结构化报告 payload。
 - `data/reports/akshare_trial_run.json`：AKShare 真实试跑摘要。
+- `data/reports/fund_trial_run.json`：基金真实试跑摘要。
 
 ## 8. 常见问题
 

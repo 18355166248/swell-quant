@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from scripts import run_akshare_trial as akshare_trial_script
+from scripts import run_fund_trial as fund_trial_script
 from scripts.run_pipeline import limit_akshare_symbols, run_data_update
 from scripts.run_akshare_trial import TrialStep, write_trial_artifacts
 from swell_quant.core.config import Settings
@@ -704,3 +705,106 @@ def test_check_akshare_trial_summarizes_failed_step(tmp_path: Path) -> None:
     assert payload["failed_step"] == "data_source"
     assert payload["failed_step_summary"]["name"] == "data_source"
     assert "success_rate=70.00%" in payload["failed_step_summary"]["stdout_tail"]
+
+
+def test_run_fund_trial_dry_run_reports_planned_steps(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "run_fund_trial.py"),
+            "--dry-run",
+            "--json",
+            "--fund-codes",
+            "510300,159915",
+            "--start-date",
+            "20250102",
+            "--end-date",
+            "20250105",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["status"] == "dry_run"
+    assert payload["passed"] is True
+    assert payload["trial_kind"] == "dry_run"
+    assert payload["real_data_verified"] is False
+    assert payload["artifact_path"] == str(tmp_path / "data" / "reports" / "fund_trial_run.json")
+    assert payload["env"]["FUND_SYMBOLS"] == "510300,159915"
+    assert payload["env"]["FUND_START_DATE"] == "20250102"
+    assert payload["steps"] == [
+        {"name": "fund_data", "status": "planned", "fund_codes": ["510300", "159915"]}
+    ]
+
+    check_result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_fund_trial.py"), "--json"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    trial_status = json.loads(check_result.stdout)
+    assert check_result.returncode == 0
+    assert trial_status["status"] == "dry_run"
+    assert trial_status["step_count"] == 1
+    assert trial_status["failed_step"] is None
+
+
+def test_run_fund_trial_failed_attempt_reports_real_data_kind(monkeypatch, tmp_path: Path) -> None:
+    args = SimpleNamespace(
+        dry_run=False,
+        fund_codes=("510300",),
+        start_date="20250102",
+        end_date="20250131",
+        data_dir=tmp_path / "data",
+    )
+    monkeypatch.setattr(
+        fund_trial_script,
+        "collect_akshare_fund_data",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("fund endpoint unavailable")),
+    )
+
+    payload = fund_trial_script.run_trial(args)
+
+    assert payload["status"] == "failed"
+    assert payload["trial_kind"] == "real_data"
+    assert payload["real_data_verified"] is False
+    assert payload["steps"][0]["error"] == "fund endpoint unavailable"
+
+
+def test_run_fund_trial_rejects_invalid_fund_code(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "DATA_DIR": str(tmp_path / "data"),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "run_fund_trial.py"),
+            "--dry-run",
+            "--fund-codes",
+            "51030X",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "fund codes must be 6-digit codes" in result.stderr

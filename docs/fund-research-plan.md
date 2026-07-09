@@ -56,7 +56,8 @@
 ## 数据与验收
 
 - 已建立 `sample_funds.csv`、`sample_fund_nav.csv`、`sample_fund_metrics.csv` 和三类 `sample_fund_candidates_*.csv` 样例产物，保证页面、指标和测试可复现。
-- 真实数据接入后建立 `make fund-trial-dry-run` 和 `make fund-trial`，沿用股票真实试跑的预演与摘要机制。
+- 已建立 `make fund-trial-dry-run`、`make fund-trial` 和 `make fund-trial-status`，沿用股票真实试跑的预演与摘要机制；摘要写入 `data/reports/fund_trial_run.json`，API 通过 `/api/funds/trial` 展示。
+- 真实基金试跑当前只验证公开基金名称和净值序列，基金经理、持仓、行业暴露和费用细项仍作为人工复核阻塞项处理。
 - 验收必须覆盖：数据完整性、费用字段缺失处理、风险指标确定性、页面免责声明。
 
 ## 风险边界

@@ -108,6 +108,16 @@ python scripts\run_akshare_trial.py
 真实 AKShare 采集会按标的记录成功和失败摘要；单只股票临时失败时，pipeline 会继续处理已成功获取的标的，并把 `succeeded_symbol_count`、`failed_symbol_count` 和 `failed_symbols` 写入 `data/raw/data_source.json`。
 跑完真实行情后建议执行 `python3 scripts/check_data_source.py` 或 `make data-source`。该检查会把限量试跑和单标的采集失败标为 warning，只有缺少元数据或没有成功标的时才阻断。
 
+基金真实数据第一版使用 AKShare 基金接口做独立试跑，不覆盖样例基金产物。先预演命令，再按指定基金代码和日期区间拉取净值：
+
+```bash
+make fund-trial-dry-run
+make fund-trial
+make fund-trial-status
+```
+
+默认基金代码为 `510300,159915,110022`，日期区间为 `20250101` 到 `20260708`。可通过 `FUND_SYMBOLS`、`FUND_START_DATE` 和 `FUND_END_DATE` 调整，例如 `FUND_SYMBOLS=510300,159915 make fund-trial`。试跑摘要写入 `data/reports/fund_trial_run.json`；若本机网络或上游接口不可用，会返回 `failed` 并展示失败原因，不会生成伪真实候选。
+
 训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
 `rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。
 
@@ -141,6 +151,7 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 - `GET /api/data/status`
 - `GET /api/akshare/universe`
 - `GET /api/akshare/trial`
+- `GET /api/funds/trial`
 - `GET /api/storage/duckdb`
 - `GET /api/data-quality`
 - `GET /api/features`
@@ -189,6 +200,8 @@ python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
 `GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
 
 `GET /api/funds`、`GET /api/funds/{fund_code}`、`GET /api/funds/{fund_code}/nav` 和 `GET /api/funds/candidates?profile=balanced` 会返回本地样例基金池、基金指标、净值序列和不同风险视图下的研究候选清单。基金候选会附带买前验证状态、检查项和阻塞项，用于提示还需要复核的数据材料、费用口径、基金合同限制和个人风险偏好；它只用于研究比较，不构成投资建议。
+
+`GET /api/funds/trial` 会返回最近一次基金真实数据试跑摘要，包含基金代码、日期区间、成功/失败数量、错误原因和最近真实通过记录。该接口只展示数据源可用性，不输出申购、赎回、仓位或收益承诺。
 
 `GET /api/akshare/universe` 会返回当前 AKShare 股票池解析门禁状态；manual 模式检查手工标的，`csi800` / `hs300_csi500` 模式会尝试解析沪深 300 + 中证 500 成分股，只用于研究链路前置验收。
 

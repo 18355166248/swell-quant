@@ -16,6 +16,7 @@ from swell_quant.api.local_server import (
     load_data_status_artifact,
     load_duckdb_storage_artifact,
     load_features_artifact,
+    load_fund_trial_artifact,
     load_fund_route,
     load_json_artifact,
     load_labels_artifact,
@@ -280,6 +281,35 @@ def test_local_api_akshare_trial_artifact_reads_latest_trial(tmp_path: Path) -> 
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
 
 
+def test_local_api_fund_trial_artifact_reads_latest_trial(tmp_path: Path) -> None:
+    trial_path = tmp_path / "fund_trial_run.json"
+    trial_path.write_text(
+        """
+        {
+          "status": "failed",
+          "passed": false,
+          "trial_kind": "real_data",
+          "real_data_verified": false,
+          "started_at": "2026-07-08T00:00:00+00:00",
+          "ended_at": "2026-07-08T00:00:01+00:00",
+          "duration_seconds": 1.0,
+          "env": {"FUND_SYMBOLS": "510300", "FUND_START_DATE": "20250101"},
+          "steps": [{"name": "fund_data", "status": "failed", "error": "network unavailable"}]
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    payload = load_fund_trial_artifact(trial_path)
+
+    assert payload["status"] == "failed"
+    assert payload["passed"] is False
+    assert payload["trial_kind"] == "real_data"
+    assert payload["artifact_path"] == str(trial_path)
+    assert payload["steps"][0]["error"] == "network unavailable"
+    assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
+
+
 def test_local_api_acceptance_artifact_extracts_gate_summary(tmp_path: Path) -> None:
     status_path = tmp_path / "research_status.json"
     status_path.write_text(
@@ -389,6 +419,7 @@ def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path)
 
     raw_prices = next(item for item in payload["artifacts"] if item["name"] == "raw_prices")
     akshare_trial = next(item for item in payload["artifacts"] if item["name"] == "akshare_trial")
+    fund_trial = next(item for item in payload["artifacts"] if item["name"] == "fund_trial")
     assert payload["status"] == "missing"
     assert payload["disclaimer"] == "仅用于研究，不构成投资建议"
     assert raw_prices["exists"] is True
@@ -397,9 +428,14 @@ def test_local_api_artifacts_artifact_reports_inventory_metadata(tmp_path: Path)
     assert akshare_trial["exists"] is False
     assert akshare_trial["required"] is False
     assert akshare_trial["path"].endswith("akshare_trial_run.json")
+    assert fund_trial["exists"] is False
+    assert fund_trial["required"] is False
+    assert fund_trial["path"].endswith("fund_trial_run.json")
     assert "duckdb" in payload["missing"]
     assert "akshare_trial" not in payload["missing"]
     assert "akshare_trial" in payload["optional_missing"]
+    assert "fund_trial" not in payload["missing"]
+    assert "fund_trial" in payload["optional_missing"]
 
 
 def test_local_api_progress_artifact_reports_stage_status(tmp_path: Path) -> None:
@@ -1234,7 +1270,11 @@ def test_local_api_fund_routes_return_list_detail_nav_and_candidates(tmp_path: P
     assert candidates_status == HTTPStatus.OK
     assert candidates_payload["profile"] == "balanced"
     assert candidates_payload["candidates"][0]["factor_reasons"]
-    assert candidates_payload["candidates"][0]["verification_status"] in {"ready", "review", "block"}
+    assert candidates_payload["candidates"][0]["verification_status"] in {
+        "ready",
+        "review",
+        "block",
+    }
     assert candidates_payload["candidates"][0]["verification_checks"]
     assert candidates_payload["candidates"][0]["verification_blockers"]
     assert missing_status == HTTPStatus.NOT_FOUND

@@ -1,4 +1,4 @@
-.PHONY: help config progress akshare-universe akshare-trial akshare-trial-dry-run akshare-trial-status data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
+.PHONY: help config progress akshare-universe akshare-trial akshare-trial-dry-run akshare-trial-status fund-trial fund-trial-dry-run fund-trial-status data-source pipeline storage acceptance smoke lint format-check test frontend-test frontend-build ci-local
 
 PYTHON ?= python
 NPM ?= npm
@@ -11,6 +11,9 @@ help:
 	@printf "  make akshare-trial   Run bounded AKShare real-data trial\n"
 	@printf "  make akshare-trial-dry-run Preview AKShare trial without network calls\n"
 	@printf "  make akshare-trial-status Check latest AKShare trial summary\n"
+	@printf "  make fund-trial      Run bounded AKShare fund data trial\n"
+	@printf "  make fund-trial-dry-run Preview fund trial without network calls\n"
+	@printf "  make fund-trial-status Check latest fund trial summary\n"
 	@printf "  make data-source     Check latest data acquisition metadata\n"
 	@printf "  make pipeline        Run the offline research pipeline\n"
 	@printf "  make storage         Check DuckDB mirror tables, row counts, and schemas\n"
@@ -40,6 +43,15 @@ akshare-trial-dry-run:
 
 akshare-trial-status:
 	$(PYTHON) scripts/check_akshare_trial.py
+
+fund-trial:
+	$(PYTHON) scripts/run_fund_trial.py
+
+fund-trial-dry-run:
+	$(PYTHON) scripts/run_fund_trial.py --dry-run
+
+fund-trial-status:
+	$(PYTHON) scripts/check_fund_trial.py
 
 data-source:
 	$(PYTHON) scripts/check_data_source.py
@@ -71,4 +83,4 @@ format-check:
 frontend-build:
 	cd frontend && $(NPM) run build
 
-ci-local: lint format-check test config akshare-universe smoke data-source akshare-trial-dry-run akshare-trial-status progress frontend-test frontend-build
+ci-local: lint format-check test config akshare-universe smoke data-source akshare-trial-dry-run akshare-trial-status fund-trial-dry-run fund-trial-status progress frontend-test frontend-build

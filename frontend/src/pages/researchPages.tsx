@@ -54,11 +54,12 @@ import {
 import type {
   AcceptanceStatus,
   AkshareTrialRun,
-  AkshareTrialStep,
   AkshareUniverseStatus,
   ArtifactStatus,
   BacktestPoint,
   BacktestSummary,
+  DataTrialRun,
+  DataTrialStep,
   DataQuality,
   DataQualityIssue,
   DataStatus,
@@ -66,6 +67,7 @@ import type {
   FeatureSummary,
   FundCandidate,
   FundSummary,
+  FundTrialRun,
   LabelSummary,
   LatestBacktest,
   LatestModel,
@@ -443,17 +445,18 @@ export function TasksPage({
   tasks,
   taskDetail,
   akshareTrial,
+  fundTrial,
   onRunTask,
   isRunning,
 }: {
   tasks: TaskSummary[];
   taskDetail?: TaskDetail;
   akshareTrial?: AkshareTrialRun;
+  fundTrial?: FundTrialRun;
   onRunTask: (task: TaskTrigger) => void;
   isRunning: boolean;
 }) {
   const steps = taskDetail?.steps ?? [];
-  const trialSteps = akshareTrial?.steps ?? [];
   const taskTriggers: Array<{ key: TaskTrigger; label: string }> = [
     { key: "pipeline", label: "完整 pipeline" },
     { key: "data_update", label: "更新数据" },
@@ -528,91 +531,153 @@ export function TasksPage({
           </Card>
         </Col>
       </Row>
-      <Card
-        title="最近真实试跑"
-        extra={
-          <Tag color={preflightStatusColor(akshareTrial?.status)}>
-            {akshareTrial?.status ?? "missing"}
-          </Tag>
-        }
-      >
-        <Descriptions column={2} size="small" className="trial-command-summary">
-          <Descriptions.Item label="生成命令">
-            <Text code>make akshare-trial</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label="预演命令">
-            <Text code>make akshare-trial-dry-run</Text>
-          </Descriptions.Item>
-        </Descriptions>
-        {akshareTrial?.status && akshareTrial.status !== "missing" ? (
-          <Space direction="vertical" size={12} style={{ width: "100%" }}>
-            <Descriptions column={2} size="small">
-              <Descriptions.Item label="通过">
-                {akshareTrial.passed === undefined ? "-" : String(akshareTrial.passed)}
-              </Descriptions.Item>
-              <Descriptions.Item label="真实数据验证">
-                {akshareTrial.real_data_verified === undefined
-                  ? "-"
-                  : akshareTrial.real_data_verified
-                    ? "已验证"
-                    : "未验证，仅预演"}
-              </Descriptions.Item>
-              <Descriptions.Item label="最近真实通过">
-                {akshareTrial.last_passed?.ended_at ?? "-"}
-              </Descriptions.Item>
-              <Descriptions.Item label="试跑类型">{akshareTrial.trial_kind ?? "-"}</Descriptions.Item>
-              <Descriptions.Item label="耗时">
-                {akshareTrial.duration_seconds === undefined
-                  ? "-"
-                  : `${akshareTrial.duration_seconds.toFixed(4)}s`}
-              </Descriptions.Item>
-              <Descriptions.Item label="开始时间">{akshareTrial.started_at ?? "-"}</Descriptions.Item>
-              <Descriptions.Item label="结束时间">{akshareTrial.ended_at ?? "-"}</Descriptions.Item>
-              <Descriptions.Item label="股票池">
-                {akshareTrial.env?.AKSHARE_UNIVERSE_MODE ?? "-"}
-              </Descriptions.Item>
-              <Descriptions.Item label="试跑上限">
-                {akshareTrial.env?.AKSHARE_MAX_SYMBOLS ?? "-"}
-              </Descriptions.Item>
-              <Descriptions.Item label="日期区间">
-                {akshareTrial.env?.AKSHARE_START_DATE ?? "-"} 至{" "}
-                {akshareTrial.env?.AKSHARE_END_DATE ?? "-"}
-              </Descriptions.Item>
-              <Descriptions.Item label="产物路径">
-                {akshareTrial.artifact_path ?? akshareTrial.path ?? "-"}
-              </Descriptions.Item>
-            </Descriptions>
-            {trialSteps.length > 0 ? (
-              <Table<AkshareTrialStep>
-                rowKey={(row) => row.name}
-                size="small"
-                pagination={false}
-                dataSource={trialSteps}
-                columns={[
-                  { title: "步骤", dataIndex: "name" },
-                  {
-                    title: "状态",
-                    dataIndex: "status",
-                    width: 120,
-                    render: (status: string) => (
-                      <Tag color={preflightStatusColor(status)}>{status}</Tag>
-                    ),
-                  },
-                  {
-                    title: "返回码",
-                    dataIndex: "returncode",
-                    width: 100,
-                    render: (value) => value ?? "-",
-                  },
-                ]}
-              />
-            ) : null}
-          </Space>
-        ) : (
-          <Empty description="暂无真实试跑记录" />
-        )}
-      </Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={12}>
+          <TrialRunCard
+            title="最近股票真实试跑"
+            trial={akshareTrial}
+            runCommand="make akshare-trial"
+            dryRunCommand="make akshare-trial-dry-run"
+            statusCommand="make akshare-trial-status"
+            emptyDescription="暂无股票真实试跑记录"
+            envItems={[
+              ["股票池", akshareTrial?.env?.AKSHARE_UNIVERSE_MODE],
+              ["试跑上限", akshareTrial?.env?.AKSHARE_MAX_SYMBOLS],
+              [
+                "日期区间",
+                `${akshareTrial?.env?.AKSHARE_START_DATE ?? "-"} 至 ${akshareTrial?.env?.AKSHARE_END_DATE ?? "-"}`,
+              ],
+            ]}
+          />
+        </Col>
+        <Col xs={24} xl={12}>
+          <TrialRunCard
+            title="最近基金真实试跑"
+            trial={fundTrial}
+            runCommand="make fund-trial"
+            dryRunCommand="make fund-trial-dry-run"
+            statusCommand="make fund-trial-status"
+            emptyDescription="暂无基金真实试跑记录"
+            envItems={[
+              ["基金代码", fundTrial?.env?.FUND_SYMBOLS],
+              [
+                "日期区间",
+                `${fundTrial?.env?.FUND_START_DATE ?? "-"} 至 ${fundTrial?.env?.FUND_END_DATE ?? "-"}`,
+              ],
+            ]}
+          />
+        </Col>
+      </Row>
     </>
+  );
+}
+
+function TrialRunCard({
+  title,
+  trial,
+  runCommand,
+  dryRunCommand,
+  statusCommand,
+  emptyDescription,
+  envItems,
+}: {
+  title: string;
+  trial?: DataTrialRun;
+  runCommand: string;
+  dryRunCommand: string;
+  statusCommand: string;
+  emptyDescription: string;
+  envItems: Array<[string, string | number | undefined]>;
+}) {
+  const trialSteps = trial?.steps ?? [];
+  return (
+    <Card
+      title={title}
+      extra={<Tag color={preflightStatusColor(trial?.status)}>{trial?.status ?? "missing"}</Tag>}
+    >
+      <Descriptions column={1} size="small" className="trial-command-summary">
+        <Descriptions.Item label="生成命令">
+          <Text code>{runCommand}</Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="预演命令">
+          <Text code>{dryRunCommand}</Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="状态命令">
+          <Text code>{statusCommand}</Text>
+        </Descriptions.Item>
+      </Descriptions>
+      {trial?.status && trial.status !== "missing" ? (
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Descriptions column={1} size="small">
+            <Descriptions.Item label="通过">
+              {trial.passed === undefined ? "-" : String(trial.passed)}
+            </Descriptions.Item>
+            <Descriptions.Item label="真实数据验证">
+              {trial.real_data_verified === undefined
+                ? "-"
+                : trial.real_data_verified
+                  ? "已验证"
+                  : "未验证，仅预演"}
+            </Descriptions.Item>
+            <Descriptions.Item label="最近真实通过">
+              {trial.last_passed?.ended_at ?? "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="试跑类型">{trial.trial_kind ?? "-"}</Descriptions.Item>
+            <Descriptions.Item label="耗时">
+              {trial.duration_seconds === undefined ? "-" : `${trial.duration_seconds.toFixed(4)}s`}
+            </Descriptions.Item>
+            <Descriptions.Item label="开始时间">{trial.started_at ?? "-"}</Descriptions.Item>
+            <Descriptions.Item label="结束时间">{trial.ended_at ?? "-"}</Descriptions.Item>
+            {envItems.map(([label, value]) => (
+              <Descriptions.Item key={label} label={label}>
+                {value ?? "-"}
+              </Descriptions.Item>
+            ))}
+            <Descriptions.Item label="产物路径">
+              {trial.artifact_path ?? trial.path ?? "-"}
+            </Descriptions.Item>
+          </Descriptions>
+          {trialSteps.length > 0 ? (
+            <Table<DataTrialStep>
+              rowKey={(row) => row.name}
+              size="small"
+              pagination={false}
+              dataSource={trialSteps}
+              columns={[
+                { title: "步骤", dataIndex: "name" },
+                {
+                  title: "状态",
+                  dataIndex: "status",
+                  width: 110,
+                  render: (status: string) => <Tag color={preflightStatusColor(status)}>{status}</Tag>,
+                },
+                {
+                  title: "返回码",
+                  dataIndex: "returncode",
+                  width: 90,
+                  render: (value) => value ?? "-",
+                },
+                {
+                  title: "成功/失败",
+                  width: 110,
+                  render: (_, row) =>
+                    row.succeeded_count === undefined && row.failed_count === undefined
+                      ? "-"
+                      : `${row.succeeded_count ?? 0}/${row.failed_count ?? 0}`,
+                },
+                {
+                  title: "错误",
+                  dataIndex: "error",
+                  render: (value) => value ?? "-",
+                },
+              ]}
+            />
+          ) : null}
+        </Space>
+      ) : (
+        <Empty description={emptyDescription} />
+      )}
+    </Card>
   );
 }
 

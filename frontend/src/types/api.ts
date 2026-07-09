@@ -45,16 +45,19 @@ export interface TaskDetail extends TaskSummary {
   steps: PipelineStep[];
 }
 
-export interface AkshareTrialStep {
+export interface DataTrialStep {
   name: string;
   command?: string[];
   status: "planned" | "passed" | "failed";
   returncode?: number;
   stdout?: string;
   stderr?: string;
+  error?: string;
+  succeeded_count?: number;
+  failed_count?: number;
 }
 
-export interface AkshareTrialRun {
+export interface DataTrialRun {
   status: "passed" | "failed" | "dry_run" | "missing";
   passed?: boolean;
   trial_kind?: "real_data" | "dry_run";
@@ -65,7 +68,7 @@ export interface AkshareTrialRun {
   artifact_path?: string;
   path?: string;
   message?: string;
-  env?: Record<string, string>;
+  env?: Record<string, string | number>;
   last_passed?: {
     status: string;
     passed: boolean;
@@ -75,9 +78,13 @@ export interface AkshareTrialRun {
     ended_at?: string;
     duration_seconds?: number;
   } | null;
-  steps?: AkshareTrialStep[];
+  steps?: DataTrialStep[];
   disclaimer?: string;
 }
+
+export type AkshareTrialStep = DataTrialStep;
+export type AkshareTrialRun = DataTrialRun;
+export type FundTrialRun = DataTrialRun;
 
 export interface AcceptanceCheck {
   key: string;

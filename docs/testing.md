@@ -21,9 +21,11 @@ make ci-local
 7. `make data-source`：检查最新数据采集元数据，暴露限量试跑和单标的采集失败 warning。
 8. `make akshare-trial-dry-run`：预演真实 AKShare 小规模试跑并写入 dry-run 摘要，不访问外部数据源。
 9. `make akshare-trial-status`：检查最近一次试跑摘要是否可读且通过。
-10. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
-11. `make frontend-test`：`npm test`，运行前端单元测试。
-12. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
+10. `make fund-trial-dry-run`：预演基金真实数据试跑并写入 dry-run 摘要，不访问外部数据源。
+11. `make fund-trial-status`：检查最近一次基金试跑摘要是否可读且通过。
+12. `make progress`：输出阶段 0 到阶段 6 的完成度，确认当前进度证据仍可计算。
+13. `make frontend-test`：`npm test`，运行前端单元测试。
+14. `make frontend-build`：运行前端 TypeScript 检查和 Vite 构建。
 
 GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 
@@ -37,6 +39,9 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 | `make akshare-trial` | 使用 csi800 股票池和 20 只标的上限串联真实 AKShare 小规模试跑、数据源门禁、总验收和进度检查，并写入 `data/reports/akshare_trial_run.json`。 |
 | `make akshare-trial-dry-run` | 预演真实试跑步骤并写入 dry-run 摘要，不访问 AKShare。 |
 | `make akshare-trial-status` | 只读检查最近一次真实 AKShare 试跑摘要，缺少或失败时返回非零。 |
+| `make fund-trial` | 使用指定基金代码和日期区间试跑 AKShare 基金净值采集，并写入 `data/reports/fund_trial_run.json`。 |
+| `make fund-trial-dry-run` | 预演基金真实数据试跑参数并写入 dry-run 摘要，不访问 AKShare。 |
+| `make fund-trial-status` | 只读检查最近一次基金试跑摘要，缺少或失败时返回非零。 |
 | `make data-source` | 校验 `data/raw/data_source.json`，区分通过、warning 和阻断失败。 |
 | `make progress` | 汇总阶段 0 到阶段 6 的完成度、当前阶段和每阶段证据计数。 |
 | `make storage` | 校验 DuckDB 文件、表存在性、字段 schema、DuckDB 行数与 CSV 行数一致性。 |
@@ -56,6 +61,7 @@ GitHub Actions 在 `main` push 和 pull request 上运行同等门禁。
 - DuckDB 存储：CSV 镜像到本地单文件 DuckDB，检查表行数和 schema。
 - 产物完整性：模型、预测、回测、报告、pipeline 运行记录和 DuckDB 文件都必须存在。
 - API：本地只读 API 路由、pipeline 触发锁、列表和详情接口。
+- 基金真实数据试跑：覆盖 AKShare 基金名称和净值字段解析、试跑 dry-run、失败落盘、API 摘要读取和前端任务页展示。
 - 前端：Vitest 覆盖共享展示工具的数字/时间格式化、状态颜色映射和交易拒绝原因展示；图表配置覆盖预测分数、净值、回撤、相对收益、单股行情和因子走势；表格列构造器覆盖预测、验收检查、产物、任务和模型列表列；PageTitle 覆盖页面标题、说明和操作区渲染；页面级 render 测试覆盖研究用途声明、空状态、关键表格列标题稳定，以及设置页不展示 secret 明文；构建检查覆盖页面类型、API 类型和生产 bundle。
 
 ## 当前边界

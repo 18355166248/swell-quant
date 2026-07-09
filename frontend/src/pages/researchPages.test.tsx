@@ -308,7 +308,7 @@ describe("research pages module", () => {
     expect(html).toContain("temporary upstream error");
   });
 
-  it("renders latest AKShare trial summary on the tasks page", () => {
+  it("renders latest stock and fund trial summaries on the tasks page", () => {
     const html = renderToStaticMarkup(
       <TasksPage
         tasks={[]}
@@ -339,12 +339,40 @@ describe("research pages module", () => {
           steps: [{ name: "config", status: "planned", command: ["python"] }],
           disclaimer: "仅用于研究，不构成投资建议",
         }}
+        fundTrial={{
+          status: "failed",
+          passed: false,
+          trial_kind: "real_data",
+          real_data_verified: false,
+          started_at: "2026-07-08T00:00:00+00:00",
+          ended_at: "2026-07-08T00:00:01+00:00",
+          duration_seconds: 1,
+          artifact_path: "data/reports/fund_trial_run.json",
+          env: {
+            FUND_SYMBOLS: "510300,159915",
+            FUND_START_DATE: "20250101",
+            FUND_END_DATE: "20260708",
+          },
+          steps: [
+            {
+              name: "fund_data",
+              status: "failed",
+              error: "network unavailable",
+              succeeded_count: 0,
+              failed_count: 2,
+            },
+          ],
+          disclaimer: "仅用于研究，不构成投资建议",
+        }}
       />,
     );
 
-    expect(html).toContain("最近真实试跑");
+    expect(html).toContain("最近股票真实试跑");
+    expect(html).toContain("最近基金真实试跑");
     expect(html).toContain("make akshare-trial");
     expect(html).toContain("make akshare-trial-dry-run");
+    expect(html).toContain("make fund-trial");
+    expect(html).toContain("make fund-trial-dry-run");
     expect(html).toContain("dry_run");
     expect(html).toContain("真实数据验证");
     expect(html).toContain("未验证，仅预演");
@@ -353,6 +381,9 @@ describe("research pages module", () => {
     expect(html).toContain("csi800");
     expect(html).toContain("data/reports/akshare_trial_run.json");
     expect(html).toContain("config");
+    expect(html).toContain("510300,159915");
+    expect(html).toContain("data/reports/fund_trial_run.json");
+    expect(html).toContain("network unavailable");
   });
 
   it("renders fund candidates and fund metrics", () => {
