@@ -1238,6 +1238,29 @@ def build_daily_brief_review_items(
     return items
 
 
+def _trial_next_action(
+    trial: dict[str, Any] | None,
+    *,
+    real_task: str,
+    dry_task: str,
+    run_label: str,
+    dry_label: str,
+    run_description: str,
+    dry_description: str,
+) -> dict[str, str | None]:
+    """预演已通过且尚未验证真实数据时，把动作从 dry-run 提升为真实试跑。"""
+    promote = (trial or {}).get("status") == "dry_run" and not (trial or {}).get(
+        "real_data_verified"
+    )
+    task = real_task if promote else dry_task
+    return {
+        "id": task,
+        "label": run_label if promote else dry_label,
+        "description": run_description if promote else dry_description,
+        "task": task,
+    }
+
+
 def build_daily_brief_next_actions(
     *,
     data_status: dict[str, Any] | None,
@@ -1253,26 +1276,16 @@ def build_daily_brief_next_actions(
     freshness = (data_status or {}).get("freshness") or {}
 
     if data_source != "akshare":
-        akshare_trial_status = (akshare_trial or {}).get("status")
-        akshare_trial_task = (
-            "akshare_trial"
-            if akshare_trial_status == "dry_run"
-            and not (akshare_trial or {}).get("real_data_verified")
-            else "akshare_trial_dry_run"
-        )
         actions.append(
-            {
-                "id": akshare_trial_task,
-                "label": "运行股票真实数据试跑"
-                if akshare_trial_task == "akshare_trial"
-                else "预演股票真实数据试跑",
-                "description": (
-                    "股票真实试跑预演已通过，可运行小范围真实采集并复核数据源健康。"
-                    if akshare_trial_task == "akshare_trial"
-                    else "当前股票数据不是 AKShare 真实试跑产物，先预演真实数据采集计划。"
-                ),
-                "task": akshare_trial_task,
-            }
+            _trial_next_action(
+                akshare_trial,
+                real_task="akshare_trial",
+                dry_task="akshare_trial_dry_run",
+                run_label="运行股票真实数据试跑",
+                dry_label="预演股票真实数据试跑",
+                run_description="股票真实试跑预演已通过，可运行小范围真实采集并复核数据源健康。",
+                dry_description="当前股票数据不是 AKShare 真实试跑产物，先预演真实数据采集计划。",
+            )
         )
     if freshness.get("status") in {"missing", "invalid", "stale"}:
         actions.append(
@@ -1304,25 +1317,16 @@ def build_daily_brief_next_actions(
             }
         )
     if fund_source and fund_source.get("source_kind") == "sample":
-        fund_trial_status = (fund_trial or {}).get("status")
-        fund_trial_task = (
-            "fund_trial"
-            if fund_trial_status == "dry_run" and not (fund_trial or {}).get("real_data_verified")
-            else "fund_trial_dry_run"
-        )
         actions.append(
-            {
-                "id": fund_trial_task,
-                "label": "运行基金真实数据试跑"
-                if fund_trial_task == "fund_trial"
-                else "预演基金真实数据试跑",
-                "description": (
-                    "基金真实试跑预演已通过，可运行公开基金净值采集并复核来源新鲜度。"
-                    if fund_trial_task == "fund_trial"
-                    else "基金候选仍是样例数据，真实研究前先预演基金采集计划。"
-                ),
-                "task": fund_trial_task,
-            }
+            _trial_next_action(
+                fund_trial,
+                real_task="fund_trial",
+                dry_task="fund_trial_dry_run",
+                run_label="运行基金真实数据试跑",
+                dry_label="预演基金真实数据试跑",
+                run_description="基金真实试跑预演已通过，可运行公开基金净值采集并复核来源新鲜度。",
+                dry_description="基金候选仍是样例数据，真实研究前先预演基金采集计划。",
+            )
         )
     if issues:
         actions.append(

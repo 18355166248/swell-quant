@@ -17,7 +17,7 @@ import {
   Timeline,
   Typography,
 } from "antd";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -114,6 +114,21 @@ interface ResearchRoadmapItem {
   evidence: string;
   outcome: string;
 }
+
+const ROADMAP_PRIORITY_COLOR: Record<ResearchRoadmapItem["priority"], string> = {
+  P0: "red",
+  P1: "blue",
+  P2: "default",
+};
+
+const ROADMAP_STATUS_META: Record<
+  ResearchRoadmapItem["status"],
+  { color: string; label: string }
+> = {
+  done: { color: "green", label: "已完成" },
+  next: { color: "orange", label: "下一步" },
+  planned: { color: "default", label: "规划中" },
+};
 
 function buildResearchRoadmap(progress?: ProjectProgress): ResearchRoadmapItem[] {
   const akshareTrialVerified = progress?.akshare_trial?.real_data_verified === true;
@@ -303,11 +318,9 @@ export function DashboardPage({
               <div className="roadmap-item">
                 <Space direction="vertical" size={8} className="full-width">
                   <Space wrap>
-                    <Tag color={item.priority === "P0" ? "red" : item.priority === "P1" ? "blue" : "default"}>
-                      {item.priority}
-                    </Tag>
-                    <Tag color={item.status === "done" ? "green" : item.status === "next" ? "orange" : "default"}>
-                      {item.status === "done" ? "已完成" : item.status === "next" ? "下一步" : "规划中"}
+                    <Tag color={ROADMAP_PRIORITY_COLOR[item.priority]}>{item.priority}</Tag>
+                    <Tag color={ROADMAP_STATUS_META[item.status].color}>
+                      {ROADMAP_STATUS_META[item.status].label}
                     </Tag>
                   </Space>
                   <Text strong>{item.title}</Text>
@@ -2691,18 +2704,19 @@ export function ReportsPage({
             <Divider />
             <Title level={5}>试跑状态</Title>
             <Space wrap>
-              <Tag color={preflightStatusColor(briefTrials.akshare?.status)}>
-                股票：{briefTrials.akshare?.status ?? "missing"}
-              </Tag>
-              <Text type="secondary">
-                {briefTrials.akshare?.real_data_verified ? "股票真实数据已验证" : "股票真实数据未验证"}
-              </Text>
-              <Tag color={preflightStatusColor(briefTrials.fund?.status)}>
-                基金：{briefTrials.fund?.status ?? "missing"}
-              </Tag>
-              <Text type="secondary">
-                {briefTrials.fund?.real_data_verified ? "基金真实数据已验证" : "基金真实数据未验证"}
-              </Text>
+              {([
+                ["股票", briefTrials.akshare],
+                ["基金", briefTrials.fund],
+              ] as const).map(([label, trial]) => (
+                <Fragment key={label}>
+                  <Tag color={preflightStatusColor(trial?.status)}>
+                    {label}：{trial?.status ?? "missing"}
+                  </Tag>
+                  <Text type="secondary">
+                    {label}真实数据{trial?.real_data_verified ? "已验证" : "未验证"}
+                  </Text>
+                </Fragment>
+              ))}
             </Space>
           </>
         ) : null}
