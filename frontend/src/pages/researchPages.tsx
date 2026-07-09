@@ -463,17 +463,19 @@ export function TasksPage({
   isRunning: boolean;
 }) {
   const steps = taskDetail?.steps ?? [];
-  const taskTriggers: Array<{ key: TaskTrigger; label: string }> = [
+  const pipelineTaskTriggers: Array<{ key: TaskTrigger; label: string }> = [
     { key: "pipeline", label: "完整 pipeline" },
     { key: "data_update", label: "更新数据" },
     { key: "model_train", label: "训练模型" },
     { key: "prediction_run", label: "生成预测" },
     { key: "backtest_run", label: "运行回测" },
     { key: "report_generate", label: "生成报告" },
+  ];
+  const trialTaskTriggers: Array<{ key: TaskTrigger; label: string; danger?: boolean }> = [
     { key: "akshare_trial_dry_run", label: "股票试跑预演" },
-    { key: "akshare_trial", label: "股票真实试跑" },
+    { key: "akshare_trial", label: "股票真实试跑", danger: true },
     { key: "fund_trial_dry_run", label: "基金试跑预演" },
-    { key: "fund_trial", label: "基金真实试跑" },
+    { key: "fund_trial", label: "基金真实试跑", danger: true },
   ];
   const timelineItems = steps.map((step) => ({
     color: step.status === "success" ? "green" : step.status === "failed" ? "red" : "gray",
@@ -496,17 +498,34 @@ export function TasksPage({
         title="任务中心"
         description="查看离线 pipeline 的最近运行步骤、耗时、产物路径和失败位置。"
         extra={
-          <Space wrap>
-            {taskTriggers.map((trigger) => (
-              <Button
-                key={trigger.key}
-                icon={<ReloadOutlined />}
-                loading={isRunning}
-                onClick={() => onRunTask(trigger.key)}
-              >
-                {trigger.label}
-              </Button>
-            ))}
+          <Space direction="vertical" size={6} align="end">
+            <Space wrap>
+              <Text type="secondary">研究链路</Text>
+              {pipelineTaskTriggers.map((trigger) => (
+                <Button
+                  key={trigger.key}
+                  icon={<ReloadOutlined />}
+                  loading={isRunning}
+                  onClick={() => onRunTask(trigger.key)}
+                >
+                  {trigger.label}
+                </Button>
+              ))}
+            </Space>
+            <Space wrap>
+              <Text type="secondary">真实数据试跑</Text>
+              {trialTaskTriggers.map((trigger) => (
+                <Button
+                  key={trigger.key}
+                  danger={trigger.danger}
+                  icon={<ReloadOutlined />}
+                  loading={isRunning}
+                  onClick={() => onRunTask(trigger.key)}
+                >
+                  {trigger.label}
+                </Button>
+              ))}
+            </Space>
           </Space>
         }
       />
