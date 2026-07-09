@@ -188,6 +188,27 @@ def test_local_api_daily_brief_prefers_trial_dry_run_actions_for_sample_sources(
     assert "fund_trial" not in action_by_id
 
 
+def test_local_api_daily_brief_advances_to_real_trial_after_dry_run() -> None:
+    actions = build_daily_brief_next_actions(
+        data_status={
+            "data_source": "sample",
+            "freshness": {"status": "fresh", "message": "样例数据日期仅用于链路验证。"},
+        },
+        acceptance={"passed": True, "failed_count": 0},
+        artifact_status={"status": "complete", "missing": []},
+        fund_source={"source_kind": "sample"},
+        akshare_trial={"status": "dry_run", "real_data_verified": False},
+        fund_trial={"status": "dry_run", "real_data_verified": False},
+        issues=[],
+    )
+
+    action_by_id = {action["id"]: action for action in actions}
+    assert action_by_id["akshare_trial"]["task"] == "akshare_trial"
+    assert action_by_id["fund_trial"]["task"] == "fund_trial"
+    assert "akshare_trial_dry_run" not in action_by_id
+    assert "fund_trial_dry_run" not in action_by_id
+
+
 def test_local_api_research_candidates_artifact_reads_historical_review(
     tmp_path: Path,
 ) -> None:

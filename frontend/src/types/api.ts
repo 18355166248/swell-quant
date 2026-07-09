@@ -877,6 +877,10 @@ export interface DailyBrief {
     missing: string[];
     optional_missing: string[];
   };
+  trials: {
+    akshare?: AkshareTrialRun | null;
+    fund?: FundTrialRun | null;
+  };
   review_items: string[];
   next_actions: Array<{
     id: string;

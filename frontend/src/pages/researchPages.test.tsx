@@ -930,6 +930,10 @@ describe("research pages module", () => {
             missing: ["duckdb"],
             optional_missing: [],
           },
+          trials: {
+            akshare: null,
+            fund: null,
+          },
           review_items: ["API 简报复核项", "基金页当前使用样例数据"],
           next_actions: [
             {

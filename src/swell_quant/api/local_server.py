@@ -1125,6 +1125,18 @@ def load_daily_brief_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, An
         "fund_candidates",
         lambda: load_fund_candidates_artifact(data_dir, "balanced"),
     )
+    akshare_trial_path = data_dir / "reports" / "akshare_trial_run.json"
+    fund_trial_path = data_dir / "reports" / "fund_trial_run.json"
+    akshare_trial = (
+        try_load("akshare_trial", lambda: load_akshare_trial_artifact(akshare_trial_path))
+        if akshare_trial_path.exists()
+        else None
+    )
+    fund_trial = (
+        try_load("fund_trial", lambda: load_fund_trial_artifact(fund_trial_path))
+        if fund_trial_path.exists()
+        else None
+    )
     artifact_status = try_load(
         "artifacts",
         lambda: load_artifacts_artifact(data_dir, duckdb_path),
@@ -1154,6 +1166,8 @@ def load_daily_brief_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, An
         acceptance=acceptance,
         artifact_status=artifact_summary,
         fund_source=(fund_candidates or {}).get("source"),
+        akshare_trial=akshare_trial,
+        fund_trial=fund_trial,
         issues=issues,
     )
     return {
@@ -1181,6 +1195,10 @@ def load_daily_brief_artifact(data_dir: Path, duckdb_path: Path) -> dict[str, An
             "status": artifact_summary.get("status", "missing"),
             "missing": artifact_summary.get("missing", []),
             "optional_missing": artifact_summary.get("optional_missing", []),
+        },
+        "trials": {
+            "akshare": akshare_trial,
+            "fund": fund_trial,
         },
         "review_items": review_items,
         "next_actions": next_actions,
@@ -1226,6 +1244,8 @@ def build_daily_brief_next_actions(
     acceptance: dict[str, Any],
     artifact_status: dict[str, Any],
     fund_source: dict[str, Any] | None,
+    akshare_trial: dict[str, Any] | None = None,
+    fund_trial: dict[str, Any] | None = None,
     issues: list[dict[str, str]],
 ) -> list[dict[str, str | None]]:
     actions: list[dict[str, str | None]] = []
@@ -1233,12 +1253,25 @@ def build_daily_brief_next_actions(
     freshness = (data_status or {}).get("freshness") or {}
 
     if data_source != "akshare":
+        akshare_trial_status = (akshare_trial or {}).get("status")
+        akshare_trial_task = (
+            "akshare_trial"
+            if akshare_trial_status == "dry_run"
+            and not (akshare_trial or {}).get("real_data_verified")
+            else "akshare_trial_dry_run"
+        )
         actions.append(
             {
-                "id": "akshare_trial_dry_run",
-                "label": "预演股票真实数据试跑",
-                "description": "当前股票数据不是 AKShare 真实试跑产物，先预演真实数据采集计划。",
-                "task": "akshare_trial_dry_run",
+                "id": akshare_trial_task,
+                "label": "运行股票真实数据试跑"
+                if akshare_trial_task == "akshare_trial"
+                else "预演股票真实数据试跑",
+                "description": (
+                    "股票真实试跑预演已通过，可运行小范围真实采集并复核数据源健康。"
+                    if akshare_trial_task == "akshare_trial"
+                    else "当前股票数据不是 AKShare 真实试跑产物，先预演真实数据采集计划。"
+                ),
+                "task": akshare_trial_task,
             }
         )
     if freshness.get("status") in {"missing", "invalid", "stale"}:
@@ -1271,12 +1304,24 @@ def build_daily_brief_next_actions(
             }
         )
     if fund_source and fund_source.get("source_kind") == "sample":
+        fund_trial_status = (fund_trial or {}).get("status")
+        fund_trial_task = (
+            "fund_trial"
+            if fund_trial_status == "dry_run" and not (fund_trial or {}).get("real_data_verified")
+            else "fund_trial_dry_run"
+        )
         actions.append(
             {
-                "id": "fund_trial_dry_run",
-                "label": "预演基金真实数据试跑",
-                "description": "基金候选仍是样例数据，真实研究前先预演基金采集计划。",
-                "task": "fund_trial_dry_run",
+                "id": fund_trial_task,
+                "label": "运行基金真实数据试跑"
+                if fund_trial_task == "fund_trial"
+                else "预演基金真实数据试跑",
+                "description": (
+                    "基金真实试跑预演已通过，可运行公开基金净值采集并复核来源新鲜度。"
+                    if fund_trial_task == "fund_trial"
+                    else "基金候选仍是样例数据，真实研究前先预演基金采集计划。"
+                ),
+                "task": fund_trial_task,
             }
         )
     if issues:
