@@ -7,6 +7,7 @@ from swell_quant.portfolio.backtest import (
     backtest_composite,
     benchmark_return,
 )
+from swell_quant.portfolio.walkforward import train_ic_weights, walk_forward_backtest
 
 __all__ = [
     "BacktestResult",
@@ -15,4 +16,6 @@ __all__ = [
     "benchmark_return",
     "equal_weight_top_n",
     "portfolio_return",
+    "train_ic_weights",
+    "walk_forward_backtest",
 ]
