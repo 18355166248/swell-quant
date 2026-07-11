@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from swell_quant.marketdata.records import BarRecord
+from swell_quant.marketdata.records import BarRecord, FundamentalRecord
 
 
 # 事实表列顺序，写入与读出共用，避免两处漂移。
@@ -70,6 +70,29 @@ ON CONFLICT (symbol, date) DO UPDATE SET
     source = excluded.source
 """
 
+# 财务：双时间轴，PK 含 knowledge_date → 同一报告期的原始与修正各占一行、都保留。
+_CREATE_FUNDAMENTAL_TABLE = """
+CREATE TABLE IF NOT EXISTS stock_fundamental (
+    symbol VARCHAR,
+    event_date DATE,
+    knowledge_date DATE,
+    item VARCHAR,
+    value DOUBLE,
+    source VARCHAR,
+    PRIMARY KEY (symbol, event_date, knowledge_date, item)
+)
+"""
+
+_FUNDAMENTAL_COLUMNS = ("symbol", "event_date", "knowledge_date", "item", "value", "source")
+
+_UPSERT_FUNDAMENTALS = """
+INSERT INTO stock_fundamental (symbol, event_date, knowledge_date, item, value, source)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (symbol, event_date, knowledge_date, item) DO UPDATE SET
+    value = excluded.value,
+    source = excluded.source
+"""
+
 
 class MarketStore:
     """行情数据的 Repository：干净读写 API，裸 SQL 不外泄到上层。
@@ -84,6 +107,7 @@ class MarketStore:
         self._connection = duckdb.connect(str(path))
         self._connection.execute(_CREATE_BAR_TABLE)
         self._connection.execute(_CREATE_BAR_HFQ_VIEW)
+        self._connection.execute(_CREATE_FUNDAMENTAL_TABLE)
 
     def close(self) -> None:
         self._connection.close()
@@ -133,6 +157,53 @@ class MarketStore:
 
         return self._query_bars("stock_bar_1d_hfq", symbols, as_of, lookback)
 
+    def write_fundamentals(self, records: Sequence[FundamentalRecord]) -> None:
+        """幂等写入财务事实。财报修正是**新的一行**（不同 knowledge_date），历史保留。"""
+
+        if not records:
+            return
+        rows = [
+            (
+                record.symbol,
+                record.event_date,
+                record.knowledge_date,
+                record.item,
+                record.value,
+                record.source,
+            )
+            for record in records
+        ]
+        self._connection.executemany(_UPSERT_FUNDAMENTALS, rows)
+
+    def get_fundamentals(
+        self, symbols: Sequence[str], as_of: date
+    ) -> list[FundamentalRecord]:
+        """point-in-time 查询：只认 as_of 当天已公告的数据，杜绝财务未来函数。
+
+        对每只票的每个 item，取 ``knowledge_date <= as_of`` 中 event_date 最新的
+        报告期、再取其 knowledge_date 最新的一条（即当时能看到的最新修正）。
+        """
+
+        if not symbols:
+            return []
+        placeholders = ", ".join("?" for _ in symbols)
+        query = f"""
+        SELECT {", ".join(_FUNDAMENTAL_COLUMNS)} FROM (
+            SELECT {", ".join(_FUNDAMENTAL_COLUMNS)},
+                   ROW_NUMBER() OVER (
+                       PARTITION BY symbol, item
+                       ORDER BY event_date DESC, knowledge_date DESC
+                   ) AS rn
+            FROM stock_fundamental
+            WHERE symbol IN ({placeholders}) AND knowledge_date <= ?
+        )
+        WHERE rn = 1
+        ORDER BY symbol, item
+        """
+        params: list[Any] = [*symbols, as_of]
+        rows = self._connection.execute(query, params).fetchall()
+        return [_row_to_fundamental(row) for row in rows]
+
     def get_max_date(self, symbol: str, table: str = "stock_bar_1d") -> date | None:
         """库里该票最新到哪天，供增量采集算窗口。无数据返回 None。"""
 
@@ -165,6 +236,17 @@ class MarketStore:
         params: list[Any] = [*symbols, as_of, lookback]
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_bar(row) for row in rows]
+
+
+def _row_to_fundamental(row: tuple[Any, ...]) -> FundamentalRecord:
+    return FundamentalRecord(
+        symbol=row[0],
+        event_date=row[1],
+        knowledge_date=row[2],
+        item=row[3],
+        value=row[4],
+        source=row[5],
+    )
 
 
 def _row_to_bar(row: tuple[Any, ...]) -> BarRecord:

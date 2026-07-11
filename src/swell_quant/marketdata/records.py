@@ -24,3 +24,23 @@ class BarRecord:
     amount: float
     adj_factor: float
     source: str
+
+
+@dataclass(frozen=True)
+class FundamentalRecord:
+    """一条财务/基本面事实，双时间轴。
+
+    - ``event_date``：数值所属报告期期末（如 2025-03-31 为一季报）。
+    - ``knowledge_date``：该数值首次或**修正后**对外可知之日（公告日）。
+
+    双时间轴是防**财务未来函数**的根：查询只认 ``knowledge_date <= as_of``
+    的记录，且财报修正保留为同一 event_date、不同 knowledge_date 的多行
+    （见 docs/data-module-decisions.md §4、§7-C）。
+    """
+
+    symbol: str
+    event_date: date
+    knowledge_date: date
+    item: str
+    value: float
+    source: str

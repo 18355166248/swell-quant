@@ -210,10 +210,12 @@ class MarketStore:
 | source | `adjust.py` | `normalize_adj_factor` 起点锚定防御工具 | 6 |
 | source | `source_bars.py` | `build_bars_from_factor_steps`（推荐：台阶因子+前向填充）、`build_bar_records`（相除备选）、`fetch_bars` | 9 |
 | store | `store.py` | `MarketStore`：`stock_bar_1d` 表 + `stock_bar_1d_hfq` 视图 + 幂等 upsert + `get_bars`/`get_bars_hfq`(as_of/lookback) + `get_max_date` | 10 |
+| store | `store.py` | 财务：`FundamentalRecord` + `stock_fundamental` 双时间轴表 + 幂等 `write_fundamentals` + **PIT** `get_fundamentals(as_of)`（防财务未来函数，含财报修正历史） | 7 |
+| e2e | `test_marketdata_integration.py` | 台阶因子 → 合成 → 落库 → as_of 读出；验证后复权视图消除除权跳空 | 1 |
 
-共 25 个 marketdata 测试，全绿；旧代码零回归。store 层用内存 DuckDB 测试，不依赖网络。
+共 33 个 marketdata 测试，全绿；旧代码零回归。store 层用内存 DuckDB 测试，不依赖网络。
 
-**store 层仍待补**：财务/公司行为表与 PIT `get_fundamentals`、trade_calendar、治理表（schema_version/ingestion_log）、真实文件库 `marketdata.duckdb` 接线。
+**store 层仍待补**：公司行为表（corporate_action）、估值/指数/成分股/trade_calendar 表、治理表（schema_version/ingestion_log）、真实文件库 `marketdata.duckdb` 接线。
 
 ## 决策状态
 
