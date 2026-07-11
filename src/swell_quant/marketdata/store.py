@@ -5,7 +5,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from swell_quant.marketdata.records import BarRecord, FundamentalRecord
+from swell_quant.marketdata.records import BarRecord, FundamentalRecord, ValuationRecord
 
 
 # 事实表列顺序，写入与读出共用，避免两处漂移。
@@ -94,6 +94,29 @@ ON CONFLICT (symbol, event_date, knowledge_date, item) DO UPDATE SET
 """
 
 
+# 估值：每日观测，长表/EAV，单时间轴（date）。PK (symbol, date, item)。
+_CREATE_VALUATION_TABLE = """
+CREATE TABLE IF NOT EXISTS stock_valuation (
+    symbol VARCHAR,
+    date DATE,
+    item VARCHAR,
+    value DOUBLE,
+    source VARCHAR,
+    PRIMARY KEY (symbol, date, item)
+)
+"""
+
+_VALUATION_COLUMNS = ("symbol", "date", "item", "value", "source")
+
+_UPSERT_VALUATIONS = """
+INSERT INTO stock_valuation (symbol, date, item, value, source)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (symbol, date, item) DO UPDATE SET
+    value = excluded.value,
+    source = excluded.source
+"""
+
+
 # 交易日历：只存交易日（is_open=True）；不在表中的日期即非交易日（假定日历覆盖区间）。
 _CREATE_TRADE_CALENDAR = """
 CREATE TABLE IF NOT EXISTS trade_calendar (
@@ -149,6 +172,7 @@ class MarketStore:
         self._connection.execute(_CREATE_BAR_TABLE)
         self._connection.execute(_CREATE_BAR_HFQ_VIEW)
         self._connection.execute(_CREATE_FUNDAMENTAL_TABLE)
+        self._connection.execute(_CREATE_VALUATION_TABLE)
         self._connection.execute(_CREATE_TRADE_CALENDAR)
         self._connection.execute(_CREATE_INGESTION_LOG)
 
@@ -199,6 +223,39 @@ class MarketStore:
         """同 get_bars，但价格为后复权（读视图，派生自 raw 价 * adj_factor）。"""
 
         return self._query_bars("stock_bar_1d_hfq", symbols, as_of, lookback)
+
+    def write_valuations(self, records: Sequence[ValuationRecord]) -> None:
+        """幂等写入每日估值（长表）。"""
+
+        if not records:
+            return
+        rows = [
+            (record.symbol, record.date, record.item, record.value, record.source)
+            for record in records
+        ]
+        self._connection.executemany(_UPSERT_VALUATIONS, rows)
+
+    def get_valuations(
+        self, symbols: Sequence[str], as_of: date, lookback: int = 1
+    ) -> list[ValuationRecord]:
+        """as_of 查询：每个 (symbol, item) 取 date <= as_of 的最近 ``lookback`` 条，升序返回。"""
+
+        if not symbols or lookback <= 0:
+            return []
+        placeholders = ", ".join("?" for _ in symbols)
+        query = f"""
+        SELECT {", ".join(_VALUATION_COLUMNS)} FROM (
+            SELECT {", ".join(_VALUATION_COLUMNS)},
+                   ROW_NUMBER() OVER (PARTITION BY symbol, item ORDER BY date DESC) AS rn
+            FROM stock_valuation
+            WHERE symbol IN ({placeholders}) AND date <= ?
+        )
+        WHERE rn <= ?
+        ORDER BY symbol, item, date
+        """
+        params: list[Any] = [*symbols, as_of, lookback]
+        rows = self._connection.execute(query, params).fetchall()
+        return [_row_to_valuation(row) for row in rows]
 
     def write_fundamentals(self, records: Sequence[FundamentalRecord]) -> None:
         """幂等写入财务事实。财报修正是**新的一行**（不同 knowledge_date），历史保留。"""
@@ -302,7 +359,7 @@ class MarketStore:
     def get_max_date(self, symbol: str, table: str = "stock_bar_1d") -> date | None:
         """库里该票最新到哪天，供增量采集算窗口。无数据返回 None。"""
 
-        if table not in {"stock_bar_1d"}:
+        if table not in {"stock_bar_1d", "stock_valuation"}:
             raise ValueError(f"不支持的表：{table}")
         result = self._connection.execute(
             f"SELECT max(date) FROM {table} WHERE symbol = ?", [symbol]
@@ -331,6 +388,16 @@ class MarketStore:
         params: list[Any] = [*symbols, as_of, lookback]
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_bar(row) for row in rows]
+
+
+def _row_to_valuation(row: tuple[Any, ...]) -> ValuationRecord:
+    return ValuationRecord(
+        symbol=row[0],
+        date=row[1],
+        item=row[2],
+        value=row[3],
+        source=row[4],
+    )
 
 
 def _row_to_fundamental(row: tuple[Any, ...]) -> FundamentalRecord:

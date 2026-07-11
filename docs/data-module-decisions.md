@@ -215,6 +215,9 @@ end=周日时零请求精确 skip。**仍待补**：把 `get_bars` 的 lookback 
 | source | `source_bars.py` | `build_bars_from_factor_steps`（推荐：台阶因子+前向填充）、`build_bar_records`（相除备选）、`fetch_bars`、`fetch_bars_sina`（真实新浪路径）、`sina_symbol` | 12 |
 | store | `store.py` | `MarketStore`：`stock_bar_1d` 表 + `stock_bar_1d_hfq` 视图 + 幂等 upsert + `get_bars`/`get_bars_hfq`(as_of/lookback) + `get_max_date` | 10 |
 | store | `store.py` | 财务：`FundamentalRecord` + `stock_fundamental` 双时间轴表 + 幂等 `write_fundamentals` + **PIT** `get_fundamentals(as_of)`（防财务未来函数，含财报修正历史） | 7 |
+| store | `store.py` | 估值：`ValuationRecord` + `stock_valuation` 长表 + 幂等 `write_valuations` + `get_valuations(as_of, lookback)` | （见估值） |
+| source | `source_valuation.py` | `fetch_valuations_baidu`（百度 `stock_zh_valuation_baidu`，逐指标合并，纯6位代码） | 8 |
+| service | `collect.py` | `collect_valuations`：估值池化采集，增量（拉整段留新观测）、失败隔离、审计 | 2 |
 | store | `store.py` | 治理：`ingestion_log` 审计表 + `record_ingestion`/`get_ingestion_log` | （见采集） |
 | source | `source_calendar.py` | `fetch_trade_calendar`（AKShare `tool_trade_date_hist_sina`） | 4 |
 | store | `store.py` | 交易日历：`trade_calendar` 表 + `write_trade_calendar`/`is_trading_day`/`latest_trading_day` | （见日历） |
@@ -222,7 +225,13 @@ end=周日时零请求精确 skip。**仍待补**：把 `get_bars` 的 lookback 
 | service | `collect.py` | `collect_bars`：股票池采集，**增量**（`get_max_date`+日期钳制）、单票失败隔离、批次审计；**有日历时精确判定“已最新”** | 12 |
 | e2e | `test_marketdata_integration.py` | 台阶因子 → 合成 → 落库 → as_of 读出；验证后复权视图消除除权跳空 | 1 |
 
-共 52 个 marketdata 测试，全绿；旧代码零回归。store 层用内存 DuckDB 测试，不依赖网络。
+共 62 个 marketdata 测试，全绿；旧代码零回归。store 层用内存 DuckDB 测试，不依赖网络。
+
+> **估值表设计调整**：§3 曾把 `stock_valuation` 画成宽表（pe/pb/ps… 各一列）；实现改为
+> **长表/EAV**（`symbol, date, item, value`），与财务表一致，也贴合百度“单指标一序列”的真实
+> 形态、天然容忍缺指标。数据源为**百度**（`stock_zh_valuation_baidu`，东财被代理封禁）；A股用
+> 纯 6 位代码；默认指标 pe_ttm/pb/total_mv（市销率部分标的不可用，暂不纳入）。真实验证：
+> 600519+000001 采 2190 行，重采 0 行（幂等）。
 
 **✅ 真实数据端到端验证**：`fetch_bars_sina('600519', 2024H1)` 经真实新浪拉到 140 根日线 → 落 DuckDB 文件库 → 重复灌仍 140 行（幂等）→ 后复权视图 raw 1421.28 × 因子 8.239 = 11709.97（算对）。行情主线在真实数据上跑通。
 

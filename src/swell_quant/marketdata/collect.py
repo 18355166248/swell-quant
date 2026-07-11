@@ -5,8 +5,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from swell_quant.marketdata.records import BarRecord
+from swell_quant.marketdata.records import BarRecord, ValuationRecord
 from swell_quant.marketdata.source_bars import BarSourceError, fetch_bars_sina
+from swell_quant.marketdata.source_valuation import (
+    DEFAULT_ITEMS,
+    ValuationSourceError,
+    fetch_valuations_baidu,
+)
 from swell_quant.marketdata.store import MarketStore
 
 # fetch 契约：fetch(symbol, start_date, end_date, provider) -> list[BarRecord]
@@ -88,18 +93,31 @@ def collect_bars(
             results.append(SymbolCollectResult(symbol=symbol, rows=0, status="failed", reason=str(error)))
 
     result = CollectionResult(batch_id=batch_id, results=tuple(results))
+    _log_batch(store, result, table_name="stock_bar_1d", source=source,
+               started_at=started_at, finished_at=now or datetime.now())
+    return result
+
+
+def _log_batch(
+    store: MarketStore,
+    result: CollectionResult,
+    *,
+    table_name: str,
+    source: str,
+    started_at: datetime,
+    finished_at: datetime,
+) -> None:
     failures = "; ".join(f"{r.symbol}: {r.reason}" for r in result.failed[:5])
     store.record_ingestion(
-        batch_id=batch_id,
-        table_name="stock_bar_1d",
+        batch_id=result.batch_id,
+        table_name=table_name,
         source=source,
         started_at=started_at,
-        finished_at=now or datetime.now(),
+        finished_at=finished_at,
         row_count=result.total_rows,
         status=result.status,
         message=failures,
     )
-    return result
 
 
 def _collect_one(
@@ -143,6 +161,57 @@ def _collect_one(
 
     store.write_bars(bars)
     return SymbolCollectResult(symbol=symbol, rows=len(bars), status="ok")
+
+
+def collect_valuations(
+    symbols: Sequence[str],
+    store: MarketStore,
+    provider: Any,
+    *,
+    items: tuple[str, ...] = DEFAULT_ITEMS,
+    period: str = "近一年",
+    source: str = "baidu",
+    fetch: Callable[..., list[ValuationRecord]] = fetch_valuations_baidu,
+    now: datetime | None = None,
+) -> CollectionResult:
+    """采集股票池每日估值到 store：增量 + 单票失败隔离 + 批次审计。
+
+    百度估值按 ``period`` 返回整段序列（非日期窗口），故增量方式为“拉整段、只留
+    ``date > max_date`` 的新观测”。单票失败记录并继续；整批写一条 ingestion_log。
+    """
+
+    started_at = now or datetime.now()
+    batch_id = started_at.strftime("%Y%m%dT%H%M%S%f")
+
+    results: list[SymbolCollectResult] = []
+    for symbol in symbols:
+        try:
+            max_date = store.get_max_date(symbol, table="stock_valuation")
+            records = fetch(symbol, provider, items=items, period=period, source=source)
+            if max_date is not None:
+                records = [r for r in records if r.date > max_date]
+            if not records:
+                results.append(SymbolCollectResult(symbol=symbol, rows=0, status="skipped"))
+                continue
+            store.write_valuations(records)
+            results.append(SymbolCollectResult(symbol=symbol, rows=len(records), status="ok"))
+        except ValuationSourceError as error:
+            # 估值源空响应：增量时视为已最新，首采时视为失败。
+            if store.get_max_date(symbol, table="stock_valuation") is not None:
+                results.append(SymbolCollectResult(symbol=symbol, rows=0, status="skipped"))
+            else:
+                results.append(
+                    SymbolCollectResult(symbol=symbol, rows=0, status="failed", reason=str(error))
+                )
+        except Exception as error:  # noqa: BLE001 - 单票失败应记录并继续采集其它标的。
+            results.append(
+                SymbolCollectResult(symbol=symbol, rows=0, status="failed", reason=str(error))
+            )
+
+    result = CollectionResult(batch_id=batch_id, results=tuple(results))
+    _log_batch(store, result, table_name="stock_valuation", source=source,
+               started_at=started_at, finished_at=now or datetime.now())
+    return result
 
 
 def _to_yyyymmdd(value: date) -> str:

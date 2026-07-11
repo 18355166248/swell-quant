@@ -44,3 +44,21 @@ class FundamentalRecord:
     item: str
     value: float
     source: str
+
+
+@dataclass(frozen=True)
+class ValuationRecord:
+    """一条每日估值观测（长表/EAV）。
+
+    估值是每日观测的客观事实（如某日的 PE-TTM、PB、总市值），故只需单时间轴
+    ``date``；PIT 语义与行情一致（只认 ``date <= as_of``）。用长表而非宽表，既与
+    财务表一致，也贴合数据源“单指标一条序列”的真实形态（见 docs/data-module-decisions.md）。
+
+    ``item`` 取值如 ``"pe_ttm" | "pe" | "pb" | "total_mv"``。
+    """
+
+    symbol: str
+    date: date
+    item: str
+    value: float
+    source: str

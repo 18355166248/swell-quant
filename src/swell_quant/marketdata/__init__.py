@@ -4,7 +4,7 @@
 是过渡期参考代码，本包一行不依赖它们。
 """
 
-from swell_quant.marketdata.records import BarRecord, FundamentalRecord
+from swell_quant.marketdata.records import BarRecord, FundamentalRecord, ValuationRecord
 from swell_quant.marketdata.adjust import apply_start_anchor, normalize_adj_factor
 from swell_quant.marketdata.source_bars import (
     BarSourceError,
@@ -15,11 +15,13 @@ from swell_quant.marketdata.source_bars import (
     sina_symbol,
 )
 from swell_quant.marketdata.source_calendar import fetch_trade_calendar
+from swell_quant.marketdata.source_valuation import fetch_valuations_baidu
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.marketdata.collect import (
     CollectionResult,
     SymbolCollectResult,
     collect_bars,
+    collect_valuations,
 )
 
 __all__ = [
@@ -29,13 +31,16 @@ __all__ = [
     "FundamentalRecord",
     "MarketStore",
     "SymbolCollectResult",
+    "ValuationRecord",
     "apply_start_anchor",
     "build_bar_records",
     "build_bars_from_factor_steps",
     "collect_bars",
+    "collect_valuations",
     "fetch_bars",
     "fetch_bars_sina",
     "fetch_trade_calendar",
+    "fetch_valuations_baidu",
     "normalize_adj_factor",
     "sina_symbol",
 ]
