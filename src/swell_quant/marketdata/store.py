@@ -94,6 +94,21 @@ ON CONFLICT (symbol, event_date, knowledge_date, item) DO UPDATE SET
 """
 
 
+# 交易日历：只存交易日（is_open=True）；不在表中的日期即非交易日（假定日历覆盖区间）。
+_CREATE_TRADE_CALENDAR = """
+CREATE TABLE IF NOT EXISTS trade_calendar (
+    date DATE,
+    is_open BOOLEAN,
+    PRIMARY KEY (date)
+)
+"""
+
+_UPSERT_CALENDAR = """
+INSERT INTO trade_calendar (date, is_open) VALUES (?, ?)
+ON CONFLICT (date) DO UPDATE SET is_open = excluded.is_open
+"""
+
+
 # 采集审计：每批次一行，记录源/时间/行数/成败，任何数据可追溯到哪次采集。
 _CREATE_INGESTION_LOG = """
 CREATE TABLE IF NOT EXISTS ingestion_log (
@@ -134,6 +149,7 @@ class MarketStore:
         self._connection.execute(_CREATE_BAR_TABLE)
         self._connection.execute(_CREATE_BAR_HFQ_VIEW)
         self._connection.execute(_CREATE_FUNDAMENTAL_TABLE)
+        self._connection.execute(_CREATE_TRADE_CALENDAR)
         self._connection.execute(_CREATE_INGESTION_LOG)
 
     def close(self) -> None:
@@ -230,6 +246,32 @@ class MarketStore:
         params: list[Any] = [*symbols, as_of]
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_fundamental(row) for row in rows]
+
+    def write_trade_calendar(self, trading_days: Sequence[date]) -> None:
+        """幂等写入交易日历（只存交易日）。"""
+
+        if not trading_days:
+            return
+        self._connection.executemany(_UPSERT_CALENDAR, [(day, True) for day in trading_days])
+
+    def has_trade_calendar(self) -> bool:
+        return bool(
+            self._connection.execute("SELECT count(*) FROM trade_calendar").fetchone()[0]
+        )
+
+    def is_trading_day(self, day: date) -> bool:
+        row = self._connection.execute(
+            "SELECT is_open FROM trade_calendar WHERE date = ?", [day]
+        ).fetchone()
+        return bool(row and row[0])
+
+    def latest_trading_day(self, on_or_before: date) -> date | None:
+        """<= on_or_before 的最近交易日；日历为空或无更早交易日则 None。"""
+
+        row = self._connection.execute(
+            "SELECT max(date) FROM trade_calendar WHERE date <= ? AND is_open", [on_or_before]
+        ).fetchone()
+        return row[0] if row else None
 
     def record_ingestion(
         self,

@@ -188,6 +188,20 @@ def test_clamps_rows_beyond_end_date(store):
     assert store.get_max_date("600519") == date(2026, 1, 3)
 
 
+def test_calendar_makes_skip_precise_without_fetch(store):
+    # 库里已到 1/28（最近交易日），end=1/31 但 1/29-31 无交易日。
+    # 有交易日历时应精确判定“已最新”并**根本不发请求**，而非靠空响应兜底。
+    store.write_bars([_bar("600519", 28)])
+    store.write_trade_calendar([date(2026, 1, d) for d in (27, 28)])  # 1/28 是最近交易日
+    fetch = FakeFetch()
+    result = collect_bars(
+        ["600519"], store, provider=None,
+        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+    )
+    assert fetch.calls == []  # 关键：日历让我们免了这次无谓网络请求
+    assert result.results[0].status == "skipped"
+
+
 def test_end_to_end_incremental_is_idempotent(store):
     # 第一次采全量，第二次已最新 → 跳过；两次后行数不变。
     fetch = FakeFetch(bars_by_symbol={"600519": [_bar("600519", d) for d in (1, 2, 3)]})

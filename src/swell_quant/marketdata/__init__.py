@@ -14,6 +14,7 @@ from swell_quant.marketdata.source_bars import (
     fetch_bars_sina,
     sina_symbol,
 )
+from swell_quant.marketdata.source_calendar import fetch_trade_calendar
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.marketdata.collect import (
     CollectionResult,
@@ -34,6 +35,7 @@ __all__ = [
     "collect_bars",
     "fetch_bars",
     "fetch_bars_sina",
+    "fetch_trade_calendar",
     "normalize_adj_factor",
     "sina_symbol",
 ]

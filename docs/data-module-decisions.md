@@ -187,9 +187,13 @@ class MarketStore:
 `stock_yjbb_em`（业绩报表）带公告日期，可作 knowledge_date（前期已验证）。但估值、其它财务项不一定都带公告日期。
 **动工前**：对每个要入库的 `item` 确认能否拿到真实公告日；拿不到的，用“事件期末 + 保守披露滞后”兜底，并在 `source` 里标注是估计值，避免把估计当事实。
 
-### 7-D. 交易日历来源
+### 7-D. 交易日历来源 ✅ 已落地
 
-`as_of + lookback` 的正确性依赖真实交易日历。选定并落库 `trade_calendar`（如 `ak.tool_trade_date_hist_sina`），作为 lookback 计数与“最近交易日”判定的唯一基准。
+`as_of + lookback` 的正确性依赖真实交易日历。已用 `ak.tool_trade_date_hist_sina` 落库
+`trade_calendar`，并接入 `collect_bars`：有日历时用 `latest_trading_day(<= end)` 精确判定
+“已最新”，精确跳过非交易日尾窗（不再依赖空响应兜底）。真实验证：2024 年 242 个交易日，
+end=周日时零请求精确 skip。**仍待补**：把 `get_bars` 的 lookback 也改为按交易日历计数
+（当前按库中已存行计数，日线连续时等价）。
 
 ### 7-E. 与旧存储的迁移边界
 
@@ -212,10 +216,13 @@ class MarketStore:
 | store | `store.py` | `MarketStore`：`stock_bar_1d` 表 + `stock_bar_1d_hfq` 视图 + 幂等 upsert + `get_bars`/`get_bars_hfq`(as_of/lookback) + `get_max_date` | 10 |
 | store | `store.py` | 财务：`FundamentalRecord` + `stock_fundamental` 双时间轴表 + 幂等 `write_fundamentals` + **PIT** `get_fundamentals(as_of)`（防财务未来函数，含财报修正历史） | 7 |
 | store | `store.py` | 治理：`ingestion_log` 审计表 + `record_ingestion`/`get_ingestion_log` | （见采集） |
-| service | `collect.py` | `collect_bars`：股票池采集，**增量**（`get_max_date`+日期钳制）、单票失败隔离、批次审计 | 11 |
+| source | `source_calendar.py` | `fetch_trade_calendar`（AKShare `tool_trade_date_hist_sina`） | 4 |
+| store | `store.py` | 交易日历：`trade_calendar` 表 + `write_trade_calendar`/`is_trading_day`/`latest_trading_day` | （见日历） |
+| source | `frames.py` | 共享帧解析工具（iter_rows/value/to_float/parse_date） | — |
+| service | `collect.py` | `collect_bars`：股票池采集，**增量**（`get_max_date`+日期钳制）、单票失败隔离、批次审计；**有日历时精确判定“已最新”** | 12 |
 | e2e | `test_marketdata_integration.py` | 台阶因子 → 合成 → 落库 → as_of 读出；验证后复权视图消除除权跳空 | 1 |
 
-共 36 个 marketdata 测试，全绿；旧代码零回归。store 层用内存 DuckDB 测试，不依赖网络。
+共 52 个 marketdata 测试，全绿；旧代码零回归。store 层用内存 DuckDB 测试，不依赖网络。
 
 **✅ 真实数据端到端验证**：`fetch_bars_sina('600519', 2024H1)` 经真实新浪拉到 140 根日线 → 落 DuckDB 文件库 → 重复灌仍 140 行（幂等）→ 后复权视图 raw 1421.28 × 因子 8.239 = 11709.97（算对）。行情主线在真实数据上跑通。
 
@@ -234,5 +241,5 @@ class MarketStore:
 - [x] 7-A 因子锚定核对——**已用真实 Sina 数据验证**：因子上市日锚定、免疫未来函数；改用 `hfq-factor` 台阶因子 + 前向填充以求精确幂等（见 §7-A）。
 - [ ] 7-B 成分股快照策略（接受 v1 限制 + 定期落库自建历史）。
 - [ ] 7-C 各 item 的 knowledge_date 来源确认。
-- [ ] 7-D 交易日历来源选定。
+- [x] 7-D 交易日历——已落库 `trade_calendar` 并接入采集精确跳过（真实数据验证，见 §7-D）。
 - [ ] 7-E 新旧库物理隔离 + 旧 storage 退役路径。

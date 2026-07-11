@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
+from swell_quant.marketdata.frames import iter_rows as _iter_rows
+from swell_quant.marketdata.frames import parse_date as _parse_date
+from swell_quant.marketdata.frames import to_float as _to_float
+from swell_quant.marketdata.frames import value as _value
 from swell_quant.marketdata.records import BarRecord
 
 
@@ -195,28 +199,3 @@ def fetch_bars_sina(
     return records
 
 
-def _iter_rows(frame: Any) -> list[dict[str, Any]]:
-    if frame is None:
-        return []
-    if hasattr(frame, "to_dict"):
-        return frame.to_dict("records")
-    return list(frame)
-
-
-def _value(row: dict[str, Any], *keys: str) -> Any:
-    for key in keys:
-        if key in row:
-            return row[key]
-    raise KeyError(f"行缺少字段 {keys!r}：{sorted(row)}")
-
-
-def _to_float(value: Any) -> float:
-    return float(value)
-
-
-def _parse_date(value: Any) -> date:
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()

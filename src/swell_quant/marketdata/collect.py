@@ -70,11 +70,19 @@ def collect_bars(
     batch_id = started_at.strftime("%Y%m%dT%H%M%S%f")
     end_dt = _parse_yyyymmdd(end_date)
 
+    # 有交易日历时，用 <= end_date 的最近交易日作为“已最新”判据，精确跳过空尾窗；
+    # 没有日历则退回按日历日 end_date 判断（配合空响应兜底）。见 §7-D。
+    calendar_last = store.latest_trading_day(end_dt) if store.has_trade_calendar() else None
+    effective_end = calendar_last or end_dt
+
     results: list[SymbolCollectResult] = []
     for symbol in symbols:
         try:
             results.append(
-                _collect_one(symbol, store, provider, default_start, end_date, end_dt, source, fetch)
+                _collect_one(
+                    symbol, store, provider, default_start, end_date,
+                    end_dt, effective_end, source, fetch,
+                )
             )
         except Exception as error:  # noqa: BLE001 - 单票失败应记录并继续采集其它标的。
             results.append(SymbolCollectResult(symbol=symbol, rows=0, status="failed", reason=str(error)))
@@ -101,6 +109,7 @@ def _collect_one(
     default_start: str,
     end_date: str,
     end_dt: date,
+    effective_end: date,
     source: str,
     fetch: BarFetch,
 ) -> SymbolCollectResult:
@@ -108,8 +117,8 @@ def _collect_one(
     incremental = max_date is not None
     if not incremental:
         start_date = default_start
-    elif max_date >= end_dt:
-        # 已是最新，无需网络请求。
+    elif max_date >= effective_end:
+        # 已到最近交易日（或日历日 end），无需网络请求。
         return SymbolCollectResult(symbol=symbol, rows=0, status="skipped")
     else:
         start_date = _to_yyyymmdd(max_date + timedelta(days=1))
