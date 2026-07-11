@@ -6,6 +6,7 @@
 
 from swell_quant.factors.base import Factor
 from swell_quant.factors.momentum import MomentumFactor
+from swell_quant.factors.quality import QualityFactor
 from swell_quant.factors.value import ValueFactor
 from swell_quant.factors.volatility import VolatilityFactor
 from swell_quant.factors.preprocess import (
@@ -41,6 +42,7 @@ __all__ = [
     "ICSummary",
     "MomentumFactor",
     "PeriodIC",
+    "QualityFactor",
     "SeriesStats",
     "ValueFactor",
     "VolatilityFactor",

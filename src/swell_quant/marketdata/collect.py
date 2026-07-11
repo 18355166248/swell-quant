@@ -5,8 +5,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from swell_quant.marketdata.records import BarRecord, ValuationRecord
+from swell_quant.marketdata.records import BarRecord, FundamentalRecord, ValuationRecord
 from swell_quant.marketdata.source_bars import BarSourceError, fetch_bars_sina
+from swell_quant.marketdata.source_fundamentals import (
+    FundamentalSourceError,
+    fetch_fundamentals,
+)
+from swell_quant.marketdata.source_fundamentals import DEFAULT_ITEMS as FUNDAMENTAL_ITEMS
 from swell_quant.marketdata.source_valuation import (
     DEFAULT_ITEMS,
     ValuationSourceError,
@@ -210,6 +215,53 @@ def collect_valuations(
 
     result = CollectionResult(batch_id=batch_id, results=tuple(results))
     _log_batch(store, result, table_name="stock_valuation", source=source,
+               started_at=started_at, finished_at=now or datetime.now())
+    return result
+
+
+def collect_fundamentals(
+    symbols: Sequence[str],
+    store: MarketStore,
+    provider: Any,
+    periods: Sequence[str],
+    *,
+    items: tuple[str, ...] = FUNDAMENTAL_ITEMS,
+    source: str = "yjbb_em_est",
+    fetch: Callable[..., list[FundamentalRecord]] = fetch_fundamentals,
+    now: datetime | None = None,
+) -> CollectionResult:
+    """采集财务到 store：**按报告期驱动**（一次取全市场该期数据，按股票池过滤）。
+
+    业绩报表一次调用返回全 A 股某期数据，故外层循环是 periods 而非 symbols。
+    单期失败记录并继续；整批写一条 ingestion_log。``periods`` 如 ("20240331", "20240630")。
+    每期的结果记在 SymbolCollectResult 的 symbol 位（此处存报告期）。幂等：同期重采按主键 upsert。
+    """
+
+    started_at = now or datetime.now()
+    batch_id = started_at.strftime("%Y%m%dT%H%M%S%f")
+    symbol_set = set(symbols)
+
+    results: list[SymbolCollectResult] = []
+    for period in periods:
+        try:
+            records = [r for r in fetch(provider, period, items=items, source=source)
+                       if r.symbol in symbol_set]
+            if not records:
+                results.append(SymbolCollectResult(symbol=period, rows=0, status="skipped"))
+                continue
+            store.write_fundamentals(records)
+            results.append(SymbolCollectResult(symbol=period, rows=len(records), status="ok"))
+        except FundamentalSourceError as error:
+            results.append(
+                SymbolCollectResult(symbol=period, rows=0, status="failed", reason=str(error))
+            )
+        except Exception as error:  # noqa: BLE001 - 单期失败应记录并继续采集其它期。
+            results.append(
+                SymbolCollectResult(symbol=period, rows=0, status="failed", reason=str(error))
+            )
+
+    result = CollectionResult(batch_id=batch_id, results=tuple(results))
+    _log_batch(store, result, table_name="stock_fundamental", source=source,
                started_at=started_at, finished_at=now or datetime.now())
     return result
 

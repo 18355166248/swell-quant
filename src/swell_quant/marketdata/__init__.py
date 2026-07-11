@@ -15,12 +15,14 @@ from swell_quant.marketdata.source_bars import (
     sina_symbol,
 )
 from swell_quant.marketdata.source_calendar import fetch_trade_calendar
+from swell_quant.marketdata.source_fundamentals import fetch_fundamentals
 from swell_quant.marketdata.source_valuation import fetch_valuations_baidu
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.marketdata.collect import (
     CollectionResult,
     SymbolCollectResult,
     collect_bars,
+    collect_fundamentals,
     collect_valuations,
 )
 
@@ -36,9 +38,11 @@ __all__ = [
     "build_bar_records",
     "build_bars_from_factor_steps",
     "collect_bars",
+    "collect_fundamentals",
     "collect_valuations",
     "fetch_bars",
     "fetch_bars_sina",
+    "fetch_fundamentals",
     "fetch_trade_calendar",
     "fetch_valuations_baidu",
     "normalize_adj_factor",
