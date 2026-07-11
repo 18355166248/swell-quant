@@ -8,6 +8,8 @@ from swell_quant.marketdata.source_bars import (
     build_bar_records,
     build_bars_from_factor_steps,
     fetch_bars,
+    fetch_bars_sina,
+    sina_symbol,
 )
 
 
@@ -137,3 +139,54 @@ def test_trade_day_before_first_step_is_skipped():
     steps = [_step(2, 1.0)]
     bars = build_bars_from_factor_steps("600519", raw, steps, source="sina")
     assert [b.date.day for b in bars] == [2]
+
+
+def test_sina_symbol_prefix_by_exchange():
+    assert sina_symbol("600519") == "sh600519"
+    assert sina_symbol("000001") == "sz000001"
+    assert sina_symbol("300750") == "sz300750"
+    assert sina_symbol("688111") == "sh688111"
+    assert sina_symbol("830799") == "bj830799"
+    assert sina_symbol("600519.SH") == "sh600519"  # 带后缀也能解析
+    with pytest.raises(ValueError):
+        sina_symbol("123456")
+
+
+class FakeSina:
+    """新浪 stock_zh_a_daily：adjust="" 给不复权行情，"hfq-factor" 给台阶因子。"""
+
+    def __init__(self, raw_rows, factor_rows):
+        self.raw_rows = raw_rows
+        self.factor_rows = factor_rows
+        self.calls = []
+
+    def stock_zh_a_daily(self, symbol, adjust, start_date=None, end_date=None):
+        self.calls.append((symbol, adjust))
+        return FakeFrame(self.factor_rows if adjust == "hfq-factor" else self.raw_rows)
+
+
+def test_fetch_bars_sina_uses_factor_steps():
+    raw = [
+        {"date": "2026-01-01", "open": 10.0, "high": 10.0, "low": 10.0, "close": 10.0,
+         "volume": 100, "amount": 1000.0},
+        {"date": "2026-01-02", "open": 8.0, "high": 8.0, "low": 8.0, "close": 8.0,
+         "volume": 100, "amount": 800.0},
+    ]
+    factors = [
+        {"date": "2026-01-01", "hfq_factor": 1.0},
+        {"date": "2026-01-02", "hfq_factor": 1.25},
+    ]
+    fake = FakeSina(raw_rows=raw, factor_rows=factors)
+    bars = fetch_bars_sina("600519", "20260101", "20260131", provider=fake)
+
+    assert fake.calls == [("sh600519", ""), ("sh600519", "hfq-factor")]
+    assert [(b.date.day, b.close, b.adj_factor) for b in bars] == [
+        (1, 10.0, 1.0),
+        (2, 8.0, 1.25),
+    ]
+
+
+def test_fetch_bars_sina_empty_raises():
+    fake = FakeSina(raw_rows=[], factor_rows=[{"date": "2026-01-01", "hfq_factor": 1.0}])
+    with pytest.raises(BarSourceError):
+        fetch_bars_sina("600519", "20260101", "20260131", provider=fake)

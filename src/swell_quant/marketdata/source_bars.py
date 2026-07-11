@@ -148,6 +148,53 @@ def fetch_bars(
     return records
 
 
+def sina_symbol(code: str) -> str:
+    """6 位代码 → 新浪格式 "sh600519" / "sz000001" / "bj830799"。
+
+    新浪 stock_zh_a_daily 要求“小写交易所前缀 + 6 位代码”。
+    """
+
+    digits = code.split(".")[0].strip()[-6:]
+    if digits.startswith(("60", "68", "90")):
+        prefix = "sh"
+    elif digits.startswith(("00", "30", "20")):
+        prefix = "sz"
+    elif digits.startswith(("43", "83", "87", "88")):
+        prefix = "bj"
+    else:
+        raise ValueError(f"无法判断交易所前缀：{code}")
+    return f"{prefix}{digits}"
+
+
+def fetch_bars_sina(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    provider: Any,
+    source: str = "sina",
+) -> list[BarRecord]:
+    """从**新浪**拉取不复权日线 + hfq 台阶因子，合成 BarRecord（推荐真实路径）。
+
+    ``provider`` 需提供 ``stock_zh_a_daily(symbol, start_date, end_date, adjust)``
+    （真实为 akshare 模块，测试注入 Fake）。不复权行情用 ``adjust=""``；因子用
+    ``adjust="hfq-factor"``（稀疏台阶、上市日锚定、高精度），二者经前向填充合成。
+    本机东方财富被代理封禁，新浪是可用的真实源（见 memory / §7-A）。
+    """
+
+    sina = sina_symbol(symbol)
+    raw_frame = provider.stock_zh_a_daily(
+        symbol=sina, start_date=start_date, end_date=end_date, adjust=""
+    )
+    # hfq-factor 返回全历史稀疏台阶，不吃 start/end；前向填充时自动覆盖窗口内每天。
+    factor_frame = provider.stock_zh_a_daily(symbol=sina, adjust="hfq-factor")
+    records = build_bars_from_factor_steps(
+        symbol, _iter_rows(raw_frame), _iter_rows(factor_frame), source
+    )
+    if not records:
+        raise BarSourceError(f"{source} 返回 {symbol} 无可用日线")
+    return records
+
+
 def _iter_rows(frame: Any) -> list[dict[str, Any]]:
     if frame is None:
         return []

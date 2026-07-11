@@ -11,6 +11,8 @@ from swell_quant.marketdata.source_bars import (
     build_bar_records,
     build_bars_from_factor_steps,
     fetch_bars,
+    fetch_bars_sina,
+    sina_symbol,
 )
 from swell_quant.marketdata.store import MarketStore
 
@@ -23,5 +25,7 @@ __all__ = [
     "build_bar_records",
     "build_bars_from_factor_steps",
     "fetch_bars",
+    "fetch_bars_sina",
     "normalize_adj_factor",
+    "sina_symbol",
 ]
