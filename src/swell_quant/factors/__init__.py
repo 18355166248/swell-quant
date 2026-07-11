@@ -7,5 +7,19 @@
 from swell_quant.factors.base import Factor
 from swell_quant.factors.momentum import MomentumFactor
 from swell_quant.factors.value import ValueFactor
+from swell_quant.factors.preprocess import (
+    fill_missing,
+    standardize,
+    winsorize_mad,
+    zscore,
+)
 
-__all__ = ["Factor", "MomentumFactor", "ValueFactor"]
+__all__ = [
+    "Factor",
+    "MomentumFactor",
+    "ValueFactor",
+    "fill_missing",
+    "standardize",
+    "winsorize_mad",
+    "zscore",
+]
