@@ -13,9 +13,17 @@ from swell_quant.factors.preprocess import (
     winsorize_mad,
     zscore,
 )
+from swell_quant.factors.pipeline import (
+    CompositeResult,
+    FactorPipeline,
+    FactorWeight,
+)
 
 __all__ = [
+    "CompositeResult",
     "Factor",
+    "FactorPipeline",
+    "FactorWeight",
     "MomentumFactor",
     "ValueFactor",
     "fill_missing",
