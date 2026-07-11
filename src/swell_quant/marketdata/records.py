@@ -57,6 +57,20 @@ class IndexBarRecord:
 
 
 @dataclass(frozen=True)
+class UniverseMemberRecord:
+    """某指数在某快照日的一个成分股。
+
+    数据源只给**当前**成分（`index_stock_cons`），故按 snapshot_date 定期落库、
+    随时间自建历史成分，缓解幸存者偏差（见 docs/data-module-decisions.md §7-B）。
+    """
+
+    snapshot_date: date
+    index_code: str
+    symbol: str
+    source: str
+
+
+@dataclass(frozen=True)
 class ValuationRecord:
     """一条每日估值观测（长表/EAV）。
 

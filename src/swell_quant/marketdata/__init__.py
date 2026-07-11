@@ -22,6 +22,10 @@ from swell_quant.marketdata.source_bars import (
 from swell_quant.marketdata.source_calendar import fetch_trade_calendar
 from swell_quant.marketdata.source_fundamentals import fetch_fundamentals
 from swell_quant.marketdata.source_index import fetch_index_bars_sina
+from swell_quant.marketdata.source_universe import (
+    fetch_index_constituents,
+    snapshot_index_universe,
+)
 from swell_quant.marketdata.source_valuation import fetch_valuations_baidu
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.marketdata.collect import (
@@ -40,6 +44,7 @@ __all__ = [
     "IndexBarRecord",
     "MarketStore",
     "SymbolCollectResult",
+    "UniverseMemberRecord",
     "ValuationRecord",
     "apply_start_anchor",
     "build_bar_records",
@@ -51,8 +56,10 @@ __all__ = [
     "fetch_bars_sina",
     "fetch_fundamentals",
     "fetch_index_bars_sina",
+    "fetch_index_constituents",
     "fetch_trade_calendar",
     "fetch_valuations_baidu",
     "normalize_adj_factor",
     "sina_symbol",
+    "snapshot_index_universe",
 ]

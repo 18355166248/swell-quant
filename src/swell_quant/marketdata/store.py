@@ -9,6 +9,7 @@ from swell_quant.marketdata.records import (
     BarRecord,
     FundamentalRecord,
     IndexBarRecord,
+    UniverseMemberRecord,
     ValuationRecord,
 )
 
@@ -142,6 +143,25 @@ ON CONFLICT (symbol, date, item) DO UPDATE SET
 """
 
 
+# 成分股快照：按快照日落库当前成分，随时间自建历史（抗幸存者偏差，§7-B）。
+_CREATE_UNIVERSE_MEMBER_TABLE = """
+CREATE TABLE IF NOT EXISTS universe_member (
+    snapshot_date DATE,
+    index_code VARCHAR,
+    symbol VARCHAR,
+    source VARCHAR,
+    PRIMARY KEY (snapshot_date, index_code, symbol)
+)
+"""
+
+_UPSERT_UNIVERSE_MEMBERS = """
+INSERT INTO universe_member (snapshot_date, index_code, symbol, source)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (snapshot_date, index_code, symbol) DO UPDATE SET
+    source = excluded.source
+"""
+
+
 # 交易日历：只存交易日（is_open=True）；不在表中的日期即非交易日（假定日历覆盖区间）。
 _CREATE_TRADE_CALENDAR = """
 CREATE TABLE IF NOT EXISTS trade_calendar (
@@ -199,6 +219,7 @@ class MarketStore:
         self._connection.execute(_CREATE_FUNDAMENTAL_TABLE)
         self._connection.execute(_CREATE_VALUATION_TABLE)
         self._connection.execute(_CREATE_INDEX_BAR_TABLE)
+        self._connection.execute(_CREATE_UNIVERSE_MEMBER_TABLE)
         self._connection.execute(_CREATE_TRADE_CALENDAR)
         self._connection.execute(_CREATE_INGESTION_LOG)
 
@@ -417,6 +438,32 @@ class MarketStore:
         params: list[Any] = [*symbols, start, horizon + 1]
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_bar(row) for row in rows]
+
+    def write_universe_members(self, records: Sequence[UniverseMemberRecord]) -> None:
+        """幂等写入成分股快照。"""
+
+        if not records:
+            return
+        rows = [(r.snapshot_date, r.index_code, r.symbol, r.source) for r in records]
+        self._connection.executemany(_UPSERT_UNIVERSE_MEMBERS, rows)
+
+    def get_universe(self, index_code: str, as_of: date) -> list[str]:
+        """as_of 当天可知的成分股：取 snapshot_date <= as_of 的**最近一次**快照，升序返回。
+
+        用最近历史快照近似当时成分，比“永远用今天的成分”更抗幸存者偏差（§7-B）。
+        as_of 早于任何快照则返回空。
+        """
+
+        query = """
+        SELECT symbol FROM universe_member
+        WHERE index_code = ? AND snapshot_date = (
+            SELECT max(snapshot_date) FROM universe_member
+            WHERE index_code = ? AND snapshot_date <= ?
+        )
+        ORDER BY symbol
+        """
+        rows = self._connection.execute(query, [index_code, index_code, as_of]).fetchall()
+        return [row[0] for row in rows]
 
     def write_index_bars(self, records: Sequence[IndexBarRecord]) -> None:
         """幂等写入指数日线。"""
