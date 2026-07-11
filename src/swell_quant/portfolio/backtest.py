@@ -14,17 +14,24 @@ from swell_quant.portfolio.construct import equal_weight_top_n, portfolio_return
 @dataclass(frozen=True)
 class PeriodReturn:
     as_of: date
-    ret: float | None
+    ret: float | None  # 毛收益（未扣成本）
     n_holdings: int
     benchmark_ret: float | None = None
+    cost: float = 0.0  # 本期交易成本 = 换手率 × 费率
+
+    @property
+    def net_ret(self) -> float | None:
+        """净收益 = 毛收益 - 交易成本。"""
+
+        return None if self.ret is None else self.ret - self.cost
 
     @property
     def excess(self) -> float | None:
-        """组合超额收益 = 组合收益 - 基准收益（任一缺失则 None）。"""
+        """组合**净**超额收益 = 净收益 - 基准收益（任一缺失则 None）。"""
 
-        if self.ret is None or self.benchmark_ret is None:
+        if self.net_ret is None or self.benchmark_ret is None:
             return None
-        return self.ret - self.benchmark_ret
+        return self.net_ret - self.benchmark_ret
 
 
 @dataclass(frozen=True)
@@ -34,20 +41,26 @@ class BacktestResult:
     periods: tuple[PeriodReturn, ...]
 
     def _valid(self) -> list[float]:
-        return [p.ret for p in self.periods if p.ret is not None]
+        return [p.net_ret for p in self.periods if p.net_ret is not None]
 
     @property
     def equity_curve(self) -> list[tuple[date, float]]:
-        """从 1.0 开始逐期复利的净值序列（只计有效期）。"""
+        """从 1.0 开始逐期复利的**净**净值序列（扣成本，只计有效期）。"""
 
         curve: list[tuple[date, float]] = []
         equity = 1.0
         for period in self.periods:
-            if period.ret is None:
+            if period.net_ret is None:
                 continue
-            equity *= 1.0 + period.ret
+            equity *= 1.0 + period.net_ret
             curve.append((period.as_of, equity))
         return curve
+
+    @property
+    def total_cost(self) -> float:
+        """全程累计交易成本（各期成本之和）。"""
+
+        return sum(p.cost for p in self.periods if p.ret is not None)
 
     @property
     def total_return(self) -> float | None:
@@ -143,6 +156,12 @@ def benchmark_return(
     return (bars[-1].close / start_close - 1) if start_close else None
 
 
+def _turnover(prev: dict[str, float], new: dict[str, float]) -> float:
+    """单边换手率 = Σ|w_new - w_prev|（并集）。首期 prev 为空 → 等于建仓的 Σw_new。"""
+
+    return sum(abs(new.get(s, 0.0) - prev.get(s, 0.0)) for s in set(prev) | set(new))
+
+
 def backtest_composite(
     pipeline: FactorPipeline,
     store: MarketStore,
@@ -151,14 +170,18 @@ def backtest_composite(
     top_n: int,
     horizon: int = 20,
     benchmark_index: str | None = None,
+    cost_bps: float = 0.0,
 ) -> BacktestResult:
     """在每个调仓日：综合打分 → Top-N 等权 → 持有 horizon 日 → 记录组合收益。
 
     ``rebalance_dates`` 应按 horizon 间隔取（非重叠持有），一般用
     ``sample_as_of_dates(store, ..., step=horizon)`` 生成，避免持有期重叠。
     传 ``benchmark_index``（如 "sh000300"）则同时记录基准收益，可算超额/信息比率。
+    ``cost_bps`` 为单边费率（基点）：每期成本 = 换手率 × cost_bps/10000，从毛收益扣除。
     """
 
+    cost_rate = cost_bps / 10000.0
+    prev_weights: dict[str, float] = {}
     periods: list[PeriodReturn] = []
     for as_of in rebalance_dates:
         scores = pipeline.compute(store, symbols, as_of)
@@ -170,9 +193,16 @@ def backtest_composite(
             if benchmark_index
             else None
         )
+        cost = cost_rate * _turnover(prev_weights, weights)
         periods.append(
             PeriodReturn(
-                as_of=as_of, ret=period_ret, n_holdings=len(weights), benchmark_ret=bench
+                as_of=as_of,
+                ret=period_ret,
+                n_holdings=len(weights),
+                benchmark_ret=bench,
+                cost=cost,
             )
         )
+        # 建仓后即持有到期末再换仓；下期以本期权重为基准算换手。
+        prev_weights = weights
     return BacktestResult(periods=tuple(periods))

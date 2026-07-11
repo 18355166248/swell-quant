@@ -121,6 +121,64 @@ def test_benchmark_metrics():
     assert r.benchmark_total_return == pytest.approx(1.05 * 1.01 * 1.02 - 1)
 
 
+# ---- transaction costs ----
+
+def test_net_ret_and_metrics_use_net():
+    p = PeriodReturn(date(2026, 1, 1), ret=0.10, n_holdings=3, cost=0.02)
+    assert p.net_ret == pytest.approx(0.08)
+    result = BacktestResult(periods=(p,))
+    assert result.total_return == pytest.approx(0.08)  # 用净收益
+    assert result.total_cost == pytest.approx(0.02)
+
+
+def test_excess_uses_net_ret():
+    p = PeriodReturn(date(2026, 1, 1), ret=0.10, n_holdings=3, benchmark_ret=0.05, cost=0.02)
+    assert p.excess == pytest.approx(0.08 - 0.05)  # (0.10-0.02) - 0.05
+
+
+def test_cost_charged_on_turnover(store):
+    # 两期分别持有不同的单只票 → 第2期换手=2.0（卖旧买新）。
+    for sym, rate in [("a", 0.02), ("b", 0.04)]:
+        store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 8)])
+    # 因子让第1期选 a、第2期选 b。
+    class SwitchFactor(Factor):
+        @property
+        def name(self): return "switch"
+        def compute(self, store, symbols, as_of):
+            first = as_of == date(2026, 1, 1)
+            return {"a": (2.0 if first else 1.0), "b": (1.0 if first else 2.0)}
+
+    pipe = FactorPipeline(weights=(FactorWeight(SwitchFactor()),))
+    result = backtest_composite(
+        pipe, store, ["a", "b"], [date(2026, 1, 1), date(2026, 1, 3)],
+        top_n=1, horizon=2, cost_bps=10,
+    )
+    # 第1期建仓：换手 1.0 → cost 0.001；第2期全换：换手 2.0 → cost 0.002。
+    assert result.periods[0].cost == pytest.approx(0.001)
+    assert result.periods[1].cost == pytest.approx(0.002)
+
+
+def test_no_turnover_no_cost(store):
+    # 两期都持有同一只票 → 第2期换手 0 → 无成本。
+    store.write_bars([_bar("a", d, 10.0 * 1.01 ** d) for d in range(1, 8)])
+    store.write_bars([_bar("b", d, 10.0) for d in range(1, 8)])
+    pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 2.0, "b": 1.0})),))
+    result = backtest_composite(
+        pipe, store, ["a", "b"], [date(2026, 1, 1), date(2026, 1, 3)],
+        top_n=1, horizon=2, cost_bps=10,
+    )
+    assert result.periods[0].cost == pytest.approx(0.001)  # 建仓
+    assert result.periods[1].cost == pytest.approx(0.0)    # 未换仓
+
+
+def test_cost_zero_preserves_gross(store):
+    store.write_bars([_bar("a", d, 10.0 * 1.05 ** d) for d in range(1, 6)])
+    pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0})),))
+    result = backtest_composite(pipe, store, ["a"], [date(2026, 1, 1)], top_n=1, horizon=2)
+    assert result.periods[0].cost == 0.0
+    assert result.periods[0].net_ret == result.periods[0].ret
+
+
 def test_backtest_with_benchmark_index(store):
     for sym, rate in [("a", 0.0), ("b", 0.03)]:
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 6)])
