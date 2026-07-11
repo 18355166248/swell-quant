@@ -356,6 +356,32 @@ class MarketStore:
         ).fetchall()
         return [dict(zip(_INGESTION_LOG_COLUMNS, row)) for row in rows]
 
+    def get_bars_hfq_forward(
+        self, symbols: Sequence[str], start: date, horizon: int
+    ) -> list[BarRecord]:
+        """研究/评估用**前视**查询：每票取 date >= start 的最早 ``horizon``+1 根后复权行情。
+
+        ⚠️ 这是有意的“看向未来”查询，仅用于计算**已实现**的未来收益（如 IC 评估），
+        **绝不可**用于因子计算——因子只能走 as_of 接口。返回按 (symbol, date) 升序。
+        """
+
+        if not symbols or horizon <= 0:
+            return []
+        placeholders = ", ".join("?" for _ in symbols)
+        query = f"""
+        SELECT {", ".join(_BAR_COLUMNS)} FROM (
+            SELECT {", ".join(_BAR_COLUMNS)},
+                   ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date ASC) AS rn
+            FROM stock_bar_1d_hfq
+            WHERE symbol IN ({placeholders}) AND date >= ?
+        )
+        WHERE rn <= ?
+        ORDER BY symbol, date
+        """
+        params: list[Any] = [*symbols, start, horizon + 1]
+        rows = self._connection.execute(query, params).fetchall()
+        return [_row_to_bar(row) for row in rows]
+
     def get_max_date(self, symbol: str, table: str = "stock_bar_1d") -> date | None:
         """库里该票最新到哪天，供增量采集算窗口。无数据返回 None。"""
 

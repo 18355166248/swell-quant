@@ -18,15 +18,27 @@ from swell_quant.factors.pipeline import (
     FactorPipeline,
     FactorWeight,
 )
+from swell_quant.factors.evaluate import (
+    ICResult,
+    evaluate_factor,
+    forward_returns,
+    information_coefficient,
+    rank_ic,
+)
 
 __all__ = [
     "CompositeResult",
     "Factor",
     "FactorPipeline",
     "FactorWeight",
+    "ICResult",
     "MomentumFactor",
     "ValueFactor",
+    "evaluate_factor",
     "fill_missing",
+    "forward_returns",
+    "information_coefficient",
+    "rank_ic",
     "standardize",
     "winsorize_mad",
     "zscore",
