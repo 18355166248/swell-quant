@@ -6,5 +6,6 @@
 
 from swell_quant.factors.base import Factor
 from swell_quant.factors.momentum import MomentumFactor
+from swell_quant.factors.value import ValueFactor
 
-__all__ = ["Factor", "MomentumFactor"]
+__all__ = ["Factor", "MomentumFactor", "ValueFactor"]
