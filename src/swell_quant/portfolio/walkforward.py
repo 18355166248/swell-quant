@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import statistics
 from collections.abc import Sequence
 from datetime import date
 
@@ -56,14 +57,25 @@ def walk_forward_backtest(
     """
 
     cost_rate = cost_bps / 10000.0
+
+    # 性能：每个因子每期的 RankIC 只算一次（否则每个 OOS 期都会重算整个训练窗，O(期×窗)）。
+    # 训练权重 = 训练窗内各期缓存 RankIC 的均值，与 train_ic_weights 等价、但快一个数量级。
+    ic_cache: list[dict[date, float | None]] = []
+    for factor in factors:
+        summary = evaluate_factor_series(factor, store, symbols, rebalance_dates, horizon)
+        ic_cache.append({p.as_of: p.rank_ic for p in summary.per_period})
+
     prev_weights: dict[str, float] = {}
     periods: list[PeriodReturn] = []
     for i in range(train_size, len(rebalance_dates)):
         train_dates = rebalance_dates[i - train_size : i]
         as_of = rebalance_dates[i]
 
-        trained = train_ic_weights(factors, store, symbols, train_dates, horizon)
-        scores = FactorPipeline(weights=trained).compute(store, symbols, as_of)
+        trained = []
+        for factor, cache in zip(factors, ic_cache):
+            ics = [cache[d] for d in train_dates if cache[d] is not None]
+            trained.append(FactorWeight(factor=factor, weight=statistics.fmean(ics) if ics else 0.0))
+        scores = FactorPipeline(weights=tuple(trained)).compute(store, symbols, as_of)
         weights = equal_weight_top_n(scores, top_n)
 
         rets = forward_returns(store, list(weights), as_of, horizon)
