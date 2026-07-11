@@ -11,8 +11,8 @@ from swell_quant.marketdata.store import MarketStore
 from swell_quant.portfolio.backtest import (
     BacktestResult,
     PeriodReturn,
+    _benchmark,
     _turnover,
-    benchmark_return,
 )
 from swell_quant.portfolio.construct import equal_weight_top_n, portfolio_return
 
@@ -48,12 +48,14 @@ def walk_forward_backtest(
     top_n: int,
     horizon: int = 20,
     benchmark_index: str | None = None,
+    equal_weight_benchmark: bool = False,
     cost_bps: float = 0.0,
 ) -> BacktestResult:
     """滚动样本外回测：每个调仓日用**前** ``train_size`` 期的 IC 定权重，再在当日选股。
 
     因子权重完全由历史训练窗口决定（IC 加权），故每期选股都是**样本外**——直接回答
     “这个 edge 是真的还是过拟合”。前 ``train_size`` 期用于起始训练、不产生持仓。
+    基准同 backtest_composite：``equal_weight_benchmark=True`` 用等权全池（剥离等权 tilt）。
     """
 
     cost_rate = cost_bps / 10000.0
@@ -80,11 +82,7 @@ def walk_forward_backtest(
 
         rets = forward_returns(store, list(weights), as_of, horizon)
         period_ret = portfolio_return(weights, rets) if weights else None
-        bench = (
-            benchmark_return(store, benchmark_index, as_of, horizon)
-            if benchmark_index
-            else None
-        )
+        bench = _benchmark(store, symbols, as_of, horizon, benchmark_index, equal_weight_benchmark)
         cost = cost_rate * _turnover(prev_weights, weights)
         periods.append(
             PeriodReturn(

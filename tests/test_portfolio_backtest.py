@@ -179,6 +179,47 @@ def test_cost_zero_preserves_gross(store):
     assert result.periods[0].net_ret == result.periods[0].ret
 
 
+# ---- equal-weight universe benchmark ----
+
+def test_equal_weight_universe_return_is_mean(store):
+    from swell_quant.portfolio.backtest import equal_weight_universe_return
+    # 三票 2 日收益 (1+r)^2-1，等权全池 = 三者均值。
+    for sym, rate in [("a", 0.0), ("b", 0.05), ("c", 0.10)]:
+        store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 5)])
+    ew = equal_weight_universe_return(store, ["a", "b", "c"], date(2026, 1, 1), horizon=2)
+    expected = statistics.fmean([(1 + r) ** 2 - 1 for r in (0.0, 0.05, 0.10)])
+    assert ew == pytest.approx(expected)
+
+
+def test_backtest_equal_weight_benchmark_isolates_selection(store):
+    # top1 选到最强的 c；等权全池基准 = 三票均值 → 超额 = c 收益 - 均值 > 0。
+    for sym, rate in [("a", 0.0), ("b", 0.05), ("c", 0.10)]:
+        store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 5)])
+    pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0, "c": 3.0})),))
+    result = backtest_composite(
+        pipe, store, ["a", "b", "c"], [date(2026, 1, 1)], top_n=1, horizon=2,
+        equal_weight_benchmark=True,
+    )
+    p = result.periods[0]
+    c_ret = (1.10) ** 2 - 1
+    ew = statistics.fmean([(1 + r) ** 2 - 1 for r in (0.0, 0.05, 0.10)])
+    assert p.benchmark_ret == pytest.approx(ew)
+    assert p.excess == pytest.approx(c_ret - ew)
+    assert p.excess > 0  # 选股确实带来超额
+
+
+def test_no_skill_selection_has_zero_excess_vs_equal_weight(store):
+    # top_n = 全池 → 组合==等权全池 → 相对等权基准超额恒为 0（剥离选股后无 tilt）。
+    for sym, rate in [("a", 0.0), ("b", 0.05), ("c", 0.10)]:
+        store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 5)])
+    pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0, "c": 3.0})),))
+    result = backtest_composite(
+        pipe, store, ["a", "b", "c"], [date(2026, 1, 1)], top_n=3, horizon=2,
+        equal_weight_benchmark=True,
+    )
+    assert result.periods[0].excess == pytest.approx(0.0)
+
+
 def test_backtest_with_benchmark_index(store):
     for sym, rate in [("a", 0.0), ("b", 0.03)]:
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 6)])

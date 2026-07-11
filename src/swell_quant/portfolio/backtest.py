@@ -156,6 +156,35 @@ def benchmark_return(
     return (bars[-1].close / start_close - 1) if start_close else None
 
 
+def equal_weight_universe_return(
+    store: MarketStore, symbols: Sequence[str], as_of: date, horizon: int
+) -> float | None:
+    """**等权持有全池**在持有期的收益 = 池内各票未来收益的均值。
+
+    作为对照基准，它与因子组合**同池、同为等权**，故组合相对它的超额只能来自
+    因子选股，剥离了“等权 vs 市值加权”的结构性 tilt（见 docs 结论）。无可用收益则 None。
+    """
+
+    rets = forward_returns(store, symbols, as_of, horizon)
+    present = [r for r in rets.values() if r is not None]
+    return statistics.fmean(present) if present else None
+
+
+def _benchmark(
+    store: MarketStore,
+    symbols: Sequence[str],
+    as_of: date,
+    horizon: int,
+    benchmark_index: str | None,
+    equal_weight_benchmark: bool,
+) -> float | None:
+    if equal_weight_benchmark:
+        return equal_weight_universe_return(store, symbols, as_of, horizon)
+    if benchmark_index:
+        return benchmark_return(store, benchmark_index, as_of, horizon)
+    return None
+
+
 def _turnover(prev: dict[str, float], new: dict[str, float]) -> float:
     """单边换手率 = Σ|w_new - w_prev|（并集）。首期 prev 为空 → 等于建仓的 Σw_new。"""
 
@@ -170,13 +199,15 @@ def backtest_composite(
     top_n: int,
     horizon: int = 20,
     benchmark_index: str | None = None,
+    equal_weight_benchmark: bool = False,
     cost_bps: float = 0.0,
 ) -> BacktestResult:
     """在每个调仓日：综合打分 → Top-N 等权 → 持有 horizon 日 → 记录组合收益。
 
     ``rebalance_dates`` 应按 horizon 间隔取（非重叠持有），一般用
     ``sample_as_of_dates(store, ..., step=horizon)`` 生成，避免持有期重叠。
-    传 ``benchmark_index``（如 "sh000300"）则同时记录基准收益，可算超额/信息比率。
+    基准二选一：``equal_weight_benchmark=True`` 用**等权全池**（剥离等权 tilt，纯看因子
+    选股超额）；否则 ``benchmark_index``（如 "sh000300"，市值加权指数）。
     ``cost_bps`` 为单边费率（基点）：每期成本 = 换手率 × cost_bps/10000，从毛收益扣除。
     """
 
@@ -188,11 +219,7 @@ def backtest_composite(
         weights = equal_weight_top_n(scores, top_n)
         rets = forward_returns(store, list(weights), as_of, horizon)
         period_ret = portfolio_return(weights, rets) if weights else None
-        bench = (
-            benchmark_return(store, benchmark_index, as_of, horizon)
-            if benchmark_index
-            else None
-        )
+        bench = _benchmark(store, symbols, as_of, horizon, benchmark_index, equal_weight_benchmark)
         cost = cost_rate * _turnover(prev_weights, weights)
         periods.append(
             PeriodReturn(
