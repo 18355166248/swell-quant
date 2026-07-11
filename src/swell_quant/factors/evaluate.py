@@ -110,3 +110,73 @@ def evaluate_factor(
         rank_ic=rank_ic(factor_values, returns),
         n=len(xs),
     )
+
+
+@dataclass(frozen=True)
+class PeriodIC:
+    as_of: date
+    ic: float | None
+    rank_ic: float | None
+    n: int
+
+
+@dataclass(frozen=True)
+class SeriesStats:
+    """一串 IC 值的汇总。``ir = mean/std`` 是 IC 信息比率，衡量“预测力的稳定性”。"""
+
+    mean: float | None
+    std: float | None
+    ir: float | None
+    positive_rate: float | None
+    n: int  # 有效期数
+
+
+def _series_stats(values: list[float]) -> SeriesStats:
+    n = len(values)
+    if n == 0:
+        return SeriesStats(mean=None, std=None, ir=None, positive_rate=None, n=0)
+    mean = statistics.fmean(values)
+    std = statistics.stdev(values) if n >= 2 else None
+    ir = (mean / std) if (std is not None and std != 0) else None
+    positive_rate = sum(1 for v in values if v > 0) / n
+    return SeriesStats(mean=mean, std=std, ir=ir, positive_rate=positive_rate, n=n)
+
+
+@dataclass(frozen=True)
+class ICSummary:
+    """多期 IC 汇总。单期 IC 噪声大；均值/IR/胜率才是判断因子的可信度量。"""
+
+    per_period: tuple[PeriodIC, ...]
+
+    @property
+    def ic(self) -> SeriesStats:
+        return _series_stats([p.ic for p in self.per_period if p.ic is not None])
+
+    @property
+    def rank_ic(self) -> SeriesStats:
+        return _series_stats([p.rank_ic for p in self.per_period if p.rank_ic is not None])
+
+
+def evaluate_factor_series(
+    factor: Factor,
+    store: MarketStore,
+    symbols: Sequence[str],
+    as_of_dates: Sequence[date],
+    horizon: int = 20,
+) -> ICSummary:
+    """在多个截面上评估因子，汇总成 IC 序列 + 统计量。"""
+
+    periods = []
+    for as_of in as_of_dates:
+        result = evaluate_factor(factor, store, symbols, as_of, horizon)
+        periods.append(PeriodIC(as_of=as_of, ic=result.ic, rank_ic=result.rank_ic, n=result.n))
+    return ICSummary(per_period=tuple(periods))
+
+
+def sample_as_of_dates(
+    store: MarketStore, start: date, end: date, step: int = 1
+) -> list[date]:
+    """从交易日历取 [start, end] 内每隔 ``step`` 个交易日的采样日，作为多期评估的截面点。"""
+
+    days = store.trading_days(start, end)
+    return days[::step] if step > 1 else days

@@ -20,10 +20,15 @@ from swell_quant.factors.pipeline import (
 )
 from swell_quant.factors.evaluate import (
     ICResult,
+    ICSummary,
+    PeriodIC,
+    SeriesStats,
     evaluate_factor,
+    evaluate_factor_series,
     forward_returns,
     information_coefficient,
     rank_ic,
+    sample_as_of_dates,
 )
 
 __all__ = [
@@ -32,13 +37,18 @@ __all__ = [
     "FactorPipeline",
     "FactorWeight",
     "ICResult",
+    "ICSummary",
     "MomentumFactor",
+    "PeriodIC",
+    "SeriesStats",
     "ValueFactor",
     "evaluate_factor",
+    "evaluate_factor_series",
     "fill_missing",
     "forward_returns",
     "information_coefficient",
     "rank_ic",
+    "sample_as_of_dates",
     "standardize",
     "winsorize_mad",
     "zscore",

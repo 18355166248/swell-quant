@@ -330,6 +330,16 @@ class MarketStore:
         ).fetchone()
         return row[0] if row else None
 
+    def trading_days(self, start: date, end: date) -> list[date]:
+        """[start, end] 闭区间内的交易日，升序。"""
+
+        rows = self._connection.execute(
+            "SELECT date FROM trade_calendar WHERE date >= ? AND date <= ? AND is_open "
+            "ORDER BY date",
+            [start, end],
+        ).fetchall()
+        return [row[0] for row in rows]
+
     def record_ingestion(
         self,
         *,
