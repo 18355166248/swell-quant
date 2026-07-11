@@ -5,7 +5,12 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from swell_quant.marketdata.records import BarRecord, FundamentalRecord, ValuationRecord
+from swell_quant.marketdata.records import (
+    BarRecord,
+    FundamentalRecord,
+    IndexBarRecord,
+    ValuationRecord,
+)
 
 
 # 事实表列顺序，写入与读出共用，避免两处漂移。
@@ -94,6 +99,26 @@ ON CONFLICT (symbol, event_date, knowledge_date, item) DO UPDATE SET
 """
 
 
+# 指数日线（基准）：只存收盘价，PK (index_code, date)。
+_CREATE_INDEX_BAR_TABLE = """
+CREATE TABLE IF NOT EXISTS index_bar (
+    index_code VARCHAR,
+    date DATE,
+    close DOUBLE,
+    source VARCHAR,
+    PRIMARY KEY (index_code, date)
+)
+"""
+
+_UPSERT_INDEX_BARS = """
+INSERT INTO index_bar (index_code, date, close, source)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (index_code, date) DO UPDATE SET
+    close = excluded.close,
+    source = excluded.source
+"""
+
+
 # 估值：每日观测，长表/EAV，单时间轴（date）。PK (symbol, date, item)。
 _CREATE_VALUATION_TABLE = """
 CREATE TABLE IF NOT EXISTS stock_valuation (
@@ -173,6 +198,7 @@ class MarketStore:
         self._connection.execute(_CREATE_BAR_HFQ_VIEW)
         self._connection.execute(_CREATE_FUNDAMENTAL_TABLE)
         self._connection.execute(_CREATE_VALUATION_TABLE)
+        self._connection.execute(_CREATE_INDEX_BAR_TABLE)
         self._connection.execute(_CREATE_TRADE_CALENDAR)
         self._connection.execute(_CREATE_INGESTION_LOG)
 
@@ -391,6 +417,40 @@ class MarketStore:
         params: list[Any] = [*symbols, start, horizon + 1]
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_bar(row) for row in rows]
+
+    def write_index_bars(self, records: Sequence[IndexBarRecord]) -> None:
+        """幂等写入指数日线。"""
+
+        if not records:
+            return
+        rows = [(r.index_code, r.date, r.close, r.source) for r in records]
+        self._connection.executemany(_UPSERT_INDEX_BARS, rows)
+
+    def get_index_bar_forward(
+        self, index_code: str, start: date, horizon: int
+    ) -> list[IndexBarRecord]:
+        """研究/评估用**前视**查询：取该指数 date >= start 的最早 ``horizon``+1 根，升序。
+
+        用于算基准在持有期的已实现收益。与个股前视查询同理，不用于因子计算。
+        """
+
+        if horizon <= 0:
+            return []
+        query = """
+        SELECT index_code, date, close, source FROM (
+            SELECT index_code, date, close, source,
+                   ROW_NUMBER() OVER (ORDER BY date ASC) AS rn
+            FROM index_bar
+            WHERE index_code = ? AND date >= ?
+        )
+        WHERE rn <= ?
+        ORDER BY date
+        """
+        rows = self._connection.execute(query, [index_code, start, horizon + 1]).fetchall()
+        return [
+            IndexBarRecord(index_code=row[0], date=row[1], close=row[2], source=row[3])
+            for row in rows
+        ]
 
     def get_max_date(self, symbol: str, table: str = "stock_bar_1d") -> date | None:
         """库里该票最新到哪天，供增量采集算窗口。无数据返回 None。"""

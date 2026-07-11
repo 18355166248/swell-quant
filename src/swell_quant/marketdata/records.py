@@ -47,6 +47,16 @@ class FundamentalRecord:
 
 
 @dataclass(frozen=True)
+class IndexBarRecord:
+    """一条指数日线（基准用）。指数不做复权，只需收盘价即可算基准收益。"""
+
+    index_code: str
+    date: date
+    close: float
+    source: str
+
+
+@dataclass(frozen=True)
 class ValuationRecord:
     """一条每日估值观测（长表/EAV）。
 

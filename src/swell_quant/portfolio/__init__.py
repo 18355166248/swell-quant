@@ -5,12 +5,14 @@ from swell_quant.portfolio.backtest import (
     BacktestResult,
     PeriodReturn,
     backtest_composite,
+    benchmark_return,
 )
 
 __all__ = [
     "BacktestResult",
     "PeriodReturn",
     "backtest_composite",
+    "benchmark_return",
     "equal_weight_top_n",
     "portfolio_return",
 ]
