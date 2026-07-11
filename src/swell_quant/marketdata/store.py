@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +94,32 @@ ON CONFLICT (symbol, event_date, knowledge_date, item) DO UPDATE SET
 """
 
 
+# 采集审计：每批次一行，记录源/时间/行数/成败，任何数据可追溯到哪次采集。
+_CREATE_INGESTION_LOG = """
+CREATE TABLE IF NOT EXISTS ingestion_log (
+    batch_id VARCHAR,
+    table_name VARCHAR,
+    source VARCHAR,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    row_count BIGINT,
+    status VARCHAR,
+    message VARCHAR
+)
+"""
+
+_INGESTION_LOG_COLUMNS = (
+    "batch_id",
+    "table_name",
+    "source",
+    "started_at",
+    "finished_at",
+    "row_count",
+    "status",
+    "message",
+)
+
+
 class MarketStore:
     """行情数据的 Repository：干净读写 API，裸 SQL 不外泄到上层。
 
@@ -108,6 +134,7 @@ class MarketStore:
         self._connection.execute(_CREATE_BAR_TABLE)
         self._connection.execute(_CREATE_BAR_HFQ_VIEW)
         self._connection.execute(_CREATE_FUNDAMENTAL_TABLE)
+        self._connection.execute(_CREATE_INGESTION_LOG)
 
     def close(self) -> None:
         self._connection.close()
@@ -203,6 +230,32 @@ class MarketStore:
         params: list[Any] = [*symbols, as_of]
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_fundamental(row) for row in rows]
+
+    def record_ingestion(
+        self,
+        *,
+        batch_id: str,
+        table_name: str,
+        source: str,
+        started_at: datetime,
+        finished_at: datetime,
+        row_count: int,
+        status: str,
+        message: str = "",
+    ) -> None:
+        """写一条采集审计。批次审计只增不改，是数据可追溯与可复现的凭据。"""
+
+        self._connection.execute(
+            f"INSERT INTO ingestion_log ({', '.join(_INGESTION_LOG_COLUMNS)}) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [batch_id, table_name, source, started_at, finished_at, row_count, status, message],
+        )
+
+    def get_ingestion_log(self) -> list[dict[str, Any]]:
+        rows = self._connection.execute(
+            f"SELECT {', '.join(_INGESTION_LOG_COLUMNS)} FROM ingestion_log ORDER BY started_at"
+        ).fetchall()
+        return [dict(zip(_INGESTION_LOG_COLUMNS, row)) for row in rows]
 
     def get_max_date(self, symbol: str, table: str = "stock_bar_1d") -> date | None:
         """库里该票最新到哪天，供增量采集算窗口。无数据返回 None。"""

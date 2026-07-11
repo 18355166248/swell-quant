@@ -15,15 +15,23 @@ from swell_quant.marketdata.source_bars import (
     sina_symbol,
 )
 from swell_quant.marketdata.store import MarketStore
+from swell_quant.marketdata.collect import (
+    CollectionResult,
+    SymbolCollectResult,
+    collect_bars,
+)
 
 __all__ = [
     "BarRecord",
     "BarSourceError",
+    "CollectionResult",
     "FundamentalRecord",
     "MarketStore",
+    "SymbolCollectResult",
     "apply_start_anchor",
     "build_bar_records",
     "build_bars_from_factor_steps",
+    "collect_bars",
     "fetch_bars",
     "fetch_bars_sina",
     "normalize_adj_factor",
