@@ -7,10 +7,13 @@
 from swell_quant.factors.base import Factor
 from swell_quant.factors.momentum import MomentumFactor
 from swell_quant.factors.quality import QualityFactor
+from swell_quant.factors.reversal import ReversalFactor
 from swell_quant.factors.value import ValueFactor
 from swell_quant.factors.volatility import VolatilityFactor
 from swell_quant.factors.preprocess import (
     fill_missing,
+    neutralize_against,
+    neutralize_by_group,
     standardize,
     winsorize_mad,
     zscore,
@@ -43,6 +46,7 @@ __all__ = [
     "MomentumFactor",
     "PeriodIC",
     "QualityFactor",
+    "ReversalFactor",
     "SeriesStats",
     "ValueFactor",
     "VolatilityFactor",
@@ -51,6 +55,8 @@ __all__ = [
     "fill_missing",
     "forward_returns",
     "information_coefficient",
+    "neutralize_against",
+    "neutralize_by_group",
     "rank_ic",
     "sample_as_of_dates",
     "standardize",
