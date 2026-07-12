@@ -51,8 +51,20 @@ export interface InstrumentAnalysis {
   ann_vol_60d: number | null;
   vol_percentile: number | null;
   return_dist_20d: { p5: number; p50: number; p95: number; min: number; max: number } | null;
-  valuation: number | null;
+  valuation: ValuationPercentile | null;
   note: string;
+}
+
+export interface ValuationPercentile {
+  item: string;
+  current: number;
+  percentile: number;
+  min: number;
+  max: number;
+  median: number;
+  n: number;
+  start: string;
+  end: string;
 }
 
 async function get<T>(url: string): Promise<T> {
@@ -74,4 +86,18 @@ export const api = {
     return res.json();
   },
   instrument: (code: string) => get<InstrumentAnalysis>(`/api/instrument?code=${encodeURIComponent(code)}`),
+  uploadValuation: async (body: {
+    code: string;
+    item: string;
+    source?: string;
+    points: { date: string; value: number }[];
+  }): Promise<{ written: number }> => {
+    const res = await fetch("/api/instrument/valuation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json();
+  },
 };

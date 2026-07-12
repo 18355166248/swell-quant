@@ -18,7 +18,7 @@ from swell_quant.factors import (
     evaluate_factor_series,
     sample_as_of_dates,
 )
-from swell_quant.analysis import describe_prices
+from swell_quant.analysis import describe_prices, valuation_percentile
 from swell_quant.factors.base import Factor
 from swell_quant.marketdata.source_etf import EtfSourceError, fetch_etf_bars_sina
 from swell_quant.marketdata.store import MarketStore
@@ -39,6 +39,18 @@ class FactorSpec(BaseModel):
     lookback: int | None = None
     item: str | None = None
     weight: float = 1.0
+
+
+class ValuationPoint(BaseModel):
+    date: str  # YYYY-MM-DD
+    value: float
+
+
+class ValuationUpload(BaseModel):
+    code: str
+    item: str = "pe_ttm"
+    source: str = "user"
+    points: list[ValuationPoint] = Field(min_length=1)
 
 
 class BacktestRequest(BaseModel):
@@ -195,8 +207,29 @@ def create_app(store: MarketStore, provider: object | None = None) -> FastAPI:
 
         result = describe_prices([d for d, _ in series], [c for _, c in series])
         result["code"] = code
-        result["valuation"] = None  # 恒生科技等港股指数 PE 免费源不可得；留待自带数据接入
         result["note"] = "历史坐标，非买卖信号；不预测未来。"
+
+        # 自带估值（若已上传）：算"贵/便宜"分位。优先 pe_ttm。
+        result["valuation"] = None
+        with lock:
+            items = store.instrument_valuation_items(code)
+            if items:
+                item = "pe_ttm" if "pe_ttm" in items else items[0]
+                val_series = store.get_instrument_valuation(code, item)
+                vp = valuation_percentile([v for _, v in val_series])
+                vp["item"] = item
+                vp["start"] = str(val_series[0][0])
+                vp["end"] = str(val_series[-1][0])
+                result["valuation"] = vp
         return result
+
+    @app.post("/api/instrument/valuation")
+    def upload_valuation(body: ValuationUpload) -> dict:
+        """自带估值数据的通道：上传某标的的估值序列（如恒生科技 PE）。"""
+
+        points = [(_parse(p.date), p.value) for p in body.points]
+        with lock:
+            store.write_instrument_valuation(body.code, body.item, points, body.source)
+        return {"code": body.code, "item": body.item, "written": len(points)}
 
     return app

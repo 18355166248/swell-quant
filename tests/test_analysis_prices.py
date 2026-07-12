@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from swell_quant.analysis.prices import describe_prices
+from swell_quant.analysis.prices import describe_prices, valuation_percentile
 
 
 def _series(closes):
@@ -66,3 +66,18 @@ def test_distribution_present_with_enough_data():
 def test_too_short_raises():
     with pytest.raises(ValueError):
         describe_prices([date(2022, 1, 1)], [1.0])
+
+
+def test_valuation_percentile():
+    # 当前值(最后)=15，历史 [10,20,30,15] → ≤15 的有 10,15 → 2/4 = 0.5
+    v = valuation_percentile([10.0, 20.0, 30.0, 15.0])
+    assert v["current"] == 15.0
+    assert v["percentile"] == pytest.approx(0.5)
+    assert v["min"] == 10.0 and v["max"] == 30.0
+    assert v["median"] == pytest.approx(17.5)
+    assert v["n"] == 4
+
+
+def test_valuation_percentile_empty_raises():
+    with pytest.raises(ValueError):
+        valuation_percentile([])

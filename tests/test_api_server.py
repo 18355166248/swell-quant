@@ -138,7 +138,33 @@ def test_instrument_analysis():
     data = client.get("/api/instrument", params={"code": "513260"}).json()
     assert data["code"] == "513260"
     assert data["n"] == 30
-    assert data["valuation"] is None  # 港股指数 PE 免费源不可得
+    assert data["valuation"] is None  # 未上传估值
     assert "max_drawdown" in data and "trend" in data
     assert "信号" in data["note"]  # 明确非买卖信号
+    store.close()
+
+
+def test_upload_valuation_then_percentile():
+    store = MarketStore(":memory:")
+    client = TestClient(create_app(store, provider=_FakeAk()))
+    # 上传自带 PE 序列
+    upload = client.post(
+        "/api/instrument/valuation",
+        json={
+            "code": "513260",
+            "item": "pe_ttm",
+            "points": [
+                {"date": "2022-01-01", "value": 10.0},
+                {"date": "2022-02-01", "value": 30.0},
+                {"date": "2022-03-01", "value": 20.0},  # 当前(最新)=20 → 分位 2/3
+            ],
+        },
+    ).json()
+    assert upload == {"code": "513260", "item": "pe_ttm", "written": 3}
+    # 再查 instrument，估值分位应出现
+    data = client.get("/api/instrument", params={"code": "513260"}).json()
+    assert data["valuation"] is not None
+    assert data["valuation"]["current"] == 20.0
+    assert data["valuation"]["percentile"] == pytest.approx(2 / 3)
+    assert data["valuation"]["item"] == "pe_ttm"
     store.close()

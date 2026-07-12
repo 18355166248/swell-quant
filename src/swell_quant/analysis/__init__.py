@@ -4,6 +4,6 @@
 **这些是历史坐标，不是买卖信号**，也不预测未来。
 """
 
-from swell_quant.analysis.prices import describe_prices
+from swell_quant.analysis.prices import describe_prices, valuation_percentile
 
-__all__ = ["describe_prices"]
+__all__ = ["describe_prices", "valuation_percentile"]

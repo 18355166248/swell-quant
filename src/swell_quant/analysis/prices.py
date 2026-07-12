@@ -6,6 +6,27 @@ from collections.abc import Sequence
 from datetime import date
 
 
+def valuation_percentile(values: Sequence[float]) -> dict:
+    """把一段估值序列（如 PE，按日期升序）算成"贵/便宜"坐标。
+
+    当前值取最后一个；``percentile`` = 历史中 ≤ 当前值的占比（越低越"便宜"）。
+    这是**历史相对位置**，不是"该买/该卖"，低位可以更低。
+    """
+
+    if not values:
+        raise ValueError("估值序列为空")
+    current = values[-1]
+    n = len(values)
+    return {
+        "current": current,
+        "percentile": sum(1 for v in values if v <= current) / n,
+        "min": min(values),
+        "max": max(values),
+        "median": statistics.median(values),
+        "n": n,
+    }
+
+
 def _ma(closes: Sequence[float], k: int) -> float | None:
     return statistics.fmean(closes[-k:]) if len(closes) >= k else None
 

@@ -165,6 +165,27 @@ ON CONFLICT (snapshot_date, index_code, symbol) DO UPDATE SET
 """
 
 
+# 自带估值：单标的（ETF/指数）的用户提供估值序列（如恒生科技 PE），长表。
+_CREATE_INSTRUMENT_VALUATION = """
+CREATE TABLE IF NOT EXISTS instrument_valuation (
+    code VARCHAR,
+    date DATE,
+    item VARCHAR,
+    value DOUBLE,
+    source VARCHAR,
+    PRIMARY KEY (code, date, item)
+)
+"""
+
+_UPSERT_INSTRUMENT_VALUATION = """
+INSERT INTO instrument_valuation (code, date, item, value, source)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (code, date, item) DO UPDATE SET
+    value = excluded.value,
+    source = excluded.source
+"""
+
+
 # 交易日历：只存交易日（is_open=True）；不在表中的日期即非交易日（假定日历覆盖区间）。
 _CREATE_TRADE_CALENDAR = """
 CREATE TABLE IF NOT EXISTS trade_calendar (
@@ -223,6 +244,7 @@ class MarketStore:
         self._connection.execute(_CREATE_VALUATION_TABLE)
         self._connection.execute(_CREATE_INDEX_BAR_TABLE)
         self._connection.execute(_CREATE_UNIVERSE_MEMBER_TABLE)
+        self._connection.execute(_CREATE_INSTRUMENT_VALUATION)
         self._connection.execute(_CREATE_TRADE_CALENDAR)
         self._connection.execute(_CREATE_INGESTION_LOG)
 
@@ -407,6 +429,34 @@ class MarketStore:
             f"SELECT {', '.join(_INGESTION_LOG_COLUMNS)} FROM ingestion_log ORDER BY started_at"
         ).fetchall()
         return [dict(zip(_INGESTION_LOG_COLUMNS, row)) for row in rows]
+
+    def write_instrument_valuation(
+        self, code: str, item: str, points: Sequence[tuple[date, float]], source: str
+    ) -> None:
+        """幂等写入某标的的自带估值序列（如 PE）。同 (code,date,item) 覆盖。"""
+
+        if not points:
+            return
+        rows = [(code, day, item, value, source) for day, value in points]
+        self._connection.executemany(_UPSERT_INSTRUMENT_VALUATION, rows)
+
+    def get_instrument_valuation(self, code: str, item: str) -> list[tuple[date, float]]:
+        """取某标的某指标的估值序列，按日期升序。"""
+
+        rows = self._connection.execute(
+            "SELECT date, value FROM instrument_valuation "
+            "WHERE code = ? AND item = ? ORDER BY date",
+            [code, item],
+        ).fetchall()
+        return [(row[0], row[1]) for row in rows]
+
+    def instrument_valuation_items(self, code: str) -> list[str]:
+        """某标的已有哪些估值指标（如 ["pe_ttm"]）。"""
+
+        rows = self._connection.execute(
+            "SELECT DISTINCT item FROM instrument_valuation WHERE code = ? ORDER BY item", [code]
+        ).fetchall()
+        return [row[0] for row in rows]
 
     def summary(self) -> dict[str, Any]:
         """库概况：各表行数、行情日期范围、成分快照。供看板首页展示。"""

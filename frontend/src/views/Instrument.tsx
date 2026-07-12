@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Loader2, Info, TriangleAlert } from "lucide-react";
+import { Search, Loader2, Info, TriangleAlert, Upload } from "lucide-react";
 import { api, type InstrumentAnalysis } from "@/lib/api";
 import { pct } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ export function Instrument() {
   const [data, setData] = useState<InstrumentAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [valText, setValText] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   async function load(c: string) {
     setLoading(true);
@@ -26,6 +28,33 @@ export function Instrument() {
       setData(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function uploadValuation() {
+    const points = valText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [d, v] = l.split(/[,\s]+/);
+        return { date: d, value: Number(v) };
+      })
+      .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date) && !Number.isNaN(p.value));
+    if (points.length === 0) {
+      setError("没有可解析的行（每行格式：2024-01-01,18.5）");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      await api.uploadValuation({ code: code.trim(), item: "pe_ttm", points });
+      setValText("");
+      await load(code);
+    } catch (e) {
+      setError(`上传失败：${e}`);
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -156,14 +185,64 @@ export function Instrument() {
             </Card>
           )}
 
-          {/* 估值分位（数据缺口） */}
-          <Card className="border-dashed p-5">
-            <div className="eyebrow mb-2">估值分位 · "贵还是便宜"</div>
-            <p className="text-sm text-muted-foreground">
-              暂无数据。恒生科技等港股指数的 PE 历史，免费源不可得（已核实）。
-              这才是真正的"贵/便宜"坐标——上面的"价在历史区间"是价格位置、<strong className="text-foreground">不是估值</strong>。
-              后续可接入自带的 PE 数据或付费源。
-            </p>
+          {/* 估值分位 · 自带数据 */}
+          <Card className={data.valuation ? "p-5" : "border-dashed p-5"}>
+            <div className="eyebrow mb-4">估值分位 · "贵还是便宜"（自带 PE）</div>
+            {data.valuation ? (
+              <div>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <div>
+                    <div className="eyebrow mb-1.5">当前 {data.valuation.item}</div>
+                    <div className="tnum text-2xl font-medium">{data.valuation.current.toFixed(1)}</div>
+                  </div>
+                  <div>
+                    <div className="eyebrow mb-1.5">历史分位</div>
+                    <div className="tnum text-2xl font-medium text-accent">
+                      {(data.valuation.percentile * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="eyebrow mb-1.5">历史区间</div>
+                    <div className="tnum text-sm text-muted-foreground">
+                      {data.valuation.min.toFixed(1)} ~ {data.valuation.max.toFixed(1)}
+                    </div>
+                    <div className="tnum text-xs text-muted-foreground">中位 {data.valuation.median.toFixed(1)}</div>
+                  </div>
+                  <div>
+                    <div className="eyebrow mb-1.5">覆盖</div>
+                    <div className="tnum text-xs text-muted-foreground">
+                      {data.valuation.start} → {data.valuation.end}
+                    </div>
+                    <div className="tnum text-xs text-muted-foreground">{data.valuation.n} 点</div>
+                  </div>
+                </div>
+                <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                  当前 PE 处于历史 {(data.valuation.percentile * 100).toFixed(0)} 分位——
+                  <strong className="text-foreground">越低越"便宜"，但低位可以更低</strong>，这仍是历史坐标、不是买入信号。
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  恒生科技等港股指数 PE 免费源不可得。你可以把从别处（券商/官网/付费源）拿到的
+                  PE 历史**粘进来**，系统就能算真正的"贵/便宜"分位。每行一条：
+                  <code className="tnum text-foreground"> 日期,PE</code>。
+                </p>
+                <textarea
+                  value={valText}
+                  onChange={(e) => setValText(e.target.value)}
+                  placeholder={"2022-01-01,28.5\n2022-02-01,24.1\n2022-03-01,22.0"}
+                  rows={4}
+                  className="tnum w-full rounded-sm border border-input bg-background/60 p-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <div className="mt-3">
+                  <Button onClick={uploadValuation} disabled={uploading} size="sm">
+                    {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                    上传 PE 数据
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       )}
