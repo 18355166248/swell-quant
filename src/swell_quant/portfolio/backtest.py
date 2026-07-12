@@ -202,6 +202,17 @@ def _turnover(prev: dict[str, float], new: dict[str, float]) -> float:
     return sum(abs(new.get(s, 0.0) - prev.get(s, 0.0)) for s in set(prev) | set(new))
 
 
+def _resolve_symbols(
+    store: MarketStore, symbols: Sequence[str], universe_index: str | None, as_of: date
+) -> list[str]:
+    """选股域：给了 ``universe_index`` 则按调仓日动态取当时成分（含纳入过滤，抗幸存者
+    偏差，§7-B）；否则用固定 ``symbols`` 列表。"""
+
+    if universe_index is not None:
+        return store.get_universe(universe_index, as_of, approximate_from_latest=True)
+    return list(symbols)
+
+
 def backtest_composite(
     pipeline: FactorPipeline,
     store: MarketStore,
@@ -212,6 +223,7 @@ def backtest_composite(
     benchmark_index: str | None = None,
     equal_weight_benchmark: bool = False,
     cost_bps: float = 0.0,
+    universe_index: str | None = None,
 ) -> BacktestResult:
     """在每个调仓日：综合打分 → Top-N 等权 → 持有 horizon 日 → 记录组合收益。
 
@@ -220,17 +232,20 @@ def backtest_composite(
     基准二选一：``equal_weight_benchmark=True`` 用**等权全池**（剥离等权 tilt，纯看因子
     选股超额）；否则 ``benchmark_index``（如 "sh000300"，市值加权指数）。
     ``cost_bps`` 为单边费率（基点）：每期成本 = 换手率 × cost_bps/10000，从毛收益扣除。
+    ``universe_index``（如 "000300"）非空时按调仓日动态取当时成分（抗幸存者偏差）；
+    否则用固定 ``symbols``。等权基准也用同一动态池，保持同池对照。
     """
 
     cost_rate = cost_bps / 10000.0
     prev_weights: dict[str, float] = {}
     periods: list[PeriodReturn] = []
     for as_of in rebalance_dates:
-        scores = pipeline.compute(store, symbols, as_of)
+        syms = _resolve_symbols(store, symbols, universe_index, as_of)
+        scores = pipeline.compute(store, syms, as_of)
         weights = equal_weight_top_n(scores, top_n)
         rets = forward_returns(store, list(weights), as_of, horizon)
         period_ret = portfolio_return(weights, rets) if weights else None
-        bench = _benchmark(store, symbols, as_of, horizon, benchmark_index, equal_weight_benchmark)
+        bench = _benchmark(store, syms, as_of, horizon, benchmark_index, equal_weight_benchmark)
         cost = cost_rate * _turnover(prev_weights, weights)
         periods.append(
             PeriodReturn(

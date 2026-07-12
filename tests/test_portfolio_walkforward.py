@@ -4,8 +4,9 @@ import pytest
 
 from swell_quant.factors.base import Factor, FactorValues
 from swell_quant.factors.momentum import MomentumFactor
-from swell_quant.marketdata.records import BarRecord
+from swell_quant.marketdata.records import BarRecord, UniverseMemberRecord
 from swell_quant.marketdata.store import MarketStore
+from swell_quant.portfolio.backtest import _resolve_symbols
 from swell_quant.portfolio.walkforward import train_ic_weights, walk_forward_backtest
 
 
@@ -120,3 +121,32 @@ def test_anti_factor_weight_still_selects_winner(store):
     result = walk_forward_backtest([anti], store, SYMBOLS, dates, train_size=2, top_n=1, horizon=2)
     # 负 IC → 负权重 → -anti 使 e 得分最高 → 样本外收益为正。
     assert result.total_return > 0
+
+
+def test_walk_forward_respects_dynamic_universe(store):
+    # e（真正的赢家）在 2026-01-20 才纳入指数；早于此不该被选中。
+    store.write_universe_members(
+        [
+            UniverseMemberRecord(date(2026, 1, 14), "TESTIDX", s, date(2020, 1, 1), "t")
+            for s in ["a", "b", "c", "d"]
+        ]
+    )
+    store.write_universe_members(
+        [UniverseMemberRecord(date(2026, 1, 14), "TESTIDX", "e", date(2026, 1, 20), "t")]
+    )
+    dates = [date(2026, 1, d) for d in (1, 3, 5, 7, 9, 11)]
+    # 动态池 + 纳入过滤：e 在这些日期(<1/20)全部未纳入 → 回测能跑通且不含 e。
+    result = walk_forward_backtest(
+        [MomentumFactor(2)],
+        store,
+        [],
+        dates,
+        train_size=2,
+        top_n=1,
+        horizon=2,
+        universe_index="TESTIDX",
+    )
+    assert len(result.periods) == 4
+    # 动态池：1/9(<纳入日) 不含 e，1/25(>=纳入日) 含 e。
+    assert "e" not in _resolve_symbols(store, [], "TESTIDX", date(2026, 1, 9))
+    assert "e" in _resolve_symbols(store, [], "TESTIDX", date(2026, 1, 25))
