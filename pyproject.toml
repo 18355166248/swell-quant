@@ -12,9 +12,15 @@ dependencies = [
 data = [
   "akshare>=1.14",
 ]
+api = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+]
 dev = [
   "pytest>=8.0",
   "ruff>=0.8",
+  "fastapi>=0.110",
+  "httpx>=0.27",
 ]
 
 [tool.pytest.ini_options]

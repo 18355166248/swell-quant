@@ -408,6 +408,37 @@ class MarketStore:
         ).fetchall()
         return [dict(zip(_INGESTION_LOG_COLUMNS, row)) for row in rows]
 
+    def summary(self) -> dict[str, Any]:
+        """库概况：各表行数、行情日期范围、成分快照。供看板首页展示。"""
+
+        con = self._connection
+
+        def count(table: str) -> int:
+            return int(con.execute(f"SELECT count(*) FROM {table}").fetchone()[0])
+
+        bar_min, bar_max = con.execute("SELECT min(date), max(date) FROM stock_bar_1d").fetchone()
+        n_symbols = con.execute("SELECT count(DISTINCT symbol) FROM stock_bar_1d").fetchone()[0]
+        universes = [
+            {"index_code": row[0], "snapshot_date": str(row[1]), "members": int(row[2])}
+            for row in con.execute(
+                "SELECT index_code, max(snapshot_date), count(DISTINCT symbol) "
+                "FROM universe_member GROUP BY index_code ORDER BY index_code"
+            ).fetchall()
+        ]
+        return {
+            "bars": {
+                "rows": count("stock_bar_1d"),
+                "symbols": int(n_symbols),
+                "start": str(bar_min) if bar_min else None,
+                "end": str(bar_max) if bar_max else None,
+            },
+            "fundamentals": count("stock_fundamental"),
+            "valuations": count("stock_valuation"),
+            "index_bars": count("index_bar"),
+            "universes": universes,
+            "ingestion_batches": count("ingestion_log"),
+        }
+
     def get_bars_hfq_forward(
         self, symbols: Sequence[str], start: date, horizon: int
     ) -> list[BarRecord]:
