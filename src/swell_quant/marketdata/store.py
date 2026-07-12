@@ -144,20 +144,23 @@ ON CONFLICT (symbol, date, item) DO UPDATE SET
 
 
 # 成分股快照：按快照日落库当前成分，随时间自建历史（抗幸存者偏差，§7-B）。
+# inclusion_date = 该股纳入指数之日（每股各异），用于 as_of 排除“当时尚未纳入”者。
 _CREATE_UNIVERSE_MEMBER_TABLE = """
 CREATE TABLE IF NOT EXISTS universe_member (
     snapshot_date DATE,
     index_code VARCHAR,
     symbol VARCHAR,
+    inclusion_date DATE,
     source VARCHAR,
     PRIMARY KEY (snapshot_date, index_code, symbol)
 )
 """
 
 _UPSERT_UNIVERSE_MEMBERS = """
-INSERT INTO universe_member (snapshot_date, index_code, symbol, source)
-VALUES (?, ?, ?, ?)
+INSERT INTO universe_member (snapshot_date, index_code, symbol, inclusion_date, source)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (snapshot_date, index_code, symbol) DO UPDATE SET
+    inclusion_date = excluded.inclusion_date,
     source = excluded.source
 """
 
@@ -436,25 +439,43 @@ class MarketStore:
 
         if not records:
             return
-        rows = [(r.snapshot_date, r.index_code, r.symbol, r.source) for r in records]
+        rows = [
+            (r.snapshot_date, r.index_code, r.symbol, r.inclusion_date, r.source) for r in records
+        ]
         self._connection.executemany(_UPSERT_UNIVERSE_MEMBERS, rows)
 
-    def get_universe(self, index_code: str, as_of: date) -> list[str]:
-        """as_of 当天可知的成分股：取 snapshot_date <= as_of 的**最近一次**快照，升序返回。
+    def get_universe(
+        self, index_code: str, as_of: date, approximate_from_latest: bool = False
+    ) -> list[str]:
+        """as_of 当天可知的成分股，升序返回。**两层防偏差**：
 
-        用最近历史快照近似当时成分，比“永远用今天的成分”更抗幸存者偏差（§7-B）。
-        as_of 早于任何快照则返回空。
+        1. 快照选取：默认取 ``snapshot_date <= as_of`` 的最近快照（严格 PIT，as_of 早于
+           任何快照则空）。``approximate_from_latest=True`` 时改用**全局最近快照**（含未来）
+           —— 只有一个当前快照时，用它近似历史（能修纳入前瞻，但退出侧 survivorship 仍在）。
+        2. 纳入过滤：无论哪种，都排除 ``inclusion_date > as_of`` 的成分——当时尚未纳入的
+           股票不进当期股票池（修纳入前瞻偏差，§7-B）。
         """
 
-        query = """
+        if approximate_from_latest:
+            snapshot_subquery = (
+                "SELECT max(snapshot_date) FROM universe_member WHERE index_code = ?"
+            )
+            params = [index_code, index_code, as_of]
+        else:
+            snapshot_subquery = (
+                "SELECT max(snapshot_date) FROM universe_member "
+                "WHERE index_code = ? AND snapshot_date <= ?"
+            )
+            params = [index_code, index_code, as_of, as_of]
+
+        query = f"""
         SELECT symbol FROM universe_member
-        WHERE index_code = ? AND snapshot_date = (
-            SELECT max(snapshot_date) FROM universe_member
-            WHERE index_code = ? AND snapshot_date <= ?
-        )
+        WHERE index_code = ?
+          AND snapshot_date = ({snapshot_subquery})
+          AND inclusion_date <= ?
         ORDER BY symbol
         """
-        rows = self._connection.execute(query, [index_code, index_code, as_of]).fetchall()
+        rows = self._connection.execute(query, params).fetchall()
         return [row[0] for row in rows]
 
     def write_index_bars(self, records: Sequence[IndexBarRecord]) -> None:

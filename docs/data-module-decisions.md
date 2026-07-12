@@ -182,6 +182,9 @@ class MarketStore:
 `universe_member` 的 `snapshot_date` 结构已为 PIT 成分预留，但**数据来源缺口真实存在**。
 **建议**：v1 明确接受此限制并在报告里标注；同时从现在起**按快照定期落库**（每次采集写一份当日成分），随时间自建历史成分——这是唯一低成本、可积累的解法。
 
+**✅ 已落地一半（纳入侧）**：`index_stock_cons` 提供**每股的纳入日期**（真实核对：沪深300 300 只有 58 个不同纳入日）。据此 `universe_member` 增列 `inclusion_date`，`get_universe(as_of)` 排除 `inclusion_date > as_of` 的成分——修掉**纳入前瞻偏差**。`get_universe(..., approximate_from_latest=True)` 用当前快照近似历史（能修纳入侧）。真实验证：2016 年真实 CSI300 成分里只有 102 只在今天的 288 只中、**旧做法多算了 64% 的“未来才纳入”前瞻股**——这解释了此前 10 年回测的虚高。
+**仍缺（退出侧）**：今天的快照看不到已被剔除的历史成分，退出侧 survivorship 需靠定期快照积累或历史源，暂无解。待补：把 `get_universe(as_of)` 接入回测，按调仓日动态取池。
+
 ### 7-C. 财务/公司行为的 knowledge_date 来源要逐项确认
 
 **✅ 已落地（财务）**：真实核对发现东财业绩报表 `stock_yjbb_em` 的“最新公告日期”是**公司最近一次

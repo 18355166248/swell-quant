@@ -62,11 +62,14 @@ class UniverseMemberRecord:
 
     数据源只给**当前**成分（`index_stock_cons`），故按 snapshot_date 定期落库、
     随时间自建历史成分，缓解幸存者偏差（见 docs/data-module-decisions.md §7-B）。
+    ``inclusion_date`` 是该股**纳入指数之日**（源提供、每股各异），用于在 as_of
+    查询里排除“当时尚未纳入”的成分，修掉纳入前瞻偏差。
     """
 
     snapshot_date: date
     index_code: str
     symbol: str
+    inclusion_date: date
     source: str
 
 

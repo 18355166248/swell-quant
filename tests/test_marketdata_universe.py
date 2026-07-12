@@ -18,13 +18,17 @@ def store():
     s.close()
 
 
-def _member(snap_day, symbol, index="000300"):
+def _member(snap_day, symbol, index="000300", inclusion=(2016, 1, 1)):
     return UniverseMemberRecord(
-        snapshot_date=date(2026, 1, snap_day), index_code=index, symbol=symbol, source="test"
+        snapshot_date=date(2026, 1, snap_day),
+        index_code=index,
+        symbol=symbol,
+        inclusion_date=date(*inclusion),
+        source="test",
     )
 
 
-# ---- store ----
+# ---- store: snapshot selection ----
 
 
 def test_get_universe_uses_latest_snapshot_on_or_before(store):
@@ -56,6 +60,38 @@ def test_universe_isolated_by_index(store):
     assert store.get_universe("000905", date(2026, 1, 5)) == ["300750"]
 
 
+# ---- store: inclusion-date filtering (survivorship mitigation) ----
+
+
+def test_approximate_mode_excludes_not_yet_included(store):
+    # 快照 2026-01-01：a 于 2015 纳入、b 于 2020 纳入。
+    store.write_universe_members(
+        [
+            _member(1, "a_early", inclusion=(2015, 1, 1)),
+            _member(1, "b_late", inclusion=(2020, 6, 1)),
+        ]
+    )
+    # 严格 PIT：2018 < 唯一快照 2026 → 无可用快照 → 空。
+    assert store.get_universe("000300", date(2018, 1, 1)) == []
+    # 近似模式：用最近快照近似历史，2018 时 b 尚未纳入被排除 → 只剩 a。
+    assert store.get_universe("000300", date(2018, 1, 1), approximate_from_latest=True) == [
+        "a_early"
+    ]
+    # 2021 时两者都已纳入。
+    assert store.get_universe("000300", date(2021, 1, 1), approximate_from_latest=True) == [
+        "a_early",
+        "b_late",
+    ]
+
+
+def test_approximate_mode_uses_future_snapshot(store):
+    store.write_universe_members([_member(1, "600519", inclusion=(2010, 1, 1))])
+    assert store.get_universe("000300", date(2020, 1, 1)) == []  # 严格：无 <= as_of 的快照
+    assert store.get_universe("000300", date(2020, 1, 1), approximate_from_latest=True) == [
+        "600519"
+    ]
+
+
 # ---- source ----
 
 
@@ -77,16 +113,20 @@ class FakeProvider:
         return FakeFrame(self.rows)
 
 
-def test_fetch_constituents_normalizes_codes():
+def _row(code, inclusion="2020-01-01", name="x"):
+    return {"品种代码": code, "品种名称": name, "纳入日期": inclusion}
+
+
+def test_fetch_constituents_returns_code_and_inclusion():
     provider = FakeProvider(
         [
-            {"品种代码": "600519", "品种名称": "贵州茅台"},
-            {"品种代码": "1", "品种名称": "怪数据"},  # 补零到 6 位
-            {"品种代码": "600519", "品种名称": "重复"},  # 去重
+            _row("600519", "2005-04-08"),
+            _row("1", "2021-12-13"),  # 补零到 6 位
+            _row("600519", "2005-04-08"),  # 去重
         ]
     )
-    codes = fetch_index_constituents("000300", provider)
-    assert codes == ["600519", "000001"]
+    members = fetch_index_constituents("000300", provider)
+    assert members == [("600519", date(2005, 4, 8)), ("000001", date(2021, 12, 13))]
     assert provider.calls == ["000300"]
 
 
@@ -95,8 +135,12 @@ def test_fetch_constituents_empty_raises():
         fetch_index_constituents("000300", FakeProvider([]))
 
 
-def test_snapshot_writes_members(store):
-    provider = FakeProvider([{"品种代码": "600519"}, {"品种代码": "000001"}])
+def test_snapshot_writes_members_with_inclusion(store):
+    provider = FakeProvider([_row("600519", "2005-04-08"), _row("000001", "2021-12-13")])
     n = snapshot_index_universe(store, "000300", provider, snapshot_date=date(2026, 1, 1))
     assert n == 2
+    # 2010 as_of（近似模式）：只有 2005 纳入的 600519 可见。
+    assert store.get_universe("000300", date(2010, 1, 1), approximate_from_latest=True) == [
+        "600519"
+    ]
     assert store.get_universe("000300", date(2026, 1, 1)) == ["000001", "600519"]
