@@ -114,3 +114,31 @@ def test_factor_ic(client):
     ).json()
     assert data["factor"] == "momentum_2d"
     assert "rank_ic" in data
+
+
+class _FakeEtfFrame:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def to_dict(self, orient):
+        return self.rows
+
+
+class _FakeAk:
+    def fund_etf_hist_sina(self, symbol):
+        # 30 天价格，够算趋势/回撤。
+        return _FakeEtfFrame(
+            [{"date": f"2026-01-{d:02d}", "close": 1.0 + 0.01 * d} for d in range(1, 31)]
+        )
+
+
+def test_instrument_analysis():
+    store = MarketStore(":memory:")
+    client = TestClient(create_app(store, provider=_FakeAk()))
+    data = client.get("/api/instrument", params={"code": "513260"}).json()
+    assert data["code"] == "513260"
+    assert data["n"] == 30
+    assert data["valuation"] is None  # 港股指数 PE 免费源不可得
+    assert "max_drawdown" in data and "trend" in data
+    assert "信号" in data["note"]  # 明确非买卖信号
+    store.close()

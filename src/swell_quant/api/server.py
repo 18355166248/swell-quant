@@ -18,7 +18,9 @@ from swell_quant.factors import (
     evaluate_factor_series,
     sample_as_of_dates,
 )
+from swell_quant.analysis import describe_prices
 from swell_quant.factors.base import Factor
+from swell_quant.marketdata.source_etf import EtfSourceError, fetch_etf_bars_sina
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.portfolio import backtest_composite
 
@@ -70,10 +72,11 @@ def _parse(day: str) -> date:
     return datetime.strptime(day, "%Y-%m-%d").date()
 
 
-def create_app(store: MarketStore) -> FastAPI:
+def create_app(store: MarketStore, provider: object | None = None) -> FastAPI:
     """构建 FastAPI 应用。``store`` 为已打开的 MarketStore（测试传内存库）。
 
-    DuckDB 连接非线程安全，用锁串行化——个人单用户看板足够。
+    ``provider`` 为行情提供者（真实为 akshare，用于 ETF 实时研究；为 None 时按需
+    懒加载 akshare）。DuckDB 连接非线程安全，用锁串行化——个人单用户看板足够。
     """
 
     app = FastAPI(title="Swell Quant API", version="0.1.0")
@@ -170,5 +173,30 @@ def create_app(store: MarketStore) -> FastAPI:
                 "n": stats.n,
             },
         }
+
+    @app.get("/api/instrument")
+    def instrument(code: str) -> dict:
+        """单标的（ETF）描述性研究：价格坐标（回撤/趋势/波动/收益分布）。
+
+        实时从新浪拉 ETF 日线并计算。**返回的是历史坐标，不是买卖信号。**
+        """
+
+        prov = provider
+        if prov is None:
+            import importlib
+
+            prov = importlib.import_module("akshare")
+        try:
+            series = fetch_etf_bars_sina(code, prov)
+        except EtfSourceError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except Exception as error:  # noqa: BLE001 - 代码非法/网络失败统一回 400
+            raise HTTPException(status_code=400, detail=f"取 {code} 失败：{error}") from error
+
+        result = describe_prices([d for d, _ in series], [c for _, c in series])
+        result["code"] = code
+        result["valuation"] = None  # 恒生科技等港股指数 PE 免费源不可得；留待自带数据接入
+        result["note"] = "历史坐标，非买卖信号；不预测未来。"
+        return result
 
     return app
