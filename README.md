@@ -1,287 +1,78 @@
 # Swell Quant
 
-Swell Quant 是一个面向个人研究的 A 股日频 AI 量化预测工具。第一版目标是做成研究看板：拉取历史行情、构建基础因子、训练 LightGBM 模型、做 Top N 回测，并用 LLM 生成研究解释报告。
+A-share 多因子量化研究系统（个人自建）。从数据采集到因子评估、组合回测、样本外验证，
+一条完整、可测、可信的研究链路。设计目标不是"跑出漂亮回测"，而是**能诚实地告诉你一个
+信号到底有没有用**。
 
-本项目与 `swell-lobster` 独立。`swell-lobster` 可以在后续通过 MCP 或 HTTP API 调用本项目的研究能力，但不承载量化核心代码。
+## 架构
 
-## v1 目标
+三个独立的包，数据向上单向流动：
 
-- A 股日频数据采集与增量更新。
-- 基础技术因子与未来 5 日收益标签。
-- LightGBM 预测模型与时间序列切分训练。
-- Top N 股票组合回测与基准对比。
-- Web 研究看板展示预测、回测、因子重要性和 AI 报告。
-- LLM 只做解释、总结和研究辅助，不直接预测涨跌。
+```
+marketdata → factors → portfolio
+（数据层）    （因子层）  （组合/回测层）
+```
 
-## 快速阅读
+- **`swell_quant.marketdata`** — 数据层
+  - 采集：行情（新浪，后复权因子起点锚定）、财务（东财业绩报表，knowledge_date 用法定披露截止日保守估计）、估值（百度）、指数、成分股快照、交易日历。
+  - 存储：`MarketStore`（DuckDB），只存客观事实，后复权价为视图派生；`as_of` / point-in-time 查询，从底层杜绝未来函数。
+  - 采集服务：增量、单标的失败隔离、`ingestion_log` 审计。
+  - 设计与决策记录见 [docs/data-module-decisions.md](docs/data-module-decisions.md)。
 
-- [使用教程](docs/usage-guide.md)
-- [项目计划](docs/plan.md)
-- [架构设计](docs/architecture.md)
-- [页面开发计划](docs/frontend-plan.md)
-- [测试与质量门禁](docs/testing.md)
-- [开源参考](docs/open-source-references.md)
-- [模型策略](docs/model-strategy.md)
-- [基金研究助手计划](docs/fund-research-plan.md)
+- **`swell_quant.factors`** — 因子层
+  - 因子：动量、价值、波动率、质量/成长；统一 `Factor` 接口，只经 `as_of` 取数。
+  - 预处理：MAD 去极值、z-score 标准化。
+  - 合成：多因子加权打分。
+  - 评估：单期与多期 IC / RankIC、IC 信息比率、胜率。
 
-## 本地开发
+- **`swell_quant.portfolio`** — 组合与回测
+  - Top-N 等权组合、净值曲线、交易成本（换手率驱动）。
+  - 基准对照：市值加权指数 **与** 等权全池（后者剥离等权 tilt，隔离纯选股超额）。
+  - 超额收益、信息比率、年化收益/夏普、最大回撤。
+  - **walk-forward 样本外验证**：权重只由过去 IC 决定，回答"edge 是真是假"。
 
-当前代码处于离线研究闭环样例阶段，已提供配置、数据目录、DuckDB 备份工具、样例行情、AKShare 可选采集适配、基础因子、技术指标因子、未来 5 日标签、baseline/LightGBM 可选训练、预测排名和 Top N 回测能力。
-
-首次运行可以先复制本地配置模板，再按需调整数据源、股票池、模型和 LLM 开关：
+## 安装
 
 ```bash
-cp .env.example .env
+python -m pip install -e '.[dev]'      # 核心 + 测试
+python -m pip install -e '.[dev,data]' # 需要真实采集（akshare）时再加 data
 ```
+
+需要 Python ≥ 3.11。存储引擎 DuckDB 为核心依赖，测试用内存库、不依赖网络。
+
+## 快速上手
+
+```python
+from datetime import date
+from swell_quant.marketdata import MarketStore, collect_bars
+from swell_quant.factors import MomentumFactor, sample_as_of_dates
+from swell_quant.portfolio import walk_forward_backtest
+import akshare as ak
+
+with MarketStore("data/duckdb/marketdata.duckdb") as store:
+    collect_bars(["600519", "000001"], store, ak,
+                 default_start="20240101", end_date="20241231")
+    dates = sample_as_of_dates(store, date(2024, 3, 1), date(2024, 12, 1), step=20)
+    result = walk_forward_backtest([MomentumFactor(20)], store, ["600519", "000001"],
+                                   dates, train_size=6, top_n=1, horizon=20)
+    print(result.total_return, result.information_ratio)
+```
+
+## 一个诚实的研究结论
+
+用 100 只沪深300 成分、2016–2026、90 个样本外期做过完整验证：
+
+- 四个简单因子（动量/低波/质量/成长）**全样本 RankIC ≈ 0**——没有可信的选股 alpha。
+- 样本内回测的天文收益（+17323%）是**幸存者偏差 + 样本内拟合**的假象。
+- 对等权全池基准，因子选股的超额**为负**——所谓"跑赢沪深300"全部来自等权 tilt。
+
+系统的价值正在于**它能把这些偏差诚实地暴露出来**，而不是用漂亮数字骗人。要继续找真
+alpha，路线是：修幸存者偏差（定期成分股快照）+ 中性化 + 更强因子。
+
+## 开发
 
 ```bash
-make ci-local
+make test          # pytest
+make lint          # ruff check
+make format-check  # ruff format --check
 ```
-
-Makefile 默认使用当前 shell 里的 `python`；如果本机需要指定解释器，可用 `make PYTHON=python3 ci-local` 或指向虚拟环境里的 Python。
-
-也可以单独运行配置预检，提前发现本地数据源、股票池、日期区间或 LLM 配置风险：
-
-```bash
-make config
-```
-
-验证 AKShare 股票池解析：
-
-```bash
-make akshare-universe
-```
-
-查看当前阶段进度：
-
-```bash
-make progress
-```
-
-默认安装不强制包含 LightGBM；需要验证真实模型训练环境时可额外安装：
-
-```bash
-python3 -m pip install -e ".[modeling]"
-```
-
-默认数据源是可复现样例数据；需要尝试真实 AKShare 日频采集时可额外安装并切换：
-
-```bash
-python3 -m pip install -e ".[data]"
-DATA_SOURCE=akshare \
-AKSHARE_UNIVERSE_MODE=manual \
-AKSHARE_SYMBOLS=000001.SZ,600000.SH \
-AKSHARE_START_DATE=20240102 \
-AKSHARE_END_DATE=20240229 \
-python3 scripts/run_pipeline.py
-```
-
-当前 `AKSHARE_UNIVERSE_MODE=manual` 表示使用 `AKSHARE_SYMBOLS` 手工股票池，适合小范围连通性验证。要使用 v1 目标股票池，可设置 `AKSHARE_UNIVERSE_MODE=csi800` 或别名 `hs300_csi500`，pipeline 会在运行时通过 AKShare 拉取沪深 300 + 中证 500 成分股，再按同一行情 CSV 契约进入因子、标签、训练和回测链路；非法股票代码、非法日期区间或未支持的股票池模式会在配置加载阶段直接报错。
-
-```bash
-DATA_SOURCE=akshare \
-AKSHARE_UNIVERSE_MODE=csi800 \
-AKSHARE_START_DATE=20240102 \
-AKSHARE_END_DATE=20240229 \
-python3 scripts/check_akshare_universe.py
-```
-
-目标股票池解析通过后，再运行 `python3 scripts/run_pipeline.py` 拉取行情并复跑完整离线链路。
-
-首次连接真实 AKShare 时建议先限制标的数量做小规模试跑：
-
-```bash
-make akshare-trial
-```
-
-如果本机访问东方财富 K 线接口需要代理，可设置 `AKSHARE_HTTP_PROXY`，例如 Windows PowerShell：
-
-```powershell
-$env:AKSHARE_HTTP_PROXY='http://127.0.0.1:7897'
-python scripts\run_akshare_trial.py
-```
-
-该代理只用于 AKShare 个股日线请求失败后的东方财富 fallback；股票池、基准、因子、标签、训练和回测口径不变。
-
-该命令等价于用 `DATA_SOURCE=akshare`、`AKSHARE_UNIVERSE_MODE=csi800`、`AKSHARE_MAX_SYMBOLS=20`、`AKSHARE_START_DATE=20240102`、`AKSHARE_END_DATE=20240131` 依次执行配置预检、股票池解析、pipeline、数据源门禁、总验收和进度检查，并把试跑摘要写入 `data/reports/akshare_trial_run.json`。需要先确认计划命令时可运行 `make akshare-trial-dry-run`；需要检查最近一次试跑摘要时可运行 `make akshare-trial-status`；需要调整范围时可使用 `--max-symbols`、`--start-date` 和 `--end-date`。
-
-真实 AKShare 采集会按标的记录成功和失败摘要；单只股票临时失败时，pipeline 会继续处理已成功获取的标的，并把 `succeeded_symbol_count`、`failed_symbol_count` 和 `failed_symbols` 写入 `data/raw/data_source.json`。
-跑完真实行情后建议执行 `python3 scripts/check_data_source.py` 或 `make data-source`。该检查会把限量试跑和单标的采集失败标为 warning，只有缺少元数据或没有成功标的时才阻断。
-
-基金真实数据第一版使用 AKShare 基金接口做独立试跑，不覆盖样例基金产物。先预演命令，再按指定基金代码和日期区间拉取净值：
-
-```bash
-make fund-trial-dry-run
-make fund-trial
-make fund-trial-status
-```
-
-默认基金代码为 `510300,159915,110022`，日期区间为 `20250101` 到 `20260708`。可通过 `FUND_SYMBOLS`、`FUND_START_DATE` 和 `FUND_END_DATE` 调整，例如 `FUND_SYMBOLS=510300,159915 make fund-trial`。试跑摘要写入 `data/reports/fund_trial_run.json`；若本机网络或上游接口不可用，会返回 `failed` 并展示失败原因，不会生成伪真实候选。
-
-训练入口默认读取 `MODEL_TYPE=lightgbm`，当前未安装 LightGBM 时会显式降级为
-`rule_baseline_fallback`；如只想运行规则模型，可设置 `MODEL_TYPE=rule_baseline`。
-
-AI 报告默认通过 `LLM_PROVIDER=disabled` 关闭，核心 pipeline 不依赖 LLM。需要尝试 DeepSeek 生成 AI 说明时设置：
-
-```bash
-LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=... python3 scripts/run_pipeline.py
-```
-
-`.env.example` 会列出当前支持的全部本地环境变量。API key 只能通过本地环境变量或未提交的 `.env` 注入，不要写入代码、文档正文或提交记录。
-
-`make ci-local` 会运行 Python lint、Python format check、后端测试、端到端 smoke 验收、数据源元数据检查和前端构建；这些检查与 GitHub Actions 的 `main` push 和 pull request 门禁保持一致。
-
-本地 API 可用于无页面验收：
-
-```bash
-python3 scripts/serve_api.py --host 127.0.0.1 --port 8765
-```
-
-可用端点：
-
-- `GET /api/health`
-- `GET /api/settings`
-- `GET /api/status`
-- `GET /api/acceptance`
-- `GET /api/artifacts`
-- `GET /api/progress`
-- `GET /api/pipeline`
-- `GET /api/tasks`
-- `GET /api/tasks/pipeline-latest`
-- `GET /api/data/status`
-- `GET /api/akshare/universe`
-- `GET /api/akshare/trial`
-- `GET /api/funds/trial`
-- `GET /api/storage/duckdb`
-- `GET /api/data-quality`
-- `GET /api/features`
-- `GET /api/labels`
-- `GET /api/training-samples`
-- `GET /api/models`
-- `GET /api/models/latest`
-- `GET /api/models/{model_version}`
-- `GET /api/predictions`
-- `GET /api/predictions/latest`
-- `GET /api/research-candidates/latest`
-- `GET /api/backtest/latest`
-- `GET /api/backtests`
-- `GET /api/backtests/latest`
-- `GET /api/backtests/{backtest_id}`
-- `GET /api/funds`
-- `GET /api/funds/{fund_code}`
-- `GET /api/funds/{fund_code}/nav`
-- `GET /api/funds/candidates?profile=balanced`
-- `GET /api/stocks`
-- `GET /api/stocks/{symbol}`
-- `GET /api/stocks/{symbol}/prices`
-- `GET /api/stocks/{symbol}/features`
-- `GET /api/stocks/{symbol}/predictions`
-- `GET /api/report`
-- `GET /api/reports`
-- `GET /api/reports/latest`
-- `GET /api/reports/{report_id}`
-- `GET /api/daily-brief`
-- `POST /api/akshare/trial/run`
-- `POST /api/funds/trial/run`
-- `POST /api/pipeline/run`
-- `POST /api/data/update`
-- `POST /api/models/train`
-- `POST /api/predictions/run`
-- `POST /api/backtests/run`
-- `POST /api/reports/generate`
-
-`GET /api/predictions` 支持 `date`、`model_version` 和 `top_n` 查询参数，用于复现指定交易日和模型版本下的 Top N 预测排名；响应中会返回 `available_dates` 和 `model_versions` 供页面筛选。
-
-`GET /api/research-candidates/latest` 会基于最新预测和同日因子生成研究候选清单，返回相对置信度、因子归因、启发式风险、历史成熟样本回看、研究动作分层和研究备注。研究动作分为 `可关注`、`需复核` 和 `暂缓观察`，只表示研究复核优先级，不代表买入、卖出、仓位、目标价或收益承诺。历史回看只统计已有未来 5 日标签的历史同标的 Top N 样本，不代表未来表现。
-
-`GET /api/daily-brief` 会汇总数据新鲜度、验收门禁、股票研究动作分层、基金候选来源、关键产物缺失、今日复核重点和下一步动作。该接口只做结构化研究摘要，仍然标注“仅用于研究，不构成投资建议”。
-
-`GET /api/backtests/{backtest_id}` 会返回手续费率、成交价口径、持有期、调仓规则和标准化 `equity_curve`；曲线包含信号日、成交日、组合收益、基准收益、组合净值、基准净值和超额净值，便于核对回测口径。
-
-`GET /api/status` 会返回当前离线研究链路的验收门禁，覆盖 pipeline、数据质量、DuckDB 镜像、预测结果和回测交易检查。
-
-`GET /api/acceptance` 只返回验收门禁摘要，适合前端首屏、脚本或外部集成直接判断当前研究链路是否可用。
-
-`GET /api/data/status` 会返回市场、样例股票池、v1 目标股票池、基准、复权口径和更新方式；其中会显式标注目标股票池与中证 800 基准同源。
-响应里的 `freshness` 会根据最新数据日期计算 `数据较新 / 需要留意 / 数据过期`，用于避免把 2024 年样例数据误当成 2026 年最新行情。
-
-`POST /api/akshare/trial/run` 会同步触发一次股票 AKShare 真实数据试跑，试跑会按配置跑股票池解析、数据更新、验收和进度检查；可追加 `?dry_run=true` 只验证计划和写摘要。该接口只采集公开研究数据，不新增交易、下单、券商或账户能力。
-
-`GET /api/funds`、`GET /api/funds/{fund_code}`、`GET /api/funds/{fund_code}/nav` 和 `GET /api/funds/candidates?profile=balanced` 会返回本地样例基金池、基金指标、净值序列和不同风险视图下的研究候选清单。基金候选会附带买前验证状态、检查项和阻塞项，用于提示还需要复核的数据材料、费用口径、基金合同限制和个人风险偏好；它只用于研究比较，不构成投资建议。
-如果 `data/processed/akshare_fund_metrics.csv`、`data/processed/akshare_fund_candidates_{profile}.csv` 和 `data/raw/akshare_fund_nav.csv` 同时存在，基金接口会优先展示真实试跑产物；否则自动回退样例数据，并在 `source.source_kind`、`source.warning` 和 `source.freshness` 中说明来源和新鲜度。
-
-`GET /api/funds/trial` 会返回最近一次基金真实数据试跑摘要，包含基金代码、日期区间、成功/失败数量、错误原因和最近真实通过记录。该接口只展示数据源可用性，不输出申购、赎回、仓位或收益承诺。
-
-`POST /api/funds/trial/run` 会同步触发一次基金真实数据试跑，写入 `data/reports/fund_trial_run.json`，并在成功时刷新真实基金指标和候选产物；可追加 `?dry_run=true` 只验证计划和写摘要。该接口只采集公开研究数据，不新增交易、下单、券商或账户能力。
-
-`GET /api/akshare/universe` 会返回当前 AKShare 股票池解析门禁状态；manual 模式检查手工标的，`csi800` / `hs300_csi500` 模式会尝试解析沪深 300 + 中证 500 成分股，只用于研究链路前置验收。
-
-`GET /api/artifacts` 返回本地研究产物清单、缺失项、文件大小和更新时间，适合无页面排查 pipeline 是否生成了完整可用的结果。
-
-`GET /api/progress` 返回阶段 0 到阶段 6 的完成度、当前阶段和每个阶段的产物证据，用于回答当前开发进度到哪。
-
-`GET /api/settings` 会返回本地路径、运行模式、非敏感数据源配置、API key 是否配置，以及运行前预检结果；预检只暴露阻塞项和风险提示，不返回任何 secret 明文。
-
-`POST /api/pipeline/run` 会同步执行当前离线研究链路；如果同一 API 进程内已有 pipeline 正在运行，会返回 `409` 和 `status=busy`，避免并发覆盖本地产物。
-
-`POST /api/data/update`、`POST /api/models/train`、`POST /api/predictions/run`、`POST /api/backtests/run` 和 `POST /api/reports/generate` 是任务中心的细分触发入口。当前 MVP 为了保证样例数据、因子、标签、模型、预测、回测和报告口径一致，这些入口都会串行执行完整离线 pipeline，并在响应中返回 `requested_task` 与 `execution_mode=full_pipeline_refresh`。
-
-最小研究看板位于 `frontend/`，默认通过 Vite 代理访问 `127.0.0.1:8765` 的 API：
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-当前前端包含工作台、验收、数据、任务、模型、预测、回测、基金、单股、报告和设置视图。工作台会展示离线链路验收门禁摘要；验收视图会展示当前门禁检查项，并可直接触发 pipeline；数据视图会展示覆盖范围、质量门禁、DuckDB 表状态、异常明细、采集成功率、质量等级、因子覆盖和标签覆盖；任务视图会展示最近 pipeline 的步骤明细、真实试跑状态和最近一次真实通过时间；模型视图会展示模型版本、训练区间、特征列表和本地产物信息；预测视图会展示后端研究候选清单、相对置信度、因子归因、风险提示、历史成熟样本回看、研究动作分层和研究备注；基金视图会展示样例基金池、历史收益、回撤、费用、规模和候选清单；单股视图会展示股票池覆盖、样例标的价格、因子和历史预测；设置视图只展示 API key 是否配置，不展示密钥明文；所有预测、回测、基金、单股和报告视图都保留研究用途声明。
-
-前端构建检查：
-
-```bash
-cd frontend
-npm run build
-```
-
-`scripts/run_pipeline.py` 现在会创建数据目录，并生成以下本地产物：
-
-- `data/raw/sample_prices.csv`
-- `data/processed/data_quality.json`
-- `data/processed/sample_features.csv`
-- `data/processed/sample_labels.csv`
-- `data/processed/training_samples.csv`
-- `data/models/baseline-rule-v1.json`
-- `data/models/latest_model.json`
-- `data/models/lightgbm-v1.txt`（安装 LightGBM 且默认模型训练成功时生成）
-- `data/processed/latest_predictions.csv`
-- `data/processed/historical_predictions.csv`
-- `data/duckdb/swell_quant.duckdb`
-- `data/reports/sample_backtest.json`
-- `data/reports/sample_research_summary.md`
-- `data/reports/sample_research_summary.json`
-- `data/reports/sample_ai_research_summary.md`
-- `data/reports/sample_ai_research_summary.json`
-- `data/reports/pipeline_run.json`
-- `data/reports/research_status.json`
-
-训练入口默认尝试 LightGBM；未安装可选依赖时会显式降级到可复现规则 baseline。模型产物会写入 `latest_model.json` 作为报告、状态和页面的稳定入口，并记录目标模型、实际训练后端、LightGBM 依赖状态、特征重要性、时间序列评估口径，包括 5 个交易日标签 gap、train/valid/test 评估窗口、基础收益/动量/波动率/RSI/MACD 因子和测试指标。
-
-DuckDB 当前采用本地单文件模式，pipeline 会把 raw/features/labels/predictions CSV 产物整表镜像到
-`data/duckdb/swell_quant.duckdb`。v1 只支持单写入者本地研究场景，镜像步骤使用覆盖写入，避免样例
-数据重复追加。
-
-`python3 scripts/check_storage.py` 会校验 DuckDB 表是否存在、字段是否匹配预期 schema，以及 DuckDB 行数是否和源 CSV 行数一致；状态不是 `healthy` 时返回非零退出码，可作为无页面验收或 CI 门禁。
-
-`python3 scripts/check_config.py` 会输出本地配置预检 JSON；配置非法时返回非零，警告项只提示不阻塞，适合无页面排查。
-
-`python3 scripts/check_progress.py` 会输出阶段 0 到阶段 6 的完成度、当前阶段、下一步建议和每个阶段的证据计数；加 `--json` 可获取完整结构化进度。
-
-`python3 scripts/check_acceptance.py` 会读取 `research_status.json` 中的验收门禁；未通过或尚未生成状态产物时返回非零退出码。
-
-`python3 scripts/smoke_test.py` 会依次执行 pipeline、DuckDB 存储校验和验收门禁校验；任一环节失败都会返回非零退出码，适合作为本地端到端验收入口。
-
-## 重要声明
-
-本项目仅用于个人学习、研究和工程实验，不构成任何投资建议、交易建议或收益承诺。任何预测、回测、评分、报告和可视化结果都不能直接作为买入、卖出或持仓依据。
-
-第一版不做自动交易，不接券商实盘接口，不提供下单能力。

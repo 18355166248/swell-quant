@@ -1,7 +1,6 @@
-"""marketdata: 新数据模块（source → store → as_of 服务）。
+"""marketdata: 数据模块（source → store → as_of 服务）。
 
-设计见 docs/data-module-decisions.md。旧 swell_quant.data / swell_quant.storage
-是过渡期参考代码，本包一行不依赖它们。
+设计见 docs/data-module-decisions.md。
 """
 
 from swell_quant.marketdata.records import (
