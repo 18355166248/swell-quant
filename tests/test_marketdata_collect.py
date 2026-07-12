@@ -51,8 +51,13 @@ NOW = datetime(2026, 2, 1, 9, 0, 0)
 def test_first_collect_uses_default_start(store):
     fetch = FakeFetch(bars_by_symbol={"600519": [_bar("600519", 1), _bar("600519", 2)]})
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert fetch.calls == [("600519", "20260101", "20260131")]  # 无数据 → 默认起点
     assert result.total_rows == 2
@@ -64,8 +69,13 @@ def test_incremental_fetches_from_day_after_max(store):
     store.write_bars([_bar("600519", 1), _bar("600519", 2)])  # 库里已到 1/2
     fetch = FakeFetch(bars_by_symbol={"600519": [_bar("600519", 3)]})
     collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     # 增量窗口从 max_date+1 = 1/3 起，不重拉历史。
     assert fetch.calls == [("600519", "20260103", "20260131")]
@@ -76,8 +86,13 @@ def test_skips_when_already_current(store):
     store.write_bars([_bar("600519", 31)])  # 已到 end_date
     fetch = FakeFetch()
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert fetch.calls == []  # 不发网络请求
     assert result.results[0].status == "skipped"
@@ -89,8 +104,13 @@ def test_per_symbol_failure_is_isolated(store):
         raise_for={"000002"},
     )
     result = collect_bars(
-        ["600519", "000002", "000001"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519", "000002", "000001"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert result.status == "partial"
     assert result.succeeded == ("600519", "000001")  # 其它票不受影响
@@ -101,8 +121,13 @@ def test_per_symbol_failure_is_isolated(store):
 def test_all_failed_status(store):
     fetch = FakeFetch(raise_for={"600519"})
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert result.status == "failed"
 
@@ -113,8 +138,13 @@ def test_ingestion_log_recorded(store):
         raise_for={"000002"},
     )
     result = collect_bars(
-        ["600519", "000002"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519", "000002"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     log = store.get_ingestion_log()
     assert len(log) == 1
@@ -141,8 +171,13 @@ def test_incremental_empty_response_is_skipped_not_failed(store):
 
     fetch = RaisingFetch()
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert fetch.calls == 1  # 确实尝试了增量拉取
     assert result.results[0].status == "skipped"  # 但空响应不算失败
@@ -156,8 +191,13 @@ def test_incremental_first_time_empty_still_fails(store):
             raise BarSourceError("该票无数据")
 
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=RaisingFetch(), now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=RaisingFetch(),
+        now=NOW,
     )
     assert result.results[0].status == "failed"
 
@@ -169,8 +209,13 @@ def test_incremental_filters_stale_rows(store):
         bars_by_symbol={"600519": [_bar("600519", 2), _bar("600519", 3)]}  # 含陈旧的 1/2
     )
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert result.results[0].rows == 1  # 只有 1/3 是新增
     assert store.get_max_date("600519") == date(2026, 1, 3)
@@ -181,8 +226,13 @@ def test_clamps_rows_beyond_end_date(store):
     fetch = FakeFetch(bars_by_symbol={"600519": [_bar("600519", 3), _bar("600519", 5)]})
     # end_date=1/3 → 只有 1/3 在范围内，1/5 应被钳除。
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260103", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260103",
+        fetch=fetch,
+        now=NOW,
     )
     assert result.results[0].rows == 1
     assert store.get_max_date("600519") == date(2026, 1, 3)
@@ -195,8 +245,13 @@ def test_calendar_makes_skip_precise_without_fetch(store):
     store.write_trade_calendar([date(2026, 1, d) for d in (27, 28)])  # 1/28 是最近交易日
     fetch = FakeFetch()
     result = collect_bars(
-        ["600519"], store, provider=None,
-        default_start="20260101", end_date="20260131", fetch=fetch, now=NOW,
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260131",
+        fetch=fetch,
+        now=NOW,
     )
     assert fetch.calls == []  # 关键：日历让我们免了这次无谓网络请求
     assert result.results[0].status == "skipped"
@@ -205,10 +260,24 @@ def test_calendar_makes_skip_precise_without_fetch(store):
 def test_end_to_end_incremental_is_idempotent(store):
     # 第一次采全量，第二次已最新 → 跳过；两次后行数不变。
     fetch = FakeFetch(bars_by_symbol={"600519": [_bar("600519", d) for d in (1, 2, 3)]})
-    collect_bars(["600519"], store, provider=None,
-                 default_start="20260101", end_date="20260103", fetch=fetch, now=NOW)
-    second = collect_bars(["600519"], store, provider=None,
-                          default_start="20260101", end_date="20260103", fetch=fetch, now=NOW)
+    collect_bars(
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260103",
+        fetch=fetch,
+        now=NOW,
+    )
+    second = collect_bars(
+        ["600519"],
+        store,
+        provider=None,
+        default_start="20260101",
+        end_date="20260103",
+        fetch=fetch,
+        now=NOW,
+    )
     assert second.results[0].status == "skipped"
     bars = store.get_bars(["600519"], as_of=date(2026, 1, 31), lookback=10)
     assert len(bars) == 3

@@ -24,9 +24,7 @@ class QualityFactor(Factor):
     def name(self) -> str:
         return f"quality_{self.item}"
 
-    def compute(
-        self, store: MarketStore, symbols: Sequence[str], as_of: date
-    ) -> FactorValues:
+    def compute(self, store: MarketStore, symbols: Sequence[str], as_of: date) -> FactorValues:
         records = store.get_fundamentals(symbols, as_of)
         latest = {rec.symbol: rec.value for rec in records if rec.item == self.item}
         return {symbol: latest.get(symbol) for symbol in symbols}

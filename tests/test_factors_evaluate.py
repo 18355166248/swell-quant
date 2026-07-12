@@ -16,8 +16,16 @@ from swell_quant.marketdata.store import MarketStore
 
 def _bar(symbol, day, close, adj_factor=1.0):
     return BarRecord(
-        symbol=symbol, date=date(2026, 1, day), open=close, high=close, low=close,
-        close=close, volume=100, amount=close * 100, adj_factor=adj_factor, source="test",
+        symbol=symbol,
+        date=date(2026, 1, day),
+        open=close,
+        high=close,
+        low=close,
+        close=close,
+        volume=100,
+        amount=close * 100,
+        adj_factor=adj_factor,
+        source="test",
     )
 
 
@@ -30,6 +38,7 @@ def store():
 
 # ---- forward_returns ----
 
+
 def test_forward_return_over_horizon(store):
     store.write_bars([_bar("600519", d, 10.0 + d) for d in (1, 2, 3, 4, 5)])
     # as_of=d1, horizon=2 → 起 close(d1)=11, 终 close(d3)=13。
@@ -39,11 +48,13 @@ def test_forward_return_over_horizon(store):
 
 def test_forward_return_uses_hfq(store):
     # 未来除权：raw 在 d3 跳空，但 hfq 连续。
-    store.write_bars([
-        _bar("600519", 1, 10.0, adj_factor=1.0),
-        _bar("600519", 2, 10.0, adj_factor=1.0),
-        _bar("600519", 3, 8.0, adj_factor=1.25),  # hfq=10
-    ])
+    store.write_bars(
+        [
+            _bar("600519", 1, 10.0, adj_factor=1.0),
+            _bar("600519", 2, 10.0, adj_factor=1.0),
+            _bar("600519", 3, 8.0, adj_factor=1.25),  # hfq=10
+        ]
+    )
     fr = forward_returns(store, ["600519"], as_of=date(2026, 1, 1), horizon=2)
     assert fr["600519"] == pytest.approx(0.0)  # hfq 10 → 10
 
@@ -55,6 +66,7 @@ def test_forward_return_insufficient_future_is_none(store):
 
 
 # ---- IC / RankIC ----
+
 
 def test_ic_perfect_positive():
     fv = {"a": 1.0, "b": 2.0, "c": 3.0}
@@ -92,6 +104,7 @@ def test_no_dispersion_is_none():
 
 # ---- evaluate_factor ----
 
+
 class FakeFactor(Factor):
     def __init__(self, values):
         self._values = values
@@ -109,7 +122,9 @@ def test_evaluate_factor_end_to_end(store):
     for sym, base in [("a", 10.0), ("b", 20.0), ("c", 30.0)]:
         # a 未来涨最少、c 最多。
         growth = {"a": 0.0, "b": 0.05, "c": 0.10}[sym]
-        store.write_bars([_bar(sym, 1, base), _bar(sym, 2, base), _bar(sym, 3, base * (1 + growth))])
+        store.write_bars(
+            [_bar(sym, 1, base), _bar(sym, 2, base), _bar(sym, 3, base * (1 + growth))]
+        )
     factor = FakeFactor({"a": 1.0, "b": 2.0, "c": 3.0})
     result = evaluate_factor(factor, store, ["a", "b", "c"], as_of=date(2026, 1, 1), horizon=2)
     assert isinstance(result, ICResult)

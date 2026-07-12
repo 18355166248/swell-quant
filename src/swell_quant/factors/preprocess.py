@@ -41,11 +41,7 @@ def zscore(values: FactorValues) -> FactorValues:
     mean = statistics.fmean(present)
     std = statistics.pstdev(present)
     return {
-        symbol: (
-            None
-            if value is None
-            else (0.0 if std == 0 else (value - mean) / std)
-        )
+        symbol: (None if value is None else (0.0 if std == 0 else (value - mean) / std))
         for symbol, value in values.items()
     }
 

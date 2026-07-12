@@ -63,8 +63,7 @@ def test_lookback_takes_most_recent(store):
 
 def test_lookback_is_per_symbol(store):
     store.write_bars(
-        [_bar("600519", d, 10.0) for d in (1, 2, 3)]
-        + [_bar("000001", d, 20.0) for d in (1, 2, 3)]
+        [_bar("600519", d, 10.0) for d in (1, 2, 3)] + [_bar("000001", d, 20.0) for d in (1, 2, 3)]
     )
     bars = store.get_bars(["600519", "000001"], as_of=date(2026, 1, 31), lookback=2)
     by_symbol = {}

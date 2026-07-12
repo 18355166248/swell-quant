@@ -12,8 +12,11 @@ from swell_quant.portfolio.backtest import BacktestResult, PeriodReturn, backtes
 
 # ---- BacktestResult metrics ----
 
+
 def _periods(*rets):
-    return tuple(PeriodReturn(as_of=date(2026, 1, i + 1), ret=r, n_holdings=3) for i, r in enumerate(rets))
+    return tuple(
+        PeriodReturn(as_of=date(2026, 1, i + 1), ret=r, n_holdings=3) for i, r in enumerate(rets)
+    )
 
 
 def test_equity_curve_and_total_return():
@@ -52,10 +55,19 @@ def test_empty_metrics_are_none():
 
 # ---- backtest_composite end to end ----
 
+
 def _bar(symbol, day, close):
     return BarRecord(
-        symbol=symbol, date=date(2026, 1, day), open=close, high=close, low=close,
-        close=close, volume=100, amount=close * 100, adj_factor=1.0, source="test",
+        symbol=symbol,
+        date=date(2026, 1, day),
+        open=close,
+        high=close,
+        low=close,
+        close=close,
+        volume=100,
+        amount=close * 100,
+        adj_factor=1.0,
+        source="test",
     )
 
 
@@ -84,34 +96,42 @@ def test_backtest_selects_top_and_measures_forward_return(store):
     store.write_bars([_bar("b", d, 10.0 * (1 + 0.025) ** d) for d in range(1, 6)])
     store.write_bars([_bar("c", d, 10.0 * (1 + 0.05) ** d) for d in range(1, 6)])
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0, "c": 3.0})),))
-    result = backtest_composite(pipe, store, ["a", "b", "c"], [date(2026, 1, 1)], top_n=1, horizon=2)
+    result = backtest_composite(
+        pipe, store, ["a", "b", "c"], [date(2026, 1, 1)], top_n=1, horizon=2
+    )
     assert result.periods[0].n_holdings == 1
     # 持有 c 两日：(1.05^3)/(1.05^1) - 1 = 1.05^2 - 1
-    assert result.periods[0].ret == pytest.approx(1.05 ** 2 - 1)
+    assert result.periods[0].ret == pytest.approx(1.05**2 - 1)
 
 
 def test_backtest_multiple_rebalances(store):
     for sym, rate in [("a", 0.0), ("b", 0.03)]:
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 8)])
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0})),))
-    result = backtest_composite(pipe, store, ["a", "b"], [date(2026, 1, 1), date(2026, 1, 3)], top_n=1, horizon=2)
+    result = backtest_composite(
+        pipe, store, ["a", "b"], [date(2026, 1, 1), date(2026, 1, 3)], top_n=1, horizon=2
+    )
     assert len(result.periods) == 2
     assert all(p.ret is not None for p in result.periods)  # 两期都买到 b、都有收益
 
 
 # ---- benchmark-relative ----
 
+
 def test_period_excess():
     from swell_quant.portfolio.backtest import PeriodReturn as PR
-    assert PR(as_of=date(2026, 1, 1), ret=0.10, n_holdings=3, benchmark_ret=0.04).excess == pytest.approx(0.06)
+
+    assert PR(
+        as_of=date(2026, 1, 1), ret=0.10, n_holdings=3, benchmark_ret=0.04
+    ).excess == pytest.approx(0.06)
     assert PR(as_of=date(2026, 1, 1), ret=0.10, n_holdings=3).excess is None  # 无基准
 
 
 def test_benchmark_metrics():
     periods = (
-        PeriodReturn(date(2026, 1, 1), 0.10, 3, benchmark_ret=0.05),   # 超额 +0.05
+        PeriodReturn(date(2026, 1, 1), 0.10, 3, benchmark_ret=0.05),  # 超额 +0.05
         PeriodReturn(date(2026, 1, 2), -0.02, 3, benchmark_ret=0.01),  # 超额 -0.03
-        PeriodReturn(date(2026, 1, 3), 0.08, 3, benchmark_ret=0.02),   # 超额 +0.06
+        PeriodReturn(date(2026, 1, 3), 0.08, 3, benchmark_ret=0.02),  # 超额 +0.06
     )
     r = BacktestResult(periods=periods)
     excess = [0.05, -0.03, 0.06]
@@ -122,6 +142,7 @@ def test_benchmark_metrics():
 
 
 # ---- transaction costs ----
+
 
 def test_net_ret_and_metrics_use_net():
     p = PeriodReturn(date(2026, 1, 1), ret=0.10, n_holdings=3, cost=0.02)
@@ -140,18 +161,26 @@ def test_cost_charged_on_turnover(store):
     # 两期分别持有不同的单只票 → 第2期换手=2.0（卖旧买新）。
     for sym, rate in [("a", 0.02), ("b", 0.04)]:
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 8)])
+
     # 因子让第1期选 a、第2期选 b。
     class SwitchFactor(Factor):
         @property
-        def name(self): return "switch"
+        def name(self):
+            return "switch"
+
         def compute(self, store, symbols, as_of):
             first = as_of == date(2026, 1, 1)
             return {"a": (2.0 if first else 1.0), "b": (1.0 if first else 2.0)}
 
     pipe = FactorPipeline(weights=(FactorWeight(SwitchFactor()),))
     result = backtest_composite(
-        pipe, store, ["a", "b"], [date(2026, 1, 1), date(2026, 1, 3)],
-        top_n=1, horizon=2, cost_bps=10,
+        pipe,
+        store,
+        ["a", "b"],
+        [date(2026, 1, 1), date(2026, 1, 3)],
+        top_n=1,
+        horizon=2,
+        cost_bps=10,
     )
     # 第1期建仓：换手 1.0 → cost 0.001；第2期全换：换手 2.0 → cost 0.002。
     assert result.periods[0].cost == pytest.approx(0.001)
@@ -160,19 +189,24 @@ def test_cost_charged_on_turnover(store):
 
 def test_no_turnover_no_cost(store):
     # 两期都持有同一只票 → 第2期换手 0 → 无成本。
-    store.write_bars([_bar("a", d, 10.0 * 1.01 ** d) for d in range(1, 8)])
+    store.write_bars([_bar("a", d, 10.0 * 1.01**d) for d in range(1, 8)])
     store.write_bars([_bar("b", d, 10.0) for d in range(1, 8)])
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 2.0, "b": 1.0})),))
     result = backtest_composite(
-        pipe, store, ["a", "b"], [date(2026, 1, 1), date(2026, 1, 3)],
-        top_n=1, horizon=2, cost_bps=10,
+        pipe,
+        store,
+        ["a", "b"],
+        [date(2026, 1, 1), date(2026, 1, 3)],
+        top_n=1,
+        horizon=2,
+        cost_bps=10,
     )
     assert result.periods[0].cost == pytest.approx(0.001)  # 建仓
-    assert result.periods[1].cost == pytest.approx(0.0)    # 未换仓
+    assert result.periods[1].cost == pytest.approx(0.0)  # 未换仓
 
 
 def test_cost_zero_preserves_gross(store):
-    store.write_bars([_bar("a", d, 10.0 * 1.05 ** d) for d in range(1, 6)])
+    store.write_bars([_bar("a", d, 10.0 * 1.05**d) for d in range(1, 6)])
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0})),))
     result = backtest_composite(pipe, store, ["a"], [date(2026, 1, 1)], top_n=1, horizon=2)
     assert result.periods[0].cost == 0.0
@@ -181,8 +215,10 @@ def test_cost_zero_preserves_gross(store):
 
 # ---- equal-weight universe benchmark ----
 
+
 def test_equal_weight_universe_return_is_mean(store):
     from swell_quant.portfolio.backtest import equal_weight_universe_return
+
     # 三票 2 日收益 (1+r)^2-1，等权全池 = 三者均值。
     for sym, rate in [("a", 0.0), ("b", 0.05), ("c", 0.10)]:
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 5)])
@@ -197,7 +233,12 @@ def test_backtest_equal_weight_benchmark_isolates_selection(store):
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 5)])
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0, "c": 3.0})),))
     result = backtest_composite(
-        pipe, store, ["a", "b", "c"], [date(2026, 1, 1)], top_n=1, horizon=2,
+        pipe,
+        store,
+        ["a", "b", "c"],
+        [date(2026, 1, 1)],
+        top_n=1,
+        horizon=2,
         equal_weight_benchmark=True,
     )
     p = result.periods[0]
@@ -214,7 +255,12 @@ def test_no_skill_selection_has_zero_excess_vs_equal_weight(store):
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 5)])
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0, "c": 3.0})),))
     result = backtest_composite(
-        pipe, store, ["a", "b", "c"], [date(2026, 1, 1)], top_n=3, horizon=2,
+        pipe,
+        store,
+        ["a", "b", "c"],
+        [date(2026, 1, 1)],
+        top_n=3,
+        horizon=2,
         equal_weight_benchmark=True,
     )
     assert result.periods[0].excess == pytest.approx(0.0)
@@ -225,14 +271,22 @@ def test_backtest_with_benchmark_index(store):
         store.write_bars([_bar(sym, d, 10.0 * (1 + rate) ** d) for d in range(1, 6)])
     # 基准指数：温和上涨。
     from swell_quant.marketdata.records import IndexBarRecord
-    store.write_index_bars([
-        IndexBarRecord(index_code="sh000300", date=date(2026, 1, d), close=100.0 * (1 + 0.01) ** d, source="t")
-        for d in range(1, 6)
-    ])
+
+    store.write_index_bars(
+        [
+            IndexBarRecord(
+                index_code="sh000300",
+                date=date(2026, 1, d),
+                close=100.0 * (1 + 0.01) ** d,
+                source="t",
+            )
+            for d in range(1, 6)
+        ]
+    )
     pipe = FactorPipeline(weights=(FactorWeight(FakeFactor({"a": 1.0, "b": 2.0})),))
     result = backtest_composite(
         pipe, store, ["a", "b"], [date(2026, 1, 1)], top_n=1, horizon=2, benchmark_index="sh000300"
     )
     p = result.periods[0]
-    assert p.benchmark_ret == pytest.approx(1.01 ** 2 - 1)  # 基准 2 日收益
+    assert p.benchmark_ret == pytest.approx(1.01**2 - 1)  # 基准 2 日收益
     assert p.excess == pytest.approx(p.ret - p.benchmark_ret)

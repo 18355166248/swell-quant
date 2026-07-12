@@ -65,9 +65,7 @@ def fetch_valuations_baidu(
         indicator = ITEM_TO_BAIDU_INDICATOR.get(item)
         if indicator is None:
             raise ValuationSourceError(f"未知估值 item：{item}")
-        frame = provider.stock_zh_valuation_baidu(
-            symbol=digits, indicator=indicator, period=period
-        )
+        frame = provider.stock_zh_valuation_baidu(symbol=digits, indicator=indicator, period=period)
         records.extend(build_valuation_records(symbol, item, frame, source))
     if not records:
         raise ValuationSourceError(f"{source} 返回 {symbol} 无可用估值")

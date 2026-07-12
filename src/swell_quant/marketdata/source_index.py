@@ -10,9 +10,7 @@ class IndexSourceError(RuntimeError):
     pass
 
 
-def build_index_bars(
-    index_code: str, rows: Any, source: str
-) -> list[IndexBarRecord]:
+def build_index_bars(index_code: str, rows: Any, source: str) -> list[IndexBarRecord]:
     """把 (date, close) 序列合成 IndexBarRecord，按日期升序。"""
 
     records: list[IndexBarRecord] = []

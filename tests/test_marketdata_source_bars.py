@@ -167,10 +167,24 @@ class FakeSina:
 
 def test_fetch_bars_sina_uses_factor_steps():
     raw = [
-        {"date": "2026-01-01", "open": 10.0, "high": 10.0, "low": 10.0, "close": 10.0,
-         "volume": 100, "amount": 1000.0},
-        {"date": "2026-01-02", "open": 8.0, "high": 8.0, "low": 8.0, "close": 8.0,
-         "volume": 100, "amount": 800.0},
+        {
+            "date": "2026-01-01",
+            "open": 10.0,
+            "high": 10.0,
+            "low": 10.0,
+            "close": 10.0,
+            "volume": 100,
+            "amount": 1000.0,
+        },
+        {
+            "date": "2026-01-02",
+            "open": 8.0,
+            "high": 8.0,
+            "low": 8.0,
+            "close": 8.0,
+            "volume": 100,
+            "amount": 800.0,
+        },
     ]
     factors = [
         {"date": "2026-01-01", "hfq_factor": 1.0},

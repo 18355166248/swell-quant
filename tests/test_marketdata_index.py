@@ -24,6 +24,7 @@ def store():
 
 # ---- store ----
 
+
 def test_write_and_forward_read(store):
     store.write_index_bars([_ix(d, 100.0 + d) for d in (1, 2, 3, 4, 5)])
     bars = store.get_index_bar_forward("sh000300", start=date(2026, 1, 2), horizon=2)
@@ -44,6 +45,7 @@ def test_forward_insufficient_returns_short(store):
 
 
 # ---- source ----
+
 
 class FakeFrame:
     def __init__(self, rows):

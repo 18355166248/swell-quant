@@ -11,8 +11,16 @@ from swell_quant.portfolio.walkforward import train_ic_weights, walk_forward_bac
 
 def _bar(symbol, day, close):
     return BarRecord(
-        symbol=symbol, date=date(2026, 1, day), open=close, high=close, low=close,
-        close=close, volume=100, amount=close * 100, adj_factor=1.0, source="test",
+        symbol=symbol,
+        date=date(2026, 1, day),
+        open=close,
+        high=close,
+        low=close,
+        close=close,
+        volume=100,
+        amount=close * 100,
+        adj_factor=1.0,
+        source="test",
     )
 
 
@@ -45,34 +53,44 @@ class FakeFactor(Factor):
 
 # ---- train_ic_weights ----
 
+
 def test_weight_positive_when_factor_predicts(store):
     # 因子打分与增长（未来收益）同序 → 训练 RankIC=+1 → 权重 ≈ +1。
     factor = FakeFactor({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5})
-    [fw] = train_ic_weights([factor], store, SYMBOLS, [date(2026, 1, 1), date(2026, 1, 3)], horizon=2)
+    [fw] = train_ic_weights(
+        [factor], store, SYMBOLS, [date(2026, 1, 1), date(2026, 1, 3)], horizon=2
+    )
     assert fw.weight == pytest.approx(1.0)
 
 
 def test_weight_negative_when_factor_anti_predicts(store):
     # 反向打分 → 训练 RankIC=-1 → 权重 ≈ -1（方向自校正）。
     factor = FakeFactor({"a": 5, "b": 4, "c": 3, "d": 2, "e": 1})
-    [fw] = train_ic_weights([factor], store, SYMBOLS, [date(2026, 1, 1), date(2026, 1, 3)], horizon=2)
+    [fw] = train_ic_weights(
+        [factor], store, SYMBOLS, [date(2026, 1, 1), date(2026, 1, 3)], horizon=2
+    )
     assert fw.weight == pytest.approx(-1.0)
 
 
 def test_weight_zero_when_no_dispersion(store):
     # 因子对所有票同值 → IC 无定义 → 权重 0。
     factor = FakeFactor({s: 1.0 for s in SYMBOLS})
-    [fw] = train_ic_weights([factor], store, SYMBOLS, [date(2026, 1, 1), date(2026, 1, 3)], horizon=2)
+    [fw] = train_ic_weights(
+        [factor], store, SYMBOLS, [date(2026, 1, 1), date(2026, 1, 3)], horizon=2
+    )
     assert fw.weight == 0.0
 
 
 def test_momentum_trains_positive_weight(store):
     # 真实动量因子在持续增长的数据上应训练出正权重。
-    [fw] = train_ic_weights([MomentumFactor(2)], store, SYMBOLS, [date(2026, 1, 5), date(2026, 1, 7)], horizon=2)
+    [fw] = train_ic_weights(
+        [MomentumFactor(2)], store, SYMBOLS, [date(2026, 1, 5), date(2026, 1, 7)], horizon=2
+    )
     assert fw.weight > 0
 
 
 # ---- walk_forward_backtest ----
+
 
 def test_walk_forward_produces_oos_periods(store):
     dates = [date(2026, 1, d) for d in (1, 3, 5, 7, 9, 11)]

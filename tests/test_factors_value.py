@@ -8,7 +8,9 @@ from swell_quant.marketdata.store import MarketStore
 
 
 def _val(symbol, day, item, value):
-    return ValuationRecord(symbol=symbol, date=date(2026, 1, day), item=item, value=value, source="test")
+    return ValuationRecord(
+        symbol=symbol, date=date(2026, 1, day), item=item, value=value, source="test"
+    )
 
 
 @pytest.fixture
@@ -30,7 +32,9 @@ def test_inverts_pe_to_earnings_yield(store):
 
 def test_invert_false_returns_raw(store):
     store.write_valuations([_val("600519", 1, "pb", 5.0)])
-    values = ValueFactor(item="pb", invert=False).compute(store, ["600519"], as_of=date(2026, 1, 31))
+    values = ValueFactor(item="pb", invert=False).compute(
+        store, ["600519"], as_of=date(2026, 1, 31)
+    )
     assert values["600519"] == pytest.approx(5.0)
 
 
@@ -43,7 +47,9 @@ def test_negative_pe_is_none(store):
 
 def test_missing_symbol_is_none(store):
     store.write_valuations([_val("600519", 1, "pe_ttm", 20.0)])
-    values = ValueFactor(item="pe_ttm").compute(store, ["600519", "000001"], as_of=date(2026, 1, 31))
+    values = ValueFactor(item="pe_ttm").compute(
+        store, ["600519", "000001"], as_of=date(2026, 1, 31)
+    )
     assert values["600519"] == pytest.approx(1 / 20.0)
     assert values["000001"] is None
 

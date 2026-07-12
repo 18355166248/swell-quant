@@ -38,9 +38,7 @@ class FactorPipeline:
     weights: tuple[FactorWeight, ...]
     n_mad: float = 3.0
 
-    def compute(
-        self, store: MarketStore, symbols: Sequence[str], as_of: date
-    ) -> CompositeResult:
+    def compute(self, store: MarketStore, symbols: Sequence[str], as_of: date) -> CompositeResult:
         standardized: list[tuple[FactorValues, float]] = []
         for factor_weight in self.weights:
             raw = factor_weight.factor.compute(store, symbols, as_of)

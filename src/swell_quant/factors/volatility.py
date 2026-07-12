@@ -26,9 +26,7 @@ class VolatilityFactor(Factor):
     def name(self) -> str:
         return f"volatility_{self.lookback}d"
 
-    def compute(
-        self, store: MarketStore, symbols: Sequence[str], as_of: date
-    ) -> FactorValues:
+    def compute(self, store: MarketStore, symbols: Sequence[str], as_of: date) -> FactorValues:
         bars = store.get_bars_hfq(symbols, as_of, lookback=self.lookback + 1)
         by_symbol: dict[str, list[BarRecord]] = defaultdict(list)
         for bar in bars:  # 已按 (symbol, date) 升序

@@ -52,9 +52,7 @@ def forward_returns(
     return result
 
 
-def _aligned(
-    factor_values: FactorValues, returns: FactorValues
-) -> tuple[list[float], list[float]]:
+def _aligned(factor_values: FactorValues, returns: FactorValues) -> tuple[list[float], list[float]]:
     xs: list[float] = []
     ys: list[float] = []
     for symbol, fv in factor_values.items():
@@ -77,9 +75,7 @@ def _correlation(xs: list[float], ys: list[float], method: str) -> float | None:
         return None
 
 
-def information_coefficient(
-    factor_values: FactorValues, returns: FactorValues
-) -> float | None:
+def information_coefficient(factor_values: FactorValues, returns: FactorValues) -> float | None:
     """皮尔逊 IC。"""
 
     xs, ys = _aligned(factor_values, returns)
@@ -173,9 +169,7 @@ def evaluate_factor_series(
     return ICSummary(per_period=tuple(periods))
 
 
-def sample_as_of_dates(
-    store: MarketStore, start: date, end: date, step: int = 1
-) -> list[date]:
+def sample_as_of_dates(store: MarketStore, start: date, end: date, step: int = 1) -> list[date]:
     """从交易日历取 [start, end] 内每隔 ``step`` 个交易日的采样日，作为多期评估的截面点。"""
 
     days = store.trading_days(start, end)

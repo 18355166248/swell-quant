@@ -90,16 +90,31 @@ def collect_bars(
         try:
             results.append(
                 _collect_one(
-                    symbol, store, provider, default_start, end_date,
-                    end_dt, effective_end, source, fetch,
+                    symbol,
+                    store,
+                    provider,
+                    default_start,
+                    end_date,
+                    end_dt,
+                    effective_end,
+                    source,
+                    fetch,
                 )
             )
         except Exception as error:  # noqa: BLE001 - 单票失败应记录并继续采集其它标的。
-            results.append(SymbolCollectResult(symbol=symbol, rows=0, status="failed", reason=str(error)))
+            results.append(
+                SymbolCollectResult(symbol=symbol, rows=0, status="failed", reason=str(error))
+            )
 
     result = CollectionResult(batch_id=batch_id, results=tuple(results))
-    _log_batch(store, result, table_name="stock_bar_1d", source=source,
-               started_at=started_at, finished_at=now or datetime.now())
+    _log_batch(
+        store,
+        result,
+        table_name="stock_bar_1d",
+        source=source,
+        started_at=started_at,
+        finished_at=now or datetime.now(),
+    )
     return result
 
 
@@ -214,8 +229,14 @@ def collect_valuations(
             )
 
     result = CollectionResult(batch_id=batch_id, results=tuple(results))
-    _log_batch(store, result, table_name="stock_valuation", source=source,
-               started_at=started_at, finished_at=now or datetime.now())
+    _log_batch(
+        store,
+        result,
+        table_name="stock_valuation",
+        source=source,
+        started_at=started_at,
+        finished_at=now or datetime.now(),
+    )
     return result
 
 
@@ -244,8 +265,11 @@ def collect_fundamentals(
     results: list[SymbolCollectResult] = []
     for period in periods:
         try:
-            records = [r for r in fetch(provider, period, items=items, source=source)
-                       if r.symbol in symbol_set]
+            records = [
+                r
+                for r in fetch(provider, period, items=items, source=source)
+                if r.symbol in symbol_set
+            ]
             if not records:
                 results.append(SymbolCollectResult(symbol=period, rows=0, status="skipped"))
                 continue
@@ -261,8 +285,14 @@ def collect_fundamentals(
             )
 
     result = CollectionResult(batch_id=batch_id, results=tuple(results))
-    _log_batch(store, result, table_name="stock_fundamental", source=source,
-               started_at=started_at, finished_at=now or datetime.now())
+    _log_batch(
+        store,
+        result,
+        table_name="stock_fundamental",
+        source=source,
+        started_at=started_at,
+        finished_at=now or datetime.now(),
+    )
     return result
 
 

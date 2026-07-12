@@ -76,7 +76,9 @@ def walk_forward_backtest(
         trained = []
         for factor, cache in zip(factors, ic_cache):
             ics = [cache[d] for d in train_dates if cache[d] is not None]
-            trained.append(FactorWeight(factor=factor, weight=statistics.fmean(ics) if ics else 0.0))
+            trained.append(
+                FactorWeight(factor=factor, weight=statistics.fmean(ics) if ics else 0.0)
+            )
         scores = FactorPipeline(weights=tuple(trained)).compute(store, symbols, as_of)
         weights = equal_weight_top_n(scores, top_n)
 

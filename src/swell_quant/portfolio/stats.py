@@ -22,9 +22,7 @@ def annualize_return(
     return final_equity ** (periods_per_year / n_periods) - 1.0
 
 
-def annualize_sharpe(
-    per_period_sharpe: float | None, periods_per_year: float
-) -> float | None:
+def annualize_sharpe(per_period_sharpe: float | None, periods_per_year: float) -> float | None:
     """把每期夏普年化：``sharpe * sqrt(每年期数)``（无风险利率取 0）。"""
 
     if per_period_sharpe is None:

@@ -10,8 +10,16 @@ from swell_quant.marketdata.store import MarketStore
 
 def _bar(symbol, day, close, adj_factor=1.0):
     return BarRecord(
-        symbol=symbol, date=date(2026, 1, day), open=close, high=close, low=close,
-        close=close, volume=100, amount=close * 100, adj_factor=adj_factor, source="test",
+        symbol=symbol,
+        date=date(2026, 1, day),
+        open=close,
+        high=close,
+        low=close,
+        close=close,
+        volume=100,
+        amount=close * 100,
+        adj_factor=adj_factor,
+        source="test",
     )
 
 
@@ -42,11 +50,13 @@ def test_flat_prices_zero_volatility(store):
 
 def test_uses_hfq_not_raw(store):
     # 除权日 raw 跳空会制造巨大假收益；hfq 连续 → 波动应为 0。
-    store.write_bars([
-        _bar("600519", 1, 10.0, adj_factor=1.0),
-        _bar("600519", 2, 10.0, adj_factor=1.0),
-        _bar("600519", 3, 8.0, adj_factor=1.25),  # hfq=10
-    ])
+    store.write_bars(
+        [
+            _bar("600519", 1, 10.0, adj_factor=1.0),
+            _bar("600519", 2, 10.0, adj_factor=1.0),
+            _bar("600519", 3, 8.0, adj_factor=1.25),  # hfq=10
+        ]
+    )
     values = VolatilityFactor(lookback=2).compute(store, ["600519"], as_of=date(2026, 1, 3))
     assert values["600519"] == pytest.approx(0.0)
 

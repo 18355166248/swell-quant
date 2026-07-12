@@ -19,10 +19,13 @@ def store():
 
 
 def _val(symbol, day, item, value, source="baidu"):
-    return ValuationRecord(symbol=symbol, date=date(2026, 1, day), item=item, value=value, source=source)
+    return ValuationRecord(
+        symbol=symbol, date=date(2026, 1, day), item=item, value=value, source=source
+    )
 
 
 # ---- store ----
+
 
 def test_valuation_roundtrip(store):
     store.write_valuations([_val("600519", 1, "pe_ttm", 18.2), _val("600519", 1, "pb", 5.5)])
@@ -60,6 +63,7 @@ def test_valuation_get_max_date(store):
 
 # ---- source ----
 
+
 class FakeFrame:
     def __init__(self, rows):
         self.rows = rows
@@ -90,11 +94,13 @@ def test_build_skips_missing_values():
 
 
 def test_fetch_baidu_uses_digits_and_merges_items():
-    fake = FakeBaidu({
-        "市盈率(TTM)": [{"date": "2026-01-01", "value": 18.2}],
-        "市净率": [{"date": "2026-01-01", "value": 5.5}],
-        "总市值": [{"date": "2026-01-01", "value": 15000.0}],
-    })
+    fake = FakeBaidu(
+        {
+            "市盈率(TTM)": [{"date": "2026-01-01", "value": 18.2}],
+            "市净率": [{"date": "2026-01-01", "value": 5.5}],
+            "总市值": [{"date": "2026-01-01", "value": 15000.0}],
+        }
+    )
     recs = fetch_valuations_baidu("600519.SH", fake)  # 带后缀 → 应转纯 6 位
     assert all(c[0] == "600519" for c in fake.calls)  # 纯 6 位代码
     assert {r.item for r in recs} == {"pe_ttm", "pb", "total_mv"}

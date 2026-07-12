@@ -112,9 +112,7 @@ def build_bars_from_factor_steps(
     return records
 
 
-def _forward_fill_factor(
-    steps: list[tuple[date, float]], trade_date: date
-) -> float | None:
+def _forward_fill_factor(steps: list[tuple[date, float]], trade_date: date) -> float | None:
     """取 step_date <= trade_date 的最近一个因子（steps 已按日期升序）。"""
 
     factor: float | None = None
@@ -197,5 +195,3 @@ def fetch_bars_sina(
     if not records:
         raise BarSourceError(f"{source} 返回 {symbol} 无可用日线")
     return records
-
-

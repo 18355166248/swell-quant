@@ -26,9 +26,7 @@ class ValueFactor(Factor):
     def name(self) -> str:
         return f"value_{self.item}"
 
-    def compute(
-        self, store: MarketStore, symbols: Sequence[str], as_of: date
-    ) -> FactorValues:
+    def compute(self, store: MarketStore, symbols: Sequence[str], as_of: date) -> FactorValues:
         records = store.get_valuations(symbols, as_of, lookback=1)
         latest = {rec.symbol: rec.value for rec in records if rec.item == self.item}
 

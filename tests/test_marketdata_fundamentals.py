@@ -25,9 +25,7 @@ def store():
 
 
 def test_write_then_read_roundtrip(store):
-    store.write_fundamentals(
-        [_fund("600519", (2025, 3, 31), (2025, 4, 20), "net_profit", 100.0)]
-    )
+    store.write_fundamentals([_fund("600519", (2025, 3, 31), (2025, 4, 20), "net_profit", 100.0)])
     [rec] = store.get_fundamentals(["600519"], as_of=date(2025, 12, 31))
     assert rec.item == "net_profit"
     assert rec.value == 100.0

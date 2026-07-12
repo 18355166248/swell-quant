@@ -43,11 +43,13 @@ def test_momentum_uses_hfq_return_over_window(store):
 def test_momentum_uses_adjusted_close_not_raw(store):
     # raw 收盘在 d3 除权跳空(12→9.6)，但因子抬到 1.25 → hfq 连续。
     # hfq: d1=10, d3=9.6*1.25=12 → 动量按后复权算，不受除权干扰。
-    store.write_bars([
-        _bar("600519", 1, 10.0, adj_factor=1.0),
-        _bar("600519", 2, 11.0, adj_factor=1.0),
-        _bar("600519", 3, 9.6, adj_factor=1.25),
-    ])
+    store.write_bars(
+        [
+            _bar("600519", 1, 10.0, adj_factor=1.0),
+            _bar("600519", 2, 11.0, adj_factor=1.0),
+            _bar("600519", 3, 9.6, adj_factor=1.25),
+        ]
+    )
     values = MomentumFactor(lookback=2).compute(store, ["600519"], as_of=date(2026, 1, 3))
     assert values["600519"] == pytest.approx(12.0 / 10.0 - 1)
 

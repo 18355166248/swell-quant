@@ -24,7 +24,4 @@ class Factor(ABC):
         """因子名，用于列名与归因（如 "momentum_20d"）。"""
 
     @abstractmethod
-    def compute(
-        self, store: MarketStore, symbols: Sequence[str], as_of: date
-    ) -> FactorValues:
-        ...
+    def compute(self, store: MarketStore, symbols: Sequence[str], as_of: date) -> FactorValues: ...

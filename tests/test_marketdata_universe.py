@@ -26,6 +26,7 @@ def _member(snap_day, symbol, index="000300"):
 
 # ---- store ----
 
+
 def test_get_universe_uses_latest_snapshot_on_or_before(store):
     store.write_universe_members([_member(1, "600000"), _member(1, "600519")])
     store.write_universe_members([_member(10, "600519"), _member(10, "000001")])  # 成分变了
@@ -48,12 +49,15 @@ def test_universe_idempotent(store):
 
 
 def test_universe_isolated_by_index(store):
-    store.write_universe_members([_member(1, "600519", index="000300"), _member(1, "300750", index="000905")])
+    store.write_universe_members(
+        [_member(1, "600519", index="000300"), _member(1, "300750", index="000905")]
+    )
     assert store.get_universe("000300", date(2026, 1, 5)) == ["600519"]
     assert store.get_universe("000905", date(2026, 1, 5)) == ["300750"]
 
 
 # ---- source ----
+
 
 class FakeFrame:
     def __init__(self, rows):
@@ -74,11 +78,13 @@ class FakeProvider:
 
 
 def test_fetch_constituents_normalizes_codes():
-    provider = FakeProvider([
-        {"品种代码": "600519", "品种名称": "贵州茅台"},
-        {"品种代码": "1", "品种名称": "怪数据"},  # 补零到 6 位
-        {"品种代码": "600519", "品种名称": "重复"},  # 去重
-    ])
+    provider = FakeProvider(
+        [
+            {"品种代码": "600519", "品种名称": "贵州茅台"},
+            {"品种代码": "1", "品种名称": "怪数据"},  # 补零到 6 位
+            {"品种代码": "600519", "品种名称": "重复"},  # 去重
+        ]
+    )
     codes = fetch_index_constituents("000300", provider)
     assert codes == ["600519", "000001"]
     assert provider.calls == ["000300"]

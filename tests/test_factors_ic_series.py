@@ -14,10 +14,13 @@ from swell_quant.marketdata.store import MarketStore
 
 
 def _period(day, ic, rank_ic=None, n=10):
-    return PeriodIC(as_of=date(2026, 1, day), ic=ic, rank_ic=rank_ic if rank_ic is not None else ic, n=n)
+    return PeriodIC(
+        as_of=date(2026, 1, day), ic=ic, rank_ic=rank_ic if rank_ic is not None else ic, n=n
+    )
 
 
 # ---- ICSummary aggregation ----
+
 
 def test_summary_mean_std_ir_positive_rate():
     summary = ICSummary(per_period=(_period(1, 0.1), _period(2, 0.2), _period(3, 0.3)))
@@ -30,7 +33,9 @@ def test_summary_mean_std_ir_positive_rate():
 
 
 def test_summary_positive_rate_counts_sign():
-    summary = ICSummary(per_period=(_period(1, 0.2), _period(2, -0.1), _period(3, 0.1), _period(4, -0.3)))
+    summary = ICSummary(
+        per_period=(_period(1, 0.2), _period(2, -0.1), _period(3, 0.1), _period(4, -0.3))
+    )
     assert summary.ic.positive_rate == pytest.approx(0.5)
 
 
@@ -55,10 +60,19 @@ def test_summary_empty():
 
 # ---- evaluate_factor_series wiring ----
 
+
 def _bar(symbol, day, close):
     return BarRecord(
-        symbol=symbol, date=date(2026, 1, day), open=close, high=close, low=close,
-        close=close, volume=100, amount=close * 100, adj_factor=1.0, source="test",
+        symbol=symbol,
+        date=date(2026, 1, day),
+        open=close,
+        high=close,
+        low=close,
+        close=close,
+        volume=100,
+        amount=close * 100,
+        adj_factor=1.0,
+        source="test",
     )
 
 
@@ -95,11 +109,14 @@ def test_evaluate_series_produces_period_per_date(store):
 
 # ---- sample_as_of_dates ----
 
+
 def test_sample_as_of_dates_uses_calendar_step(store):
     days = [date(2026, 1, d) for d in (5, 6, 7, 8, 9)]  # 5 个交易日
     store.write_trade_calendar(days)
     assert sample_as_of_dates(store, date(2026, 1, 1), date(2026, 1, 31), step=2) == [
-        date(2026, 1, 5), date(2026, 1, 7), date(2026, 1, 9),
+        date(2026, 1, 5),
+        date(2026, 1, 7),
+        date(2026, 1, 9),
     ]
     # 非交易日不入选：step=1 返回全部交易日。
     assert sample_as_of_dates(store, date(2026, 1, 1), date(2026, 1, 31)) == days

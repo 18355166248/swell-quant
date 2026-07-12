@@ -32,6 +32,7 @@ def _row(code, roe=None, np_yoy=None, rev_yoy=None):
 
 # ---- statutory_disclosure_date ----
 
+
 def test_statutory_dates_for_standard_periods():
     assert statutory_disclosure_date(date(2024, 3, 31)) == date(2024, 4, 30)
     assert statutory_disclosure_date(date(2024, 6, 30)) == date(2024, 8, 31)
@@ -40,6 +41,7 @@ def test_statutory_dates_for_standard_periods():
 
 
 # ---- build_fundamental_records ----
+
 
 def test_build_sets_event_and_knowledge_dates():
     frame = FakeFrame([_row("600519", roe=10.57)])
@@ -61,7 +63,11 @@ def test_build_multiple_items_and_symbols():
     frame = FakeFrame([_row("600519", roe=10.0, np_yoy=15.0), _row("000001", roe=8.0)])
     recs = build_fundamental_records(frame, "20240331", items=("roe", "net_profit_yoy"))
     got = {(r.symbol, r.item): r.value for r in recs}
-    assert got == {("600519", "roe"): 10.0, ("600519", "net_profit_yoy"): 15.0, ("000001", "roe"): 8.0}
+    assert got == {
+        ("600519", "roe"): 10.0,
+        ("600519", "net_profit_yoy"): 15.0,
+        ("000001", "roe"): 8.0,
+    }
 
 
 def test_fetch_empty_raises():
@@ -74,6 +80,7 @@ def test_fetch_empty_raises():
 
 
 # ---- collect_fundamentals ----
+
 
 @pytest.fixture
 def store():
@@ -89,12 +96,18 @@ def test_collect_filters_to_pool_and_is_period_driven(store):
         calls.append(period)
         return build_fundamental_records(
             FakeFrame([_row("600519", roe=10.0), _row("000001", roe=8.0), _row("999999", roe=1.0)]),
-            period, items=("roe",), source=source,
+            period,
+            items=("roe",),
+            source=source,
         )
 
     result = collect_fundamentals(
-        ["600519", "000001"], store, provider=None,
-        periods=["20240331", "20240630"], items=("roe",), fetch=fake_fetch,
+        ["600519", "000001"],
+        store,
+        provider=None,
+        periods=["20240331", "20240630"],
+        items=("roe",),
+        fetch=fake_fetch,
     )
     assert calls == ["20240331", "20240630"]  # 按期驱动
     # 每期 2 条（池外 999999 被过滤），共 4。

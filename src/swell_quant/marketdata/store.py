@@ -254,9 +254,7 @@ class MarketStore:
         ]
         self._connection.executemany(_UPSERT_BARS, rows)
 
-    def get_bars(
-        self, symbols: Sequence[str], as_of: date, lookback: int
-    ) -> list[BarRecord]:
+    def get_bars(self, symbols: Sequence[str], as_of: date, lookback: int) -> list[BarRecord]:
         """as_of 查询：每只票取 date <= as_of 的最近 ``lookback`` 条，按日期升序返回。
 
         这是存储层的灵魂——只给出 as_of 当天“已知”的数据，杜绝行情未来函数。
@@ -264,9 +262,7 @@ class MarketStore:
 
         return self._query_bars("stock_bar_1d", symbols, as_of, lookback)
 
-    def get_bars_hfq(
-        self, symbols: Sequence[str], as_of: date, lookback: int
-    ) -> list[BarRecord]:
+    def get_bars_hfq(self, symbols: Sequence[str], as_of: date, lookback: int) -> list[BarRecord]:
         """同 get_bars，但价格为后复权（读视图，派生自 raw 价 * adj_factor）。"""
 
         return self._query_bars("stock_bar_1d_hfq", symbols, as_of, lookback)
@@ -322,9 +318,7 @@ class MarketStore:
         ]
         self._connection.executemany(_UPSERT_FUNDAMENTALS, rows)
 
-    def get_fundamentals(
-        self, symbols: Sequence[str], as_of: date
-    ) -> list[FundamentalRecord]:
+    def get_fundamentals(self, symbols: Sequence[str], as_of: date) -> list[FundamentalRecord]:
         """point-in-time 查询：只认 as_of 当天已公告的数据，杜绝财务未来函数。
 
         对每只票的每个 item，取 ``knowledge_date <= as_of`` 中 event_date 最新的
@@ -359,9 +353,7 @@ class MarketStore:
         self._connection.executemany(_UPSERT_CALENDAR, [(day, True) for day in trading_days])
 
     def has_trade_calendar(self) -> bool:
-        return bool(
-            self._connection.execute("SELECT count(*) FROM trade_calendar").fetchone()[0]
-        )
+        return bool(self._connection.execute("SELECT count(*) FROM trade_calendar").fetchone()[0])
 
     def is_trading_day(self, day: date) -> bool:
         row = self._connection.execute(
