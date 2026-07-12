@@ -9,6 +9,7 @@ from swell_quant.factors.evaluate import forward_returns
 from swell_quant.factors.pipeline import FactorPipeline
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.portfolio.construct import equal_weight_top_n, portfolio_return
+from swell_quant.portfolio.stats import annualize_return, annualize_sharpe
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,16 @@ class BacktestResult:
     def hit_rate(self) -> float | None:
         rets = self._valid()
         return sum(1 for r in rets if r > 0) / len(rets) if rets else None
+
+    def annualized_return(self, periods_per_year: float) -> float | None:
+        """年化收益。``periods_per_year`` = 252 / horizon（非重叠调仓的每年期数）。"""
+
+        return annualize_return(self.total_return, len(self._valid()), periods_per_year)
+
+    def annualized_sharpe(self, periods_per_year: float) -> float | None:
+        """年化夏普 = 每期夏普 × sqrt(每年期数)。"""
+
+        return annualize_sharpe(self.sharpe, periods_per_year)
 
     def _valid_excess(self) -> list[float]:
         return [p.excess for p in self.periods if p.excess is not None]
