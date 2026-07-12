@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* 亮色 = 暖白纸 */
+  :root {
+    --background: 40 30% 97%;
+    --foreground: 220 22% 13%;
+    --card: 40 33% 99%;
+    --card-foreground: 220 22% 13%;
+    --muted: 40 16% 92%;
+    --muted-foreground: 220 8% 40%;
+    --accent: 35 88% 45%;
+    --accent-foreground: 40 40% 98%;
+    --border: 38 14% 84%;
+    --input: 38 14% 84%;
+    --ring: 35 88% 45%;
+    --pos: 150 55% 34%;
+    --neg: 4 68% 48%;
+    --radius: 0.4rem;
+  }
+
+  /* 暗色 = 深墨仪表盘（默认） */
+  .dark {
+    --background: 222 18% 6%;
+    --foreground: 40 14% 90%;
+    --card: 222 16% 9%;
+    --card-foreground: 40 14% 90%;
+    --muted: 222 13% 14%;
+    --muted-foreground: 40 6% 56%;
+    --accent: 38 82% 58%;
+    --accent-foreground: 222 30% 8%;
+    --border: 222 12% 16%;
+    --input: 222 12% 18%;
+    --ring: 38 82% 58%;
+    --pos: 150 46% 56%;
+    --neg: 6 72% 64%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "ss01", "cv05";
+    /* 网格纸底纹 + 一抹琥珀辉光 */
+    background-image:
+      radial-gradient(120% 90% at 85% -10%, hsl(var(--accent) / 0.06), transparent 55%),
+      linear-gradient(hsl(var(--border) / 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.4) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+  }
+
+  /* 数字一律等宽 + 表格对齐 */
+  .tnum {
+    font-family: theme("fontFamily.mono");
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 编辑体小标签：大写、拉开字距、等宽 */
+  .eyebrow {
+    font-family: theme("fontFamily.mono");
+    @apply text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground;
+  }
+}
