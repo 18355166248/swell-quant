@@ -58,6 +58,9 @@ with MarketStore("data/duckdb/marketdata.duckdb") as store:
     print(result.total_return, result.information_ratio)
 ```
 
+**完整端到端流程**（建库/采集 → 因子 → IC 评估 → 带动态池/基准/成本的回测）见
+[docs/usage-guide.md](docs/usage-guide.md)。
+
 ## 一个诚实的研究结论
 
 用 100 只沪深300 成分、2016–2026、90 个样本外期做过完整验证：
