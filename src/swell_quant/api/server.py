@@ -21,6 +21,10 @@ from swell_quant.factors import (
 from swell_quant.analysis import describe_prices, valuation_percentile
 from swell_quant.factors.base import Factor
 from swell_quant.marketdata.source_etf import EtfSourceError, fetch_etf_bars_sina
+from swell_quant.marketdata.source_index_valuation import (
+    IndexValuationSourceError,
+    fetch_index_valuation_danjuan,
+)
 from swell_quant.marketdata.store import MarketStore
 from swell_quant.portfolio import backtest_composite
 
@@ -51,6 +55,12 @@ class ValuationUpload(BaseModel):
     item: str = "pe_ttm"
     source: str = "user"
     points: list[ValuationPoint] = Field(min_length=1)
+
+
+class ValuationRefresh(BaseModel):
+    code: str  # 标的代码，如 "513260"
+    danjuan_index: str  # 蛋卷指数代码，如 "HKHSTECH"
+    item: str = "pe_ttm"
 
 
 class BacktestRequest(BaseModel):
@@ -84,11 +94,16 @@ def _parse(day: str) -> date:
     return datetime.strptime(day, "%Y-%m-%d").date()
 
 
-def create_app(store: MarketStore, provider: object | None = None) -> FastAPI:
+def create_app(
+    store: MarketStore,
+    provider: object | None = None,
+    valuation_fetch=fetch_index_valuation_danjuan,
+) -> FastAPI:
     """构建 FastAPI 应用。``store`` 为已打开的 MarketStore（测试传内存库）。
 
     ``provider`` 为行情提供者（真实为 akshare，用于 ETF 实时研究；为 None 时按需
-    懒加载 akshare）。DuckDB 连接非线程安全，用锁串行化——个人单用户看板足够。
+    懒加载 akshare）。``valuation_fetch`` 为指数估值拉取器（默认蛋卷，测试可注入）。
+    DuckDB 连接非线程安全，用锁串行化——个人单用户看板足够。
     """
 
     app = FastAPI(title="Swell Quant API", version="0.1.0")
@@ -231,5 +246,29 @@ def create_app(store: MarketStore, provider: object | None = None) -> FastAPI:
         with lock:
             store.write_instrument_valuation(body.code, body.item, points, body.source)
         return {"code": body.code, "item": body.item, "written": len(points)}
+
+    @app.post("/api/instrument/valuation/refresh")
+    def refresh_valuation(body: ValuationRefresh) -> dict:
+        """一键更新：从蛋卷估值中心拉指数 PE 全量历史，落库到该标的。"""
+
+        try:
+            series = valuation_fetch(body.danjuan_index)
+        except IndexValuationSourceError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except Exception as error:  # noqa: BLE001 - 网络/解析失败统一回 502
+            raise HTTPException(status_code=502, detail=f"拉取估值失败：{error}") from error
+
+        with lock:
+            store.write_instrument_valuation(
+                body.code, body.item, series, f"danjuan:{body.danjuan_index}"
+            )
+        percentile = valuation_percentile([v for _, v in series])
+        return {
+            "code": body.code,
+            "item": body.item,
+            "written": len(series),
+            "current": percentile["current"],
+            "percentile": percentile["percentile"],
+        }
 
     return app

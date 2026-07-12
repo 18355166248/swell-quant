@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Loader2, Info, TriangleAlert, Upload } from "lucide-react";
+import { Search, Loader2, Info, TriangleAlert, Upload, RefreshCw } from "lucide-react";
 import { api, type InstrumentAnalysis } from "@/lib/api";
 import { pct } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ export function Instrument() {
   const [error, setError] = useState<string | null>(null);
   const [valText, setValText] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [danjuanIndex, setDanjuanIndex] = useState("HKHSTECH");
+  const [refreshing, setRefreshing] = useState(false);
 
   async function load(c: string) {
     setLoading(true);
@@ -55,6 +57,19 @@ export function Instrument() {
       setError(`上传失败：${e}`);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function refreshValuation() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await api.refreshValuation({ code: code.trim(), danjuan_index: danjuanIndex.trim(), item: "pe_ttm" });
+      await load(code);
+    } catch (e) {
+      setError(`一键更新失败：${e}`);
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -187,7 +202,22 @@ export function Instrument() {
 
           {/* 估值分位 · 自带数据 */}
           <Card className={data.valuation ? "p-5" : "border-dashed p-5"}>
-            <div className="eyebrow mb-4">估值分位 · "贵还是便宜"（自带 PE）</div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="eyebrow">估值分位 · "贵还是便宜"</div>
+              <div className="flex items-center gap-2">
+                <input
+                  value={danjuanIndex}
+                  onChange={(e) => setDanjuanIndex(e.target.value)}
+                  placeholder="蛋卷指数码 如 HKHSTECH"
+                  title="蛋卷估值中心的指数代码"
+                  className="tnum h-7 w-36 rounded-sm border border-input bg-background/60 px-2 text-xs"
+                />
+                <Button size="sm" variant="outline" onClick={refreshValuation} disabled={refreshing}>
+                  {refreshing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                  一键更新
+                </Button>
+              </div>
+            </div>
             {data.valuation ? (
               <div>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

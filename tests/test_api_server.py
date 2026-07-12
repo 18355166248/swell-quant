@@ -144,6 +144,29 @@ def test_instrument_analysis():
     store.close()
 
 
+def test_refresh_valuation_from_danjuan():
+    from datetime import date
+
+    store = MarketStore(":memory:")
+
+    def fake_fetch(index_code):
+        assert index_code == "HKHSTECH"
+        return [(date(2020, 7, 27), 40.0), (date(2021, 1, 1), 60.0), (date(2026, 7, 1), 20.0)]
+
+    client = TestClient(create_app(store, provider=_FakeAk(), valuation_fetch=fake_fetch))
+    resp = client.post(
+        "/api/instrument/valuation/refresh",
+        json={"code": "513260", "danjuan_index": "HKHSTECH"},
+    ).json()
+    assert resp["written"] == 3
+    assert resp["current"] == 20.0
+    assert resp["percentile"] == pytest.approx(1 / 3)  # 20 是三者最小
+    # 落库后 instrument 也能读到
+    data = client.get("/api/instrument", params={"code": "513260"}).json()
+    assert data["valuation"]["current"] == 20.0
+    store.close()
+
+
 def test_upload_valuation_then_percentile():
     store = MarketStore(":memory:")
     client = TestClient(create_app(store, provider=_FakeAk()))

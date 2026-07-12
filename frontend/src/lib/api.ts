@@ -100,4 +100,13 @@ export const api = {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.json();
   },
+  refreshValuation: async (body: { code: string; danjuan_index: string; item?: string }) => {
+    const res = await fetch("/api/instrument/valuation/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json() as Promise<{ written: number; current: number; percentile: number }>;
+  },
 };
