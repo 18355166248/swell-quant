@@ -5,9 +5,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Overview } from "@/views/Overview";
 import { Backtest } from "@/views/Backtest";
+import { Instrument } from "@/views/Instrument";
 
 type Status = "loading" | "ok" | "down";
-type View = "overview" | "backtest";
+type View = "overview" | "backtest" | "instrument";
 
 function useTheme() {
   const [theme, setTheme] = useState<"dark" | "light">(
@@ -23,6 +24,7 @@ function useTheme() {
 const NAV: { id: View; label: string }[] = [
   { id: "overview", label: "概况" },
   { id: "backtest", label: "回测" },
+  { id: "instrument", label: "持仓" },
 ];
 
 export default function App() {
@@ -82,7 +84,9 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 pb-24 pt-8">
-        {view === "overview" ? <Overview meta={meta} status={status} /> : <Backtest />}
+        {view === "overview" && <Overview meta={meta} status={status} />}
+        {view === "backtest" && <Backtest />}
+        {view === "instrument" && <Instrument />}
       </main>
 
       <footer className="border-t border-border">

@@ -33,6 +33,28 @@ export interface BacktestResult {
   equity_curve: { date: string; equity: number }[];
 }
 
+export interface InstrumentAnalysis {
+  code: string;
+  start: string;
+  end: string;
+  n: number;
+  current: number;
+  inception_return: number | null;
+  ath: number;
+  ath_date: string;
+  atl: number;
+  drawdown_from_ath: number | null;
+  max_drawdown: number;
+  range_percentile: number;
+  trend: Record<string, "above" | "below" | null>;
+  trailing_returns: { m1: number | null; m3: number | null; m6: number | null; m12: number | null };
+  ann_vol_60d: number | null;
+  vol_percentile: number | null;
+  return_dist_20d: { p5: number; p50: number; p95: number; min: number; max: number } | null;
+  valuation: number | null;
+  note: string;
+}
+
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -51,4 +73,5 @@ export const api = {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.json();
   },
+  instrument: (code: string) => get<InstrumentAnalysis>(`/api/instrument?code=${encodeURIComponent(code)}`),
 };
