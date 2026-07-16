@@ -63,12 +63,34 @@ def _aligned(factor_values: FactorValues, returns: FactorValues) -> tuple[list[f
     return xs, ys
 
 
+def _ranks(values: list[float]) -> list[float]:
+    """并列取平均秩（标准斯皮尔曼定义）。
+
+    自实现而非 ``statistics.correlation(method="ranked")``：后者的 method 参数
+    是 Python 3.12 才加入的，本项目要求 3.11+。
+    """
+
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        # i..j 为并列区间，秩取平均（秩从 1 开始）
+        avg = (i + j) / 2 + 1
+        for k in range(i, j + 1):
+            ranks[order[k]] = avg
+        i = j + 1
+    return ranks
+
+
 def _correlation(xs: list[float], ys: list[float], method: str) -> float | None:
     if len(xs) < 2:
         return None
     try:
         if method == "ranked":
-            return statistics.correlation(xs, ys, method="ranked")
+            return statistics.correlation(_ranks(xs), _ranks(ys))
         return statistics.correlation(xs, ys)
     except statistics.StatisticsError:
         # 截面无离散度（方差为 0）等 → 相关无定义。
