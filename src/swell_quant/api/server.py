@@ -7,35 +7,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from swell_quant.factors import (
-    FactorPipeline,
-    FactorWeight,
-    MomentumFactor,
-    QualityFactor,
-    ReversalFactor,
-    ValueFactor,
-    VolatilityFactor,
-    evaluate_factor_series,
-    sample_as_of_dates,
-)
 from swell_quant.analysis import describe_prices, valuation_percentile
-from swell_quant.factors.base import Factor
 from swell_quant.marketdata.source_etf import EtfSourceError, fetch_etf_bars_sina
 from swell_quant.marketdata.source_index_valuation import (
     IndexValuationSourceError,
     fetch_index_valuation_danjuan,
 )
 from swell_quant.marketdata.store import MarketStore
-from swell_quant.portfolio import backtest_composite
-
-# 因子目录：看板从这里渲染可选因子。lookback 用于价量因子，item 用于财务/估值因子。
-FACTOR_CATALOG = [
-    {"name": "momentum", "label": "动量", "param": "lookback", "default": 20},
-    {"name": "reversal", "label": "短期反转", "param": "lookback", "default": 5},
-    {"name": "volatility", "label": "波动率(低波给负权重)", "param": "lookback", "default": 20},
-    {"name": "value", "label": "价值(1/估值)", "param": "item", "default": "pe_ttm"},
-    {"name": "quality", "label": "质量/成长", "param": "item", "default": "roe"},
-]
+from swell_quant.service import FACTOR_CATALOG, run_backtest, run_factor_ic
 
 
 class FactorSpec(BaseModel):
@@ -74,20 +53,6 @@ class BacktestRequest(BaseModel):
     benchmark: str = "equal_weight"  # equal_weight | index | none
     benchmark_index: str = "sh000300"
     universe_index: str | None = "000300"
-
-
-def _build_factor(spec: FactorSpec) -> Factor:
-    if spec.name == "momentum":
-        return MomentumFactor(spec.lookback or 20)
-    if spec.name == "reversal":
-        return ReversalFactor(spec.lookback or 5)
-    if spec.name == "volatility":
-        return VolatilityFactor(spec.lookback or 20)
-    if spec.name == "value":
-        return ValueFactor(spec.item or "pe_ttm")
-    if spec.name == "quality":
-        return QualityFactor(spec.item or "roe")
-    raise HTTPException(status_code=400, detail=f"未知因子：{spec.name}")
 
 
 def _parse(day: str) -> date:
@@ -137,40 +102,23 @@ def create_app(
 
     @app.post("/api/backtest")
     def backtest(req: BacktestRequest) -> dict:
-        weights = tuple(FactorWeight(_build_factor(s), s.weight) for s in req.factors)
-        pipeline = FactorPipeline(weights=weights)
         with lock:
-            dates = sample_as_of_dates(store, _parse(req.start), _parse(req.end), step=req.step)
-            if len(dates) < 2:
-                raise HTTPException(status_code=400, detail="日期区间内交易日不足")
-            result = backtest_composite(
-                pipeline,
-                store,
-                [],
-                dates,
-                top_n=req.top_n,
-                horizon=req.horizon,
-                universe_index=req.universe_index,
-                benchmark_index=req.benchmark_index if req.benchmark == "index" else None,
-                equal_weight_benchmark=req.benchmark == "equal_weight",
-                cost_bps=req.cost_bps,
-            )
-        ppy = 252 / req.horizon
-        curve = [{"date": str(d), "equity": round(e, 6)} for d, e in result.equity_curve]
-        return {
-            "periods": len(result.periods),
-            "metrics": {
-                "total_return": result.total_return,
-                "annualized_return": result.annualized_return(ppy),
-                "annualized_sharpe": result.annualized_sharpe(ppy),
-                "information_ratio": result.information_ratio,
-                "excess_hit_rate": result.excess_hit_rate,
-                "benchmark_total_return": result.benchmark_total_return,
-                "max_drawdown": result.max_drawdown,
-                "total_cost": result.total_cost,
-            },
-            "equity_curve": curve,
-        }
+            try:
+                return run_backtest(
+                    store,
+                    factors=[s.model_dump() for s in req.factors],
+                    start=_parse(req.start),
+                    end=_parse(req.end),
+                    step=req.step,
+                    horizon=req.horizon,
+                    top_n=req.top_n,
+                    cost_bps=req.cost_bps,
+                    benchmark=req.benchmark,
+                    benchmark_index=req.benchmark_index,
+                    universe_index=req.universe_index,
+                )
+            except ValueError as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
 
     @app.get("/api/factor-ic")
     def factor_ic(
@@ -183,23 +131,21 @@ def create_app(
         horizon: int = 20,
         universe_index: str = "000300",
     ) -> dict:
-        factor = _build_factor(FactorSpec(name=name, lookback=lookback, item=item))
         with lock:
-            dates = sample_as_of_dates(store, _parse(start), _parse(end), step=step)
-            as_of_pool = store.get_universe(
-                universe_index, _parse(end), approximate_from_latest=True
-            )
-            summary = evaluate_factor_series(factor, store, as_of_pool, dates, horizon=horizon)
-        stats = summary.rank_ic
-        return {
-            "factor": factor.name,
-            "rank_ic": {
-                "mean": stats.mean,
-                "ir": stats.ir,
-                "positive_rate": stats.positive_rate,
-                "n": stats.n,
-            },
-        }
+            try:
+                return run_factor_ic(
+                    store,
+                    name=name,
+                    start=_parse(start),
+                    end=_parse(end),
+                    lookback=lookback,
+                    item=item,
+                    step=step,
+                    horizon=horizon,
+                    universe_index=universe_index,
+                )
+            except ValueError as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
 
     @app.get("/api/instrument")
     def instrument(code: str) -> dict:

@@ -61,6 +61,22 @@ with MarketStore("data/duckdb/marketdata.duckdb") as store:
 **完整端到端流程**（建库/采集 → 因子 → IC 评估 → 带动态池/基准/成本的回测）见
 [docs/usage-guide.md](docs/usage-guide.md)。
 
+## CLI（面向 AI/脚本，JSON 输出）
+
+```bash
+swell-quant data summary                          # 库内数据概览
+swell-quant data bars --symbols 600519 --as-of 2024-12-31 --lookback 20 --adjust hfq
+swell-quant data trade-days --start 2024-01-01 --end 2024-03-01
+swell-quant factor ic --name momentum --start 2024-03-01 --end 2024-12-01
+swell-quant backtest --factors '[{"name":"momentum","lookback":20}]' \
+  --start 2024-03-01 --end 2024-12-01
+```
+
+CLI 与只读 HTTP API 共享 `swell_quant.service` 服务层，口径一致；数据全部走
+`MarketStore` 的 as_of / point-in-time 接口。研究口径速查见
+[docs/research-conventions.md](docs/research-conventions.md)，研究工作台
+（偏好宪法 / 研究日志 / 结论库）见 [workspace/](workspace/preferences.md)。
+
 ## 一个诚实的研究结论
 
 用 100 只沪深300 成分、2016–2026、90 个样本外期做过完整验证：
