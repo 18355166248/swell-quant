@@ -164,6 +164,62 @@ def test_backtest(db_path, capsys):
     assert "研究" in data["note"]
 
 
+def test_backtest_walk_forward(db_path, capsys):
+    code, out = _run(
+        capsys,
+        "--db",
+        db_path,
+        "backtest",
+        "--factors",
+        '[{"name":"momentum","lookback":2}]',
+        "--start",
+        "2026-01-03",
+        "--end",
+        "2026-01-08",
+        "--step",
+        "2",
+        "--horizon",
+        "2",
+        "--top-n",
+        "1",
+        "--walk-forward",
+        "--train-size",
+        "1",
+    )
+    assert code == 0
+    data = json.loads(out.out)
+    assert data["train_size"] == 1
+    assert data["oos_periods"] >= 1
+    # 每个因子都要有样本外 RankIC 统计
+    assert "momentum_2d" in data["oos_rank_ic"]
+    assert "total_return" in data["metrics"]
+    assert "研究" in data["note"]
+
+
+def test_backtest_walk_forward_train_too_big_exit_2(db_path, capsys):
+    code, out = _run(
+        capsys,
+        "--db",
+        db_path,
+        "backtest",
+        "--factors",
+        '[{"name":"momentum","lookback":2}]',
+        "--start",
+        "2026-01-03",
+        "--end",
+        "2026-01-08",
+        "--step",
+        "2",
+        "--horizon",
+        "2",
+        "--walk-forward",
+        "--train-size",
+        "99",
+    )
+    assert code == 2
+    assert "训练窗" in json.loads(out.err)["error"]
+
+
 def test_unknown_factor_exit_2(db_path, capsys):
     code, out = _run(
         capsys,

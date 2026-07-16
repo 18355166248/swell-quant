@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import statistics
 from datetime import date
 
 from swell_quant.factors import (
@@ -21,8 +22,9 @@ from swell_quant.factors import (
     sample_as_of_dates,
 )
 from swell_quant.factors.base import Factor
+from swell_quant.factors.evaluate import evaluate_factor
 from swell_quant.marketdata.store import MarketStore
-from swell_quant.portfolio import backtest_composite
+from swell_quant.portfolio import backtest_composite, walk_forward_backtest
 
 # 因子目录：看板与 CLI 从这里渲染可选因子。lookback 用于价量因子，item 用于财务/估值因子。
 FACTOR_CATALOG = [
@@ -128,6 +130,93 @@ def run_backtest(
     curve = [{"date": str(d), "equity": round(e, 6)} for d, e in result.equity_curve]
     return {
         "periods": len(result.periods),
+        "metrics": {
+            "total_return": result.total_return,
+            "annualized_return": result.annualized_return(ppy),
+            "annualized_sharpe": result.annualized_sharpe(ppy),
+            "information_ratio": result.information_ratio,
+            "excess_hit_rate": result.excess_hit_rate,
+            "benchmark_total_return": result.benchmark_total_return,
+            "max_drawdown": result.max_drawdown,
+            "total_cost": result.total_cost,
+        },
+        "equity_curve": curve,
+        "note": RESEARCH_NOTE,
+    }
+
+
+def run_walk_forward(
+    store: MarketStore,
+    *,
+    factors: list[dict],
+    start: date,
+    end: date,
+    train_size: int = 24,
+    step: int = 20,
+    horizon: int = 20,
+    top_n: int = 50,
+    cost_bps: float = 10.0,
+    benchmark: str = "equal_weight",
+    benchmark_index: str = "sh000300",
+    universe_index: str | None = "000300",
+) -> dict:
+    """滚动样本外回测 + 各因子样本外 RankIC 统计（findings 闸门 1、2 的口径）。
+
+    因子权重每期只由**前** ``train_size`` 期的 IC 决定，故所有报告数字均为样本外。
+    ``factors`` 的 weight 字段被忽略——权重由训练窗 IC 学出。
+    """
+
+    built = [
+        build_factor(s["name"], lookback=s.get("lookback"), item=s.get("item")) for s in factors
+    ]
+    dates = sample_as_of_dates(store, start, end, step=step)
+    if len(dates) <= train_size:
+        raise ValueError(f"日期区间内截面数（{len(dates)}）不足以覆盖训练窗 {train_size}")
+    result = walk_forward_backtest(
+        built,
+        store,
+        [],
+        dates,
+        train_size=train_size,
+        top_n=top_n,
+        horizon=horizon,
+        universe_index=universe_index,
+        benchmark_index=benchmark_index if benchmark == "index" else None,
+        equal_weight_benchmark=benchmark == "equal_weight",
+        cost_bps=cost_bps,
+    )
+
+    oos_ic = {}
+    for factor in built:
+        ics: list[float] = []
+        for as_of in dates[train_size:]:
+            symbols = (
+                store.get_universe(universe_index, as_of, approximate_from_latest=True)
+                if universe_index
+                else []
+            )
+            ic = evaluate_factor(factor, store, symbols, as_of, horizon).rank_ic
+            if ic is not None:
+                ics.append(ic)
+        if len(ics) >= 2:
+            mean = statistics.fmean(ics)
+            std = statistics.stdev(ics)
+            oos_ic[factor.name] = {
+                "mean": mean,
+                "ir": mean / std if std else None,
+                "t_stat": mean / (std / len(ics) ** 0.5) if std else None,
+                "positive_rate": sum(1 for x in ics if x > 0) / len(ics),
+                "n": len(ics),
+            }
+        else:
+            oos_ic[factor.name] = {"n": len(ics)}
+
+    ppy = 252 / horizon
+    curve = [{"date": str(d), "equity": round(e, 6)} for d, e in result.equity_curve]
+    return {
+        "train_size": train_size,
+        "oos_periods": len(dates) - train_size,
+        "oos_rank_ic": oos_ic,
         "metrics": {
             "total_return": result.total_return,
             "annualized_return": result.annualized_return(ppy),

@@ -114,6 +114,8 @@ oos = walk_forward_backtest(
     factors, store, [], dates, train_size=24, top_n=50, horizon=20,
     universe_index="000300", equal_weight_benchmark=True, cost_bps=10,
 )
+# CLI 等价：swell-quant backtest --factors '[...]' --start ... --end ... \
+#   --walk-forward --train-size 24   # 输出另含各因子样本外 RankIC(mean/IR/t_stat)
 ```
 
 **基准怎么选**：对 `benchmark_index`（市值加权）"跑赢"可能只是等权 tilt；对

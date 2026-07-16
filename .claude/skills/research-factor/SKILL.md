@@ -27,11 +27,14 @@ swell-quant factor catalog                     # 可用因子
 swell-quant factor ic --name <因子> --start <S> --end <E> [--lookback N | --item X]
 swell-quant backtest --factors '[{"name":"...","lookback":N,"weight":1}]' \
   --start <S> --end <E> --benchmark equal_weight
+swell-quant backtest --factors '[...]' --start <S> --end <E> \
+  --benchmark equal_weight --walk-forward --train-size 24   # 样本外（闸门 1、2 口径）
 ```
 
 要求：
 
-- IC 与回测都要跑；回测**必须**含等权全池基准（equal_weight）。
+- IC 与回测都要跑；回测**必须**含等权全池基准（equal_weight）；
+  闸门核对用 `--walk-forward`（输出含各因子样本外 RankIC 的 mean/IR/t_stat）。
 - 新因子若目录里没有，在 `src/swell_quant/factors/` 按 `Factor` 接口实现
   （只经 as_of 取数），加测试后再评估。
 - 每个尝试的参数组合都要留结果，不许只留最好的。

@@ -23,7 +23,7 @@ from datetime import date, datetime
 from typing import Any
 
 from swell_quant.marketdata.store import MarketStore
-from swell_quant.service import FACTOR_CATALOG, run_backtest, run_factor_ic
+from swell_quant.service import FACTOR_CATALOG, run_backtest, run_factor_ic, run_walk_forward
 
 DEFAULT_DB = "data/duckdb/marketdata.duckdb"
 
@@ -131,6 +131,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     bt.add_argument("--benchmark-index", default="sh000300")
     bt.add_argument("--universe-index", default="000300")
+    bt.add_argument(
+        "--walk-forward",
+        action="store_true",
+        help="滚动样本外回测：因子权重只由过去 train_size 期 IC 决定，另报各因子样本外 RankIC",
+    )
+    bt.add_argument("--train-size", type=int, default=24, help="walk-forward 训练窗期数")
 
     return parser
 
@@ -162,6 +168,10 @@ def _run_data(store: MarketStore, args: argparse.Namespace) -> Any:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows GBK 控制台下中文 JSON 会乱码；输出口径统一 UTF-8。
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     args = _build_parser().parse_args(argv)
     try:
         if args.command == "factor" and args.factor_command == "catalog":
@@ -185,21 +195,22 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 )
             elif args.command == "backtest":
-                _emit(
-                    run_backtest(
-                        store,
-                        factors=json.loads(args.factors),
-                        start=_parse_date(args.start),
-                        end=_parse_date(args.end),
-                        step=args.step,
-                        horizon=args.horizon,
-                        top_n=args.top_n,
-                        cost_bps=args.cost_bps,
-                        benchmark=args.benchmark,
-                        benchmark_index=args.benchmark_index,
-                        universe_index=args.universe_index,
-                    )
+                common = dict(
+                    factors=json.loads(args.factors),
+                    start=_parse_date(args.start),
+                    end=_parse_date(args.end),
+                    step=args.step,
+                    horizon=args.horizon,
+                    top_n=args.top_n,
+                    cost_bps=args.cost_bps,
+                    benchmark=args.benchmark,
+                    benchmark_index=args.benchmark_index,
+                    universe_index=args.universe_index,
                 )
+                if args.walk_forward:
+                    _emit(run_walk_forward(store, train_size=args.train_size, **common))
+                else:
+                    _emit(run_backtest(store, **common))
         return 0
     except (ValueError, json.JSONDecodeError) as error:
         # 参数/口径错误：JSON 报错到 stderr，退出码 2，方便 AI/脚本判别
